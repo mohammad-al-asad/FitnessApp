@@ -1,5 +1,7 @@
 // Controls the login and signup screen UI, handling user authentication (sign in/up), input fields, and navigation to the main app.
+import { translations } from "@/constants/translations";
 import { useAuth } from "@/hooks/auth-context";
+import { useLanguage } from "@/hooks/language-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
@@ -20,10 +22,6 @@ import {
 LogBox.ignoreLogs(["Text strings must be rendered within a <Text> component"]);
 
 // 🧩 Temporary fallback for removed translation system
-const useLanguage = () => ({
-  t: (x: string) => x,
-  isRTL: false,
-});
 
 const useSafeColors = () => ({
   background: "#1A1A1A",
@@ -43,13 +41,8 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   const colors = useSafeColors();
 
   const [isLogin, setIsLogin] = useState(true);
-  const funnyLines = [
-  "Back again? Your macros filed a missing report.",
-  "Don’t worry, your calories didn’t tell anyone.",
-  "Your streak may be gone, but we forgive you.",
-  "Your abs sent a search party.",
-  "Even the scale’s been gossiping about you.",
-];
+
+  const funnyLines = isRTL ? translations.ar.authCyclingTexts : translations.en.authCyclingTexts;
 
 
 const [funnyLine, setFunnyLine] = useState("");
@@ -96,7 +89,7 @@ if (result.success) {
 
  else {
       // handle error
-      Alert.alert("Error", result.error.message);
+      Alert.alert(t('error'), result.error.message);
       if (result.error.message.toLowerCase().includes("email")) {
         setErrors({ email: result.error.message });
       } else if (result.error.message.toLowerCase().includes("password")) {
@@ -104,7 +97,7 @@ if (result.success) {
       }
     }
   } catch (error) {
-    Alert.alert("Error", "Something went wrong. Please try again.");
+    Alert.alert(t('error'), t('somethingWentWrong'));
     console.error("Auth Error:", error);
   } finally {
     setIsLoading(false);
@@ -132,10 +125,10 @@ if (result.success) {
           <View style={styles.header}>
             <Text style={[styles.logo, { color: colors.accent }]}>FITCO</Text>
             <Text style={[styles.subtitle, { color: colors.text }]}>
-              {isLogin ? t("Welcome back!") : t("Ready to start your journey?")}
+              {isLogin ? t("welcomeBack") : t("readyToStart")}
             </Text>
             <Text style={[styles.description, { color: colors.text }]}>
- {isLogin ? funnyLine : "Let’s make your future self proud."}
+ {isLogin ? funnyLine : t("makeFutureSelfProud")}
 
 </Text>
 
@@ -150,7 +143,7 @@ if (result.success) {
                     styles.inputContainer,
                     {
                       backgroundColor: colors.card,
-                      flexDirection: isRTL ? "row-reverse" : "row",
+                      flexDirection: "row",
                     },
                   ]}
                 >
@@ -158,9 +151,9 @@ if (result.success) {
                   <TextInput
                     style={[
                       styles.input,
-                      { color: colors.text, textAlign: isRTL ? "right" : "left" },
+                      { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
                     ]}
-                    placeholder={t("First name")}
+                    placeholder={t('firstName')}
                     placeholderTextColor={colors.placeholder}
                     value={firstName}
                     onChangeText={setFirstName}
@@ -173,7 +166,7 @@ if (result.success) {
                     styles.inputContainer,
                     {
                       backgroundColor: colors.card,
-                      flexDirection: isRTL ? "row-reverse" : "row",
+                      flexDirection: "row",
                     },
                   ]}
                 >
@@ -181,9 +174,9 @@ if (result.success) {
                   <TextInput
                     style={[
                       styles.input,
-                      { color: colors.text, textAlign: isRTL ? "right" : "left" },
+                      { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
                     ]}
-                    placeholder={t("Last name")}
+                    placeholder={t('lastName')}
                     placeholderTextColor={colors.placeholder}
                     value={lastName}
                     onChangeText={setLastName}
@@ -199,7 +192,7 @@ if (result.success) {
                 styles.inputContainer,
                 {
                   backgroundColor: colors.card,
-                  flexDirection: isRTL ? "row-reverse" : "row",
+                  flexDirection: "row",
                 },
               ]}
             >
@@ -207,9 +200,9 @@ if (result.success) {
               <TextInput
                 style={[
                   styles.input,
-                  { color: colors.text, textAlign: isRTL ? "right" : "left" },
+                  { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
                 ]}
-                placeholder={t("Email address")}
+                placeholder={t('emailAddress')}
                 placeholderTextColor={colors.placeholder}
                 value={email}
                 onChangeText={setEmail}
@@ -225,7 +218,7 @@ if (result.success) {
                 styles.inputContainer,
                 {
                   backgroundColor: colors.card,
-                  flexDirection: isRTL ? "row-reverse" : "row",
+                  flexDirection: "row",
                 },
               ]}
             >
@@ -233,9 +226,9 @@ if (result.success) {
               <TextInput
                 style={[
                   styles.input,
-                  { color: colors.text, textAlign: isRTL ? "right" : "left" },
+                  { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
                 ]}
-                placeholder={t("Password")}
+                placeholder={t('password')}
                 placeholderTextColor={colors.placeholder}
                 value={password}
                 onChangeText={setPassword}
@@ -266,14 +259,14 @@ if (result.success) {
               disabled={isLoading}
             >
               <Text style={[styles.authButtonText, { color: colors.background }]}>
-                {isLoading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+                {isLoading ? t('pleaseWait') : isLogin ? t('signIn') : t('createAccount')}
               </Text>
             </TouchableOpacity>
 
             {isLogin && (
               <TouchableOpacity style={styles.forgotPassword}>
                 <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
-                  Forgot Password?
+                  {t('forgotPassword')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -284,7 +277,7 @@ if (result.success) {
             style={[
               styles.footer,
               {
-                flexDirection: isRTL ? "row-reverse" : "row",
+                flexDirection: "row",
                 justifyContent: "center",
                 alignItems: "center",
               },
@@ -293,19 +286,19 @@ if (result.success) {
             <Text
               style={[
                 styles.switchText,
-                { color: colors.text, textAlign: isRTL ? "right" : "left" },
+                { color: colors.text, textAlign: "left" },
               ]}
             >
-              {isLogin ? "Don't have an account?" : "Already have an account?"}
+              {isLogin ? t('dontHaveAccount') : t('alreadyHaveAccount')}
             </Text>
             <TouchableOpacity onPress={toggleAuthMode}>
               <Text
                 style={[
                   styles.switchButton,
-                  { color: colors.accent, textAlign: isRTL ? "right" : "left" },
+                  { color: colors.accent, textAlign: "left" },
                 ]}
               >
-                {isLogin ? "Sign Up" : "Sign In"}
+                {isLogin ? t('signUp') : t('signIn')}
               </Text>
             </TouchableOpacity>
           </View>

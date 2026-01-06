@@ -25,7 +25,7 @@ export const translations = {
     "Step forward — we’ve got you.",
     "Consistency is power."
   ],
-  madeInSaudi: "❤️ Made in Saudi",
+  madeInSaudi: "Made in Saudi ❤️",
 
   // Auth Screens
   welcomeBack: "Welcome back!",
@@ -92,6 +92,7 @@ export const translations = {
   medicalPlaceholder: "Diabetes, heart conditions, etc. (optional)",
   back: "Back",
   next: "Next >",
+  nextAr: "Next",
   completeSetup: "Complete Setup >",
 
   // Home Screen
@@ -102,17 +103,22 @@ export const translations = {
   protein: "Protein",
   carbs: "Carbs",
   fats: "Fats",
+  fat: "Fat",
   weeklySummary: "Weekly Summary",
   avgCalories: "Avg Calories",
   goalsHit: "Goals Hit",
   bestDay: "Best Day",
-  thisWeeksProgress: "This Week's Progress",
+  thisWeeksProgress: "This Week's Progress", 
+  outOfDaysCompleted: "out of days completed",
   daysCompleted: "days completed",
   todaysInsights: "Today's Insights",
   energyLevel: "Energy Level",
   proteinProgress: "Protein Progress",
   streakStatus: "Streak Status",
   daysStrong: "days strong!",
+  today: "today",
+  ofDailyGoal: "of Daily Goal",
+  startYourStreak: "Start Your Streak",
 
   // Journal Screen
   todaysJournal: "Today's Journal",
@@ -127,6 +133,7 @@ export const translations = {
   item: "item",
   items: "items",
   addFood: "Add Food",
+  dailyJournal: "Daily Journal",
 
   // Insights Screen
   progress: "Progress",
@@ -154,6 +161,32 @@ export const translations = {
   preferences: "Preferences",
   preferencesSubtitle: "Language and notifications",
   signOut: "Sign Out",
+  areYouSureSignOut: "Are you sure you want to sign out?",
+
+  // Alert Messages
+  missingFields: "Missing fields",
+  fillRequiredFields: "Please fill at least the food name and calories.",
+  success: "Success",
+  foodAddedToDatabase: "Food added to your database!",
+  error: "Error",
+  failedToSaveFood: "Failed to save food. Try again.",
+  profileUpdated: "Profile updated and synced!",
+  failedToUpdateProfile: "Failed to update profile. Please try again.",
+  somethingWentWrong: "Something went wrong. Please try again.",
+  invalidServingSize: "Invalid serving size",
+  pleaseEnterValidServingSize: "Please enter a valid serving size (e.g., 100g or 100ml)",
+
+  // Placeholders
+  medicalConditionsPlaceholder: "Diabetes, heart conditions, etc. (optional)",
+  foodAllergiesPlaceholder: "Nuts, dairy, gluten, etc. (optional)",
+
+  // Other UI Strings
+  max: "Max",
+  completeSetupButton: "Complete Setup",
+  meal: "Meal",
+  percentOfDailyGoals: "Percent of Daily Goals",
+  waitingForData: "WAITING FOR DATA",
+  saveProfileChanges: "Save Profile Changes",
 
   // Account Page
   profileInformation: "Profile Information",
@@ -162,14 +195,25 @@ export const translations = {
   quickUpdate: "Quick Update",
   weight: "Weight (kg)",
   enterCurrentWeight: "Enter your current weight in kg",
+  currentWeightLabel: "Current Weight",
+  targetWeight: "Target Weight",
   age: "Age",
+  years: "years",
   height: "Height",
   gender: "Gender",
   activityLevel: "Activity Level",
   goalLabel: "Goal",
   healthInformation: "Health Information",
+  activityAndGoals: "Activity & Goals",
   foodAllergies: "Food Allergies",
-
+  ageHeightWeightActivityLevelSubtitle: "Age, height, weight, activity level",
+  enterWeight: "Enter weight",
+  saveChanges: "Save Changes",
+  loading: "Loading...",
+  quickWayToAddFoodInfo: "Quick way to add food info",
+  basicInformation: "Basic Information",
+  cm: "cm",
+  kg: "kg",
   // Edit Profile Subpage
   
   done: "Done",
@@ -200,16 +244,40 @@ export const translations = {
   createCustomFood: "Create Custom Food",
   scanBarcode: "Scan Barcode",
 
+  // Scan Barcode Page
+  cameraPermissionRequired: "Camera Permission Required",
+  cameraPermissionRequiredDescription: "We need access to your camera to scan barcodes.",
+  grantPermission: "Grant Permission",
+  alignBarcodeWithinFrame: "Align barcode within frame",
+  barcodeDetected: "Barcode detected",
+  scannedBarcode: "Scanned Barcode",
+  scanAgain: "Scan Again",
+  enterBarcodeManually: "Enter barcode manually",
+  use: "Use",
+
   // Log Food Page
   whatsOnMenu: "What's on the menu today?",
   searchForDeliciousFuel: "Search for your delicious fuel!",
   searchPlaceholder: "Search by name or barcode…",
+  kcal: "kcal",
+  p: "p",
+  c: "c",
+  f: "f",
+  ml: "ml",
+  gram: "gram",
+  g: "g",
+  day: "day",
+  over: "over",
 
   // Create Custom Food
   createFoodTitle: "Create Food",
   foodName: "Food Name",
+  foodNamePlaceholder: "e.g., Chicken Breast",
   brandOptional: "Brand (optional)",
+  brandOptionalPlaceholder: "e.g., Almarai",
   servingSize: "Serving Size",
+  servingSizePlaceholder: "e.g., 100g or 1 cup",
+  nutritionFacts: "Nutrition Facts",
   perServing: "Per serving",
   caloriesLabel: "Calories",
   saveCustomFood: "Save Custom Food",
@@ -222,10 +290,13 @@ export const translations = {
   percentDailyGoal: "of daily goal",
 
   // About Screen
+  about: "About",
+  aboutSubtitle: "About the app and the team",
 appInformation: "App Information",
 appName: "Fitco فتكو",
 version: "Version 0.9 (Beta)",
 yourNutritionCompanion: "Your personal nutrition tracking companion",
+addTo: "Add to",
 
 features: "Features",
 trackDailyCalories: "• Track your daily calorie and macro intake",
@@ -250,7 +321,8 @@ cal: "Cal",
 
 consumed: "consumed",
 remaining: "remaining",
-
+reminderTime: "Reminder Time",
+timeFormatHint: "Use 24-hour format (e.g., 20:00 for 8 PM)",
 
 },
 
@@ -259,11 +331,11 @@ remaining: "remaining",
   home: "الرئيسية",
   journal: "المذكرات",
   insights: "التحليلات",
-  settings: "الإعدادات",
+  settings: "الاعدادات",
 
   // Common
   save: "احفظ",
-  cancel: "إلغاء",
+  cancel: "الغاء",
   close: "إغلاق",
   add: "إضافة",
   remove: "حذف",
@@ -272,27 +344,27 @@ remaining: "remaining",
 
   // Splash Screen
   splash_taglines: [
-    "خطوة، تتبع، وتغير.",
-    "ابدأ أول خطوة... والباقي علينا.",
+    "خطوة. تتبّع. تغيير.",
+    "ابدأ أول خطوة… والباقي علينا.",
     "رحلتك تبدأ من هنا.",
-    "خذ الخطوة الأولى — ونحن معك.",
-    "الاستمرارية هي القوة."
+    "تقدّم خطوة — ونحن معك.",
+    "الاستمرارية قوة."
   ],
-  madeInSaudi: "❤️ مصنوع في السعودية",
+  madeInSaudi: "❤️ صنع في السعودية",
 
   // Auth Screens
-  welcomeBack: "رجعنا يا بطل!",
+  welcomeBack: "هلا برجعتك!",
   authCyclingTexts: [
     "رجعت؟ حتى سعراتك كانوا يدورونك!",
     "ولا يهمك، سعراتك ما قالوا لأحد.",
-    "اختفى الستريك؟ نغفر لك المرة هذي.",
-    "عضلاتك أرسلوا فرقة بحث 😂",
+    "اختفى الستريك؟ نغفر لك هالمرة.",
+    "عضلاتك أرسلوا فرقة بحث. 😂",
     "حتى الميزان يتكلم عنك!"
   ],
   readyToStart: "جاهز تبدأ رحلتك؟",
-  makeFutureSelfProud: "خلّ نفسك المستقبلية تفتخر فيك.",
+  makeFutureSelfProud: "خلّنا نخلي نسختك المستقبلية فخورة فيك.",
   firstName: "الاسم الأول",
-  lastName: "الاسم الأخير",
+  lastName: "اسم العائلة",
   emailAddress: "البريد الإلكتروني",
   password: "كلمة المرور",
   signIn: "تسجيل الدخول",
@@ -304,68 +376,74 @@ remaining: "remaining",
   pleaseWait: "ثواني بس...",
 
   // Questionnaire
-  personalizeExperience: "خلنا نخصص تجربتك شوي",
+  personalizeExperience: "خلّنا نخصص تجربتك لك",
   whatsYourAge: "كم عمرك؟",
-  helpsCalculateGoals: "نحتاجها نحسب أهداف تغذيتك بدقة",
+  helpsCalculateGoals: "هذا يساعدنا نحسب أهدافك الغذائية بدقّة",
   whatsYourHeight: "كم طولك؟",
-  heightHelps: "الطول يساعدنا نحسب احتياجك من السعرات اليومية",
-  currentWeight: "وزنك الحالي؟",
-  helpsTrackProgress: "عشان نتابع تقدمك ونحدد أهداف واقعية",
-  whatsYourGender: "وش نوع جنسك؟",
-  helpsAccurateNeeds: "عشان نحسب احتياجك من السعرات بدقة أكثر",
+  heightHelps: "الطول مهم لحساب احتياجك اليومي من السعرات",
+  currentWeight: "كم وزنك الحالي؟",
+  helpsTrackProgress: "هذا يساعدنا نتابع تقدّمك ونضبط أهداف واقعية لك",
+  whatsYourGender: "ما هو جنسك؟",
+  helpsAccurateNeeds: "هذا يساعدنا نحسب احتياجك من السعرات بدقة أكبر",
   male: "ذكر",
   maleDesc: "ذكر بيولوجي",
-  female: "أنثى",
+  female: "انثى",
   femaleDesc: "أنثى بيولوجية",
-  howActiveAreYou: "وش مستوى نشاطك اليومي؟",
-  helpsDetermineCalories: "يساعدنا نعرف احتياجك من السعرات",
+  howActiveAreYou: "ما مستوى نشاطك اليومي؟",
+  helpsDetermineCalories: "هذا يساعدنا نعرف كم تحتاج سعرات كل يوم",
   sedentary: "خامل",
-  sedentaryDesc: "بدون تمرين تقريبًا (وظيفة مكتبية)",
+  sedentaryDesc: "بدون نشاط او نشاط بسيط جدا",
   lightlyActive: "نشاط خفيف",
-  lightlyActiveDesc: "تمرين خفيف ١–٣ أيام بالأسبوع",
-  moderatelyActive: "نشاط متوسط",
-  moderatelyActiveDesc: "تمارين متوسطة ٣–٥ أيام بالأسبوع",
+  lightlyActiveDesc: "تمارين خفيفة 1-3 ايام بالاسبوع",
+  moderatelyActive: "	نشاط متوسط",
+  moderatelyActiveDesc: "تمارين متوسطة 3-5 ايام بالاسبوع",
   veryActive: "نشاط عالي",
-  veryActiveDesc: "تمارين قوية ٦–٧ أيام بالأسبوع",
-  extremelyActive: "نشاط عالي جدًا",
-  extremelyActiveDesc: "تمارين شاقة أو وظيفة بدنية قوية",
+  veryActiveDesc: "تمارين قوية 6-7 ايام بالاسبوع",
+  extremelyActive: "نشاط عالي جدا",
+  extremelyActiveDesc: "تمرين قوي جدًا أو شغل بدني",
   whatsYourGoal: "وش هدفك؟",
-  chooseGoal: "اختر الهدف اللي يناسب طموحك",
-  loseWeight: "إنقاص الوزن",
-  loseWeightDesc: "نقص السعرات عشان تنزل وزن",
-  maintainWeight: "الثبات",
-  maintainWeightDesc: "تحافظ على وزنك الحالي",
+  chooseGoal: "اختر الهدف اللي يناسبك",
+  loseWeight: "انقاص الوزن",
+  loseWeightDesc: "انشاء عجز سعري لانقاص الوزن",
+  maintainWeight: "ثبات الوزن",
+  maintainWeightDesc: "المحافظة على وزنك الحالي",
   gainWeight: "زيادة الوزن",
   gainWeightDesc: "زيادة السعرات لزيادة الوزن",
   buildMuscle: "بناء العضلات",
-  buildMuscleDesc: "ركّز على البروتين والتمارين القوية",
-  anyMedicalConditions: "عندك أي حالة صحية؟",
-  helpsBetterRecs: "يساعدنا نعطيك توصيات أدق (اختياري)",
-  medicalConditions: "الحالات الصحية",
-  medicalPlaceholder: "سكري، أمراض قلب... (اختياري)",
+  buildMuscleDesc: "التركيز على البروتين وتمارين القوة",
+  anyMedicalConditions: "عندك أي حالات صحية؟",
+  helpsBetterRecs: "هذا يساعدنا نعطيك توصيات أدق (اختياري)",
+  medicalConditions: "الامراض",
+  medicalPlaceholder: "مثل السكري او امراض القلب (اختياري)",
   back: "رجوع",
   next: "التالي >",
+  nextAr: "التالي",
   completeSetup: "إنهاء الإعداد >",  
 
   // Home Screen
   heyThere: "هلا فيك!",
-  readyToLog: "جاهز تسجل يومك؟",
+  readyToLog: "جاهز تسجّل يومك؟",
   dailyCalories: "السعرات اليومية",
   ofCalories: "من",
   protein: "بروتين",
   carbs: "كربوهيدرات",
   fats: "دهون",
-  weeklySummary: "ملخص الأسبوع",
+  fat: "سمين",
+  weeklySummary: "ملخّص الأسبوع",
   avgCalories: "متوسط السعرات",
-  goalsHit: "الأهداف المحققة",
+  goalsHit: "الأهداف المُحققة",
   bestDay: "أفضل يوم",
-  thisWeeksProgress: "تقدمك هذا الأسبوع",
-  daysCompleted: "يوم منجز",
+  thisWeeksProgress: "تقدّمك هذا الأسبوع", 
+  outOfDaysCompleted: "من الأيام المنجزة",
+  daysCompleted: "أيام مكتملة",
   todaysInsights: "نظرة اليوم",
   energyLevel: "مستوى الطاقة",
-  proteinProgress: "تقدم البروتين",
+  proteinProgress: "تقدّم البروتين",
   streakStatus: "حالة الستريك",
-  daysStrong: "يوم قوي!",
+  daysStrong: "أيام متتالية!",
+  today: "اليوم",
+  ofDailyGoal: "من الهدف اليومي",
+  startYourStreak: "ابدأ سلسلة انتصاراتك",
 
   // Journal Screen
   todaysJournal: "مذكرات اليوم",
@@ -374,39 +452,66 @@ remaining: "remaining",
   breakfast: "فطور",
   lunch: "غداء",
   dinner: "عشاء",
-  snacks: "سناكات",
-  tapToAddFood: "اضغط لإضافة طعام",
-  calories: "سعرة حرارية",
+  snacks: "سناك",
+  tapToAddFood: "اضغط لاضافة طعام",
+  calories: "سعرات",
   item: "عنصر",
   items: "عناصر",
-  addFood: "إضافة طعام",
+  addFood: "اضافة طعام",
+  dailyJournal: "المجلة اليومية",
 
   // Insights Screen
   progress: "التقدم",
   trackJourney: "تابع رحلتك الغذائية",
   currentStreak: "الستريك الحالي",
-  longestStreak: "أطول ستريك",
-  daysLogged: "الأيام المسجلة",
-  weeklyCalories: "سعرات الأسبوع",
+  longestStreak: "اطول ستريك",
+  daysLogged: "الايام المسجلة",
+  weeklyCalories: "سعرات الاسبوع",
   average: "المتوسط",
   goal: "الهدف",
-  weeklyMacrosAverage: "متوسط الماكروز الأسبوعي",
+  weeklyMacrosAverage: "متوسط الماكروز الاسبوعي",
 
   // Day Streak Sub-page
-  dayStreak: "سلسلة الأيام",
-  streakStarted: "بدأ الستريك",
-  thisWeek: "هذا الأسبوع",
+  dayStreak: "سلسلة الايام",
+  streakStarted: "بداية السلسلة",
+  thisWeek: "هذا الاسبوع",
   moreDaysToUnlock: "أيام قليلة وتفتح إنجاز جديد!",
 
   // Settings Screen
   customizeExperience: "خصص تجربتك",
   account: "الحساب",
   accountSubtitle: "الملف والمعلومات الشخصية",
-  goalsNutrition: "الأهداف والتغذية",
-  goalsSubtitle: "الأهداف اليومية والماكروز",
+  goalsNutrition: "الاهداف والتغذية",
+  goalsSubtitle: "الاهداف اليومية والماكروز",
   preferences: "التفضيلات",
   preferencesSubtitle: "اللغة والتنبيهات",
   signOut: "تسجيل الخروج",
+  areYouSureSignOut: "هل أنت متأكد من تسجيل الخروج؟",
+
+    // Alert Messages
+    missingFields: "الحقول المفقودة",
+    fillRequiredFields: "يرجى ملء اسم الطعام والسعرات الحرارية على الأقل.",
+    success: "نجاح",
+    foodAddedToDatabase: "تمت إضافة الطعام إلى قاعدة البيانات الخاصة بك!",
+    error: "خطأ",
+    failedToSaveFood: "فشل حفظ الطعام. حاول مرة أخرى.",
+    profileUpdated: "تم تحديث الملف الشخصي ومزامنته!",
+    failedToUpdateProfile: "فشل تحديث الملف الشخصي. يُرجى المحاولة مرة أخرى.",
+    somethingWentWrong: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+    invalidServingSize: "حجم الحصة غير صالح",
+    pleaseEnterValidServingSize: "يرجى إدخال حجم حصة صالح (على سبيل المثال، 100 غرام أو 100 مل)",
+  
+    // Placeholders
+    medicalConditionsPlaceholder: "مثل السكري او امراض القلب (اختياري)",
+    foodAllergiesPlaceholder: "مثل المكسرات او الالبان او الجلوتين (اختياري)",
+  
+    // Other UI Strings
+    max: "اقصى",
+    completeSetupButton: "إنهاء الإعداد",
+    meal: "الوجبة",
+    percentOfDailyGoals: "نسبة الهدف اليومي",
+    waitingForData: "في انتظار البيانات",
+    saveProfileChanges: "حفظ تغييرات الملف الشخصي",
 
   // Account Page
   profileInformation: "معلومات الحساب",
@@ -414,77 +519,116 @@ remaining: "remaining",
   editProfile: "تعديل الملف",
   quickUpdate: "تحديث سريع",
   weight: "الوزن (كجم)",
-  enterCurrentWeight: "أدخل وزنك الحالي بالكيلو",
+  enterCurrentWeight: "ادخل وزنك الحالي بالكيلو",
+  currentWeightLabel: "الوزن الحالي",
+  targetWeight: "الوزن المستهدف",
   age: "العمر",
+  years: "سنوات",
   height: "الطول",
   gender: "الجنس",
   activityLevel: "مستوى النشاط",
   goalLabel: "الهدف",
   healthInformation: "المعلومات الصحية",
-  foodAllergies: "الحساسية الغذائية",
+  activityAndGoals: "النشاط والاهداف",
+  foodAllergies: "حساسية الطعام",
+  ageHeightWeightActivityLevelSubtitle: "العمر، الطول، الوزن، مستوى النشاط",
+  enterWeight: "أدخل الوزن",
+  saveChanges: "حفظ التغييرات",
+  loading: "تحميل...",
+  quickWayToAddFoodInfo: "طريقة سريعة لاضافة معلومات الطعام",
+  basicInformation: "المعلومات الاساسية",
+  cm: "سم",
+  kg: "كجم",
 
   // Edit Profile Subpage
   done: "تم",
   personalInformation: "المعلومات الشخصية",
 
   // Goals & Nutrition
-  dailyGoals: "الأهداف اليومية",
+  dailyGoals: "الاهداف اليومية",
   calorieGoal: "هدف السعرات",
-  macroGoalsCalculated: "أهداف الماكروز تُحسب تلقائيًا",
+  macroGoalsCalculated: "اهداف الماكروز ستتحدد تلقائيا",
   macroDistribution: "توزيع الماكروز",
-  macroDistributionDesc: "أهدافك محسوبة على توزيع متوازن:",
-  proteinPercent: "بروتين: 30% من السعرات",
-  carbsPercent: "كربوهيدرات: 40% من السعرات",
-  fatsPercent: "دهون: 30% من السعرات",
+  macroDistributionDesc: "يتم حساب اهداف الماكروز تلقائيا حسب توزيع متوازن:",
+  proteinPercent: "بروتين: 30٪ من السعرات",
+  carbsPercent: "كاربوهيدرات: 40٪ من السعرات",
+  fatsPercent: "دهون: 30٪ من السعرات",
 
   // Preferences Page
   language: "اللغة",
-  selectLanguage: "اختر اللغة المفضلة",
+  selectLanguage: "اختر لغتك المفضلة",
   english: "English",
   arabic: "العربية",
-  notifications: "الإشعارات",
-  dailyReminders: "تذكيرات يومية",
-  reminderDescription: "استلم تنبيه يومي لتسجيل وجباتك",
+  notifications: "الاشعارات",
+  dailyReminders: "التذكيرات اليومية",
+  reminderDescription: "احصل على تذكيرات يومية لتسجيل وجباتك",
 
   // Add Food Menu
-  addFoodMenu: "إضافة طعام",
+  addFoodMenu: "اضافة طعام",
   logFood: "تسجيل طعام",
-  createCustomFood: "إنشاء طعام مخصص",
+  createCustomFood: "انشاء طعام مخصص",
   scanBarcode: "مسح الباركود",
 
+  // Scan Barcode Page
+  cameraPermissionRequired: "مطلوب إذن الكاميرا",
+  cameraPermissionRequiredDescription: "نحن بحاجة إلى الوصول إلى الكاميرا الخاصة بك لمسح الباركود.",
+  grantPermission: "إذن المنح",
+  alignBarcodeWithinFrame: "محاذاة الباركود داخل الإطار",
+  barcodeDetected: "تم اكتشاف الرمز الشريطي",
+  scannedBarcode: "الباركود الممسوحة ضوئيا",
+  scanAgain: "المسح مرة أخرى",
+  enterBarcodeManually: "أدخل الباركود يدويا",
+  use: "يستخدم",
+
   // Log Food Page
-  whatsOnMenu: "وش في القائمة اليوم؟",
-  searchForDeliciousFuel: "دور على وقودك اللذيذ!",
+  whatsOnMenu: "وش بتاكل اليوم؟",
+  searchForDeliciousFuel: "ابحث عن وجبتك",
   searchPlaceholder: "ابحث بالاسم أو الباركود…",
+  kcal: "سعرة",
+  p: "بروتين",
+  c: "كربوهيدرات",
+  f: "دهون",
+  ml: "مل",
+  gram: "جرام",
+  g: "ج",
+  day: "يوم",
+  over: "زيادة",
 
   // Create Custom Food
-  createFoodTitle: "إنشاء طعام",
+  createFoodTitle: "انشئ طعام",
   foodName: "اسم الطعام",
-  brandOptional: "العلامة التجارية (اختياري)",
+  foodNamePlaceholder: "مثال: صدر دجاج",
+  brandOptional: "الشركة (اختياري)",
+  brandOptionalPlaceholder: "مثال: المراعي",
   servingSize: "حجم الحصة",
+  servingSizePlaceholder: "على سبيل المثال، مثال: 100g او كوب واحد",
+  nutritionFacts: "المعلومات الغذائية",
   perServing: "لكل حصة",
   caloriesLabel: "السعرات",
-  saveCustomFood: "احفظ الطعام المخصص",
+  saveCustomFood: "حفظ الطعام المخصص",
 
   // Food Details Page
-  addFoodTitle: "إضافة طعام",
+  addFoodTitle: "اضافة طعام",
   servings: "الحصص",
   servingSizeLabel: "حجم الحصة",
   addToMeal: "أضف إلى",
   percentDailyGoal: "من الهدف اليومي",
 
   // About Screen
+  about: "عن فتكو",
+  aboutSubtitle: "عن التطبيق والفريق",
   appInformation: "معلومات التطبيق",
   appName: "Fitco فتكو",
-  version: "الإصدار 0.9 (تجريبي)",
-  yourNutritionCompanion: "رفيقك الشخصي لتتبع التغذية",
+  version: "الاصدار 0.9 (تجريبي)",
+  yourNutritionCompanion: "رفيقك الشخصي لمتابعة التغذية",
+  addTo: "اضف إليه",
 
   features: "المميزات",
-  trackDailyCalories: "• تتبع السعرات والماكروز اليومية",
-  setPersonalizedGoals: "• حدد أهداف تغذية مخصصة لك",
-  monitorProgress: "• تابع تقدمك مع الوقت",
-  keepFoodJournal: "• احتفظ بمذكراتك الغذائية اليومية",
-  multiLanguageSupport: "• دعم كامل للغتين العربية والإنجليزية",
+  trackDailyCalories: "• تابع السعرات والماكروز اليومية",
+  setPersonalizedGoals: "• حدد اهداف تغذيتك حسب احتياجك",
+  monitorProgress: "• راقب تقدمك مع الوقت",
+  keepFoodJournal: "• احتفظ بمذكرات يومية للطعام مع الملاحظات",
+  multiLanguageSupport: "• دعم كامل للانجليزي والعربي",
 
   development: "التطوير",
   madeBySaudis: "من صنع سعوديين للسعوديين",
@@ -497,9 +641,13 @@ remaining: "remaining",
 
 cal: "سعرات",
 
+consumed: "المستهلكة",
+remaining: "متبقي",
+reminderTime: "وقت التذكير",
+timeFormatHint: "استخدم تنسيق 24 ساعة مثل 20:00",
 
-  madeWithLove: "صُنع بحب ❤️",
-  thankYouForUsing: "شكرًا لاستخدامك فتكو! هدفنا نساعدك توصل لأفضل نسخة من نفسك.",
+  madeWithLove: "مصنوع بحب ❤️",
+  thankYouForUsing: "شكراً لاستخدامك فتكو! حنا هنا لمساعدتك تحقق اهدافك الصحية.",
 },
 
 };

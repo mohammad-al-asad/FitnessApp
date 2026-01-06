@@ -137,7 +137,7 @@ const todayLog = getLogByDate ? getLogByDate(selectedDay) : getTodayLog();
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={[styles.title, isRTL && styles.rtlText, { color: colors.text }]}>Daily Journal</Text>
+          <Text style={[styles.title, isRTL && styles.rtlText, { color: colors.text }]}>{t('dailyJournal')}</Text>
 <Text style={[styles.date, isRTL && styles.rtlText, { color: colors.placeholder }]}>
   {new Date(selectedDay).toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { 
     weekday: 'long', 
@@ -170,7 +170,7 @@ const todayLog = getLogByDate ? getLogByDate(selectedDay) : getTodayLog();
     contentContainerStyle={{ paddingHorizontal: (screenWidth / 2) - 33.5 }}
 
     renderItem={({ item }) => {
-      const dayName = item.toLocaleDateString('en-US', { weekday: 'short' });
+      const dayName = item.toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { weekday: 'short' });
       const dayNum = item.getDate();
       const isSelected = selectedDay === item.toISOString().split('T')[0];
 
@@ -240,7 +240,7 @@ const todayLog = getLogByDate ? getLogByDate(selectedDay) : getTodayLog();
             </View>
           </View>
           
-          <View style={[styles.calorieStats, isRTL && styles.calorieStatsRTL]}>
+          <View style={[styles.calorieStats]}>
             <View style={styles.calorieStat}>
               <Text style={[styles.calorieStatNumber, isRTL && styles.rtlText, { color: colors.text }]}>
                 {Math.round(caloriesConsumed)}
@@ -420,13 +420,10 @@ const styles = StyleSheet.create({
   },
   // RTL Styles
   rtlText: {
-    textAlign: 'right',
+    textAlign: 'left',
   },
   rtlRow: {
-    flexDirection: 'row-reverse',
-  },
-  calorieStatsRTL: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
   },
   iconContainer: {
     alignItems: 'center',

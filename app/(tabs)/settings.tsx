@@ -100,7 +100,7 @@ export default function SettingsScreen() {
   styles.settingsItem,
   { 
     backgroundColor: colors.surface,
-    flexDirection: isRTL ? "row-reverse" : "row"
+    flexDirection: isRTL ? "row" : "row"
   }
 ]}
 
@@ -110,7 +110,7 @@ export default function SettingsScreen() {
                 <View 
   style={[
     styles.settingsItemLeft,
-    { flexDirection: isRTL ? 'row-reverse' : 'row' }
+    { flexDirection: isRTL ? 'row' : 'row' }
   ]}
 >
 
@@ -261,6 +261,7 @@ const styles = StyleSheet.create({
   },
   // RTL Styles
   rtlText: {
-    textAlign: 'right',
+    textAlign: 'left',
+    paddingRight: 10,
   },
 });

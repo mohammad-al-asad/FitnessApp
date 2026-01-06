@@ -4,7 +4,13 @@
 import FoodLogModal from "@/components/FoodLogModal";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { Tabs, router } from "expo-router";
-import { BookOpen, Home, Plus, Settings, TrendingUp } from "lucide-react-native";
+import {
+  BookOpen,
+  Home,
+  Plus,
+  Settings,
+  TrendingUp,
+} from "lucide-react-native";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -16,13 +22,13 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
   const getLabel = (name: string): string => {
     switch (name) {
       case "home":
-        return t("home");
+        return String(t("home"));
       case "journal":
-        return t("journal");
+        return String(t("journal"));
       case "insights":
-        return t("insights");
+        return String(t("insights"));
       case "settings":
-        return t("settings");
+        return String(t("settings"));
       default:
         return name.charAt(0).toUpperCase() + name.slice(1);
     }
@@ -79,33 +85,23 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         { backgroundColor: colors.background, borderTopColor: colors.border },
       ]}
     >
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {/* LEFT SIDE TABS (Home + Journal) */}
-        <View style={styles.leftTabs}>
-          {leftRoutes.map((route: any) => {
-            let translateX = 0;
-            if (route.name === "home") translateX = -14; // moved slightly left
-            if (route.name === "journal") translateX = -4;
-            return (
-              <View key={route.key} style={{ transform: [{ translateX }] }}>
-                {renderTabButton(route)}
-              </View>
-            );
-          })}
+        <View style={[isRTL ? styles.rightTabs :styles.leftTabs, { flexDirection: isRTL ? 'row-reverse' : 'row' }, isRTL ? { paddingRight: 20 } : { paddingLeft: 20 }]}>
+          {leftRoutes.map((route: any) => (
+            <View key={route.key}>
+              {renderTabButton(route)}
+            </View>
+          ))}
         </View>
 
         {/* RIGHT SIDE TABS (Insights + Settings) */}
-        <View style={styles.rightTabs}>
-          {rightRoutes.map((route: any) => {
-            let translateX = 0;
-            if (route.name === "insights") translateX = 4;
-            if (route.name === "settings") translateX = 14; // moved slightly right
-            return (
-              <View key={route.key} style={{ transform: [{ translateX }] }}>
-                {renderTabButton(route)}
-              </View>
-            );
-          })}
+        <View style={[isRTL ? styles.leftTabs : styles.rightTabs, { flexDirection: isRTL ? 'row-reverse' : 'row' }, isRTL ? { paddingLeft: 20 } : { paddingRight: 20 }]}>
+          {rightRoutes.map((route: any) => (
+            <View key={route.key}>
+              {renderTabButton(route)}
+            </View>
+          ))}
         </View>
       </View>
 
@@ -135,7 +131,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         }}
         onScanBarcode={() => {
           setShowModal(false);
-          router.push("/(tabs)/scanBarcode");
+          router.push("/(tabs)/scanBarcode?source=foodLog");
         }}
       />
     </View>
@@ -158,30 +154,32 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   tabContainer: {
-    flexDirection: "row",
     width: "100%",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 36,
     marginTop: 4,
   },
   leftTabs: {
     flexDirection: "row",
     flex: 1,
     justifyContent: "space-evenly",
-    paddingRight: 30,
+    alignItems: "center",
+    paddingRight: 20,
   },
   rightTabs: {
     flexDirection: "row",
     flex: 1,
     justifyContent: "space-evenly",
-    paddingLeft: 30,
+    alignItems: "center",
+    paddingLeft: 20,
   },
   tabItem: {
     alignItems: "center",
     justifyContent: "center",
-    minWidth: 45,
+    minWidth: 50,
+    maxWidth: 70,
     paddingVertical: 3,
+    paddingHorizontal: 2,
   },
   tabLabel: {
     marginTop: 2,

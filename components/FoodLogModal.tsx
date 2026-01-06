@@ -1,4 +1,5 @@
 // FoodLogModal — sleek Fitco bottom drawer
+import { useLanguage } from "@/hooks/language-context";
 import { BookOpen, Plus, QrCode, X } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -21,6 +22,8 @@ export default function FoodLogModal({
   onCreateCustom,
 }: Props) {
   const insets = useSafeAreaInsets();
+
+  const { t, isRTL } = useLanguage();
 
   return (
     <Modal
@@ -46,7 +49,7 @@ export default function FoodLogModal({
 
         {/* header */}
         <View style={styles.headerRow}>
-          <Text style={styles.title}>Add Food</Text>
+          <Text style={styles.title}>{t('addFoodMenu')}</Text>
           <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
             <X size={22} color="#22c55e" />
           </TouchableOpacity>
@@ -59,7 +62,7 @@ export default function FoodLogModal({
           activeOpacity={0.8}
         >
           <BookOpen size={22} color="#22c55e" />
-          <Text style={styles.optionText}>Log Food</Text>
+          <Text style={[styles.optionText, isRTL && styles.rtlOptionText]}>{t('logFood')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -68,7 +71,7 @@ export default function FoodLogModal({
           activeOpacity={0.8}
         >
           <Plus size={22} color="#22c55e" />
-          <Text style={styles.optionText}>Create Custom Food</Text>
+          <Text style={[styles.optionText, isRTL && styles.rtlOptionText]}>{t('createCustomFood')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -77,12 +80,12 @@ export default function FoodLogModal({
           activeOpacity={0.8}
         >
           <QrCode size={22} color="#22c55e" />
-          <Text style={styles.optionText}>Scan Barcode</Text>
+          <Text style={[styles.optionText, isRTL && styles.rtlOptionText]}>{t('scanBarcode')}</Text>
         </TouchableOpacity>
 
         {/* cancel */}
         <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={styles.cancelText}>{t('cancel')}</Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -137,6 +140,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#fff",
     marginLeft: 12,
+  },
+  rtlOptionText: {
+    marginLeft: 0,
+    marginRight: 12,
   },
   cancelButton: {
     marginTop: 18,

@@ -18,11 +18,16 @@ import "react-native-reanimated";
 function AppShell() {
   const { isRTL } = useLanguage();
   const colorScheme = useColorScheme();
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
 
   useEffect(() => {
     // Just log to confirm direction on native
     console.log("App direction:", isRTL ? "RTL" : "LTR");
+
+
+    setTimeout(() => {
+      setShowSplash(true)
+    }, 0);
   }, [isRTL]);
 
   useEffect(() => {
@@ -70,6 +75,13 @@ console.log("⏩ Skipping food database preload TEMPORARILY in production");
     prepare();
   }, []);
 
+  useEffect(() => {
+    if (!showSplash) {
+      ExpoSplashScreen.hideAsync();
+    }
+  }, [showSplash]);
+
+
   if (showSplash) {
   return (
     <SplashScreen
@@ -82,11 +94,7 @@ console.log("⏩ Skipping food database preload TEMPORARILY in production");
 }
 
 
-useEffect(() => {
-  if (!showSplash) {
-    ExpoSplashScreen.hideAsync();
-  }
-}, [showSplash]);
+
 
 
 
@@ -123,11 +131,12 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       {!user ? (
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)/index" options={{ headerShown: false }} />
       ) : (
         <>
           <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="logFood" options={{ presentation: 'modal' }} />
         </>
       )}
     </Stack>

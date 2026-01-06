@@ -1,4 +1,12 @@
 // Auth context for managing user authentication state and actions
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode
+} from "react";
+
 import { auth } from "@/config/firebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -11,13 +19,8 @@ import {
   type User,
 } from "firebase/auth";
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode
-} from "react";
+// AsyncStorage key for persisting user data
+const USER_STORAGE_KEY = 'fitco_auth_user';
 
 
 type AuthResult =
@@ -45,10 +48,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 Watch authentication state
+  // Load user data from AsyncStorage on mount
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    const loadPersistedUser = async () => {
+      try {
+        const storedUserData = await AsyncStorage.getItem(USER_STORAGE_KEY);
+        if (storedUserData) {
+          const userData = JSON.parse(storedUserData);
+          setUser(userData);
+        }
+      } catch (error) {
+        console.log('Error loading persisted user:', error);
+      }
+    };
+
+    loadPersistedUser();
+  }, []);
+
+  // 🔥 Watch authentication state with persistence
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+
+      if (firebaseUser) {
+        const userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          emailVerified: firebaseUser.emailVerified,
+          photoURL: firebaseUser.photoURL,
+        };
+
+        setUser(firebaseUser);
+
+        try {
+          await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+        } catch (error) {
+          console.log('Error persisting user data:', error);
+        }
+      } else {
+        const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+        if (!storedUser) {
+          setUser(null);
+        } else {
+          console.log('🔄 Have stored data but Firebase reports no user - keeping for UI');
+        }
+      }
+
       setIsInitialized(true);
       setLoading(false);
     });
@@ -65,6 +110,7 @@ const clearFitcoData = async () => {
         !k.startsWith("fitco_daily_logs_") &&
         !k.startsWith("fitco_settings_") &&
         !k.startsWith("fitco_user_profile_") &&
+        !k.startsWith("fitco_auth_") &&
         !k.startsWith("questionnaireData_") &&
         !k.startsWith("hasCompletedQuestionnaire_")
     );
@@ -154,29 +200,30 @@ if (!existingLogs) {
 };
 
 
-  // ✅ Safe Logout (preserves user data)
-const logout = async (): Promise<void> => {
-  try {
-    await signOut(auth);
+  // ✅ Safe Logout (clears user data from storage)
+  const logout = async (): Promise<void> => {
+    try {
+      await signOut(auth);
 
-    // Only clear temporary or cached data — not user logs/settings
-    const keys = await AsyncStorage.getAllKeys();
-    const filtered = keys.filter(
-      (key) =>
-        !key.startsWith("fitco_daily_logs_") &&
-        !key.startsWith("fitco_settings_") &&
-        !key.startsWith("questionnaireData_") &&
-        !key.startsWith("fitco_user_profile_") &&
-        !key.startsWith("hasCompletedQuestionnaire_")
-    );
-    await AsyncStorage.multiRemove(filtered);
-    console.log("🧼 Cleared Fitco data (safe):", filtered);
+      await AsyncStorage.removeItem(USER_STORAGE_KEY);
 
-    router.replace("/(auth)");
-  } catch (error: any) {
-    console.error("[Auth] Logout error:", error);
-  }
-};
+      const keys = await AsyncStorage.getAllKeys();
+      const filtered = keys.filter(
+        (key) =>
+          !key.startsWith("fitco_daily_logs_") &&
+          !key.startsWith("fitco_settings_") &&
+          !key.startsWith("questionnaireData_") &&
+          !key.startsWith("fitco_user_profile_") &&
+          !key.startsWith("hasCompletedQuestionnaire_")
+      );
+      await AsyncStorage.multiRemove(filtered);
+      setUser(null);
+
+      router.replace("/(auth)");
+    } catch (error: any) {
+      console.error("[Auth] Logout error:", error);
+    }
+  };
 
 // ✅ Context provider
 return (

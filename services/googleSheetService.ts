@@ -70,10 +70,10 @@ export async function getFoodsFromSheetCached(): Promise<SheetFood[]> {
     const cached = await AsyncStorage.getItem(SHEET_CACHE_KEY);
     const cachedTime = await AsyncStorage.getItem(`${SHEET_CACHE_KEY}_time`);
 
-    if (cached && cachedTime && Date.now() - Number(cachedTime) < SHEET_CACHE_TIME) {
-      console.log("✅ Using cached food data");
-      return JSON.parse(cached);
-    }
+    // if (cached && cachedTime && Date.now() - Number(cachedTime) < SHEET_CACHE_TIME) {
+    //   console.log("✅ Using cached food data");
+    //   return JSON.parse(cached);
+    // }
 
     console.log("🌐 Fetching fresh data from Google Sheets...");
     const fresh = await getFoodsFromSheet();
@@ -87,10 +87,37 @@ export async function getFoodsFromSheetCached(): Promise<SheetFood[]> {
   }
 }
 
+export async function getFoodByBarcode(barcode: string): Promise<SheetFood | null> {
+  try {
+    const foods = await getFoodsFromSheetCached();
+
+    const normalizeBarcodeForSearch = (value?: string) => {
+      if (!value) return "";
+      return value
+        .replace(/^'/, "")   // remove Sheets text marker
+        .replace(/^0+/, "")  // remove leading zeros
+        .trim();
+    };
+
+    const searchBarcode = normalizeBarcodeForSearch(barcode);
+
+    const found = foods.find(food =>
+      normalizeBarcodeForSearch(food["BARCODE ID"]) === searchBarcode
+    );
+
+
+    return found || null;
+  } catch (error) {
+    console.error("❌ Error searching for food by barcode:", error);
+    return null;
+  }
+}
+
 export async function addFoodToSheet(food: any): Promise<void> {
   try {
     const endpoint =
-      "https://script.google.com/macros/s/AKfycbymhAN0CJ6MynZMXP-G6AkN8YCa4yCPwJ-AAKjmx32m5IWi6vO1-wwCtn9ns6EgQvYSOw/exec";
+      "https://script.google.com/macros/s/AKfycbyNyQriFzpdI4o_4W8mlXWMyXQHiJ5ZEwjchvUy0q-ewT66hKYTzT1u4HsdU_N8JRSA9g/exec";
+      
 
     const response = await fetch(endpoint, {
       method: "POST",

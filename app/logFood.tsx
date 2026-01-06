@@ -1,6 +1,8 @@
 //log food screen
 import colors from '@/constants/colors';
+import { useLanguage } from '@/hooks/language-context';
 import { useNutrition } from '@/hooks/nutrition-store';
+import { getFoodByBarcode } from '@/services/googleSheetService';
 import type { FoodItem } from '@/types/nutrition';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Apple, Check, ChevronDown, Moon, Sun, Sunrise, X } from 'lucide-react-native';
@@ -81,6 +83,11 @@ function getRawServing(anyFood: any): string {
   );
 }
 
+function getServingGrams(food: FoodItem): number {
+  const rawServing = getRawServing(food);
+  return computeServing(rawServing).grams || 100;
+}
+
 
 
 
@@ -92,12 +99,6 @@ type MeasurementUnit = {
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
 
-const MEAL_OPTIONS: { key: MealType; label: string; icon: React.ComponentType<{ size: number; color: string }> }[] = [
-  { key: 'breakfast', label: 'Breakfast', icon: Sunrise },
-  { key: 'lunch', label: 'Lunch', icon: Sun },
-  { key: 'dinner', label: 'Dinner', icon: Moon },
-  { key: 'snacks', label: 'Snacks', icon: Apple },
-];
 
 const MACRO_COLORS = {
   protein: '#5B9FFF',
@@ -113,6 +114,9 @@ export default function LogFoodScreen() {
   ? params.date[0]
   : params.date || new Date().toISOString().split('T')[0];
 
+  const barcode = Array.isArray(params.barcode)
+    ? params.barcode[0]
+    : params.barcode;
 
   const [food, setFood] = useState<FoodItem | null>(null);
   const [servingAmount, setServingAmount] = useState('1');
@@ -124,6 +128,14 @@ export default function LogFoodScreen() {
   const checkmarkOpacity = new Animated.Value(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showServingModal, setShowServingModal] = useState(false);
+  const { t, isRTL } = useLanguage();
+
+  const MEAL_OPTIONS: { key: MealType; label: string; icon: React.ComponentType<{ size: number; color: string }> }[] = [
+    { key: 'breakfast', label: String(t('breakfast')), icon: Sunrise },
+    { key: 'lunch', label: String(t('lunch')), icon: Sun },
+    { key: 'dinner', label: String(t('dinner')), icon: Moon },
+    { key: 'snacks', label: String(t('snacks')), icon: Apple },
+  ];
 
   useEffect(() => {
     if (params.foodData) {
@@ -185,6 +197,69 @@ const units: MeasurementUnit[] = [
     }
   }, [params.foodData]);
 
+  // Handle barcode lookup
+  useEffect(() => {
+    const lookupFood = async () => {
+      if (barcode && !food) { // Only lookup if we have barcode and no food is set yet
+        try {
+          const existingFood = await getFoodByBarcode(barcode);
+
+          if (existingFood) {
+            // Convert SheetFood to FoodItem format
+            const foodItem: FoodItem = {
+              name: existingFood.PRODUCT || 'Unknown Food',
+              brand: existingFood.BRAND,
+              servingSize: existingFood["SERVING SIZE"],
+              calories: existingFood.CALORIES || 0,
+              protein: existingFood.PROTEIN || 0,
+              carbs: existingFood.CARBS || 0,
+              fats: existingFood.FAT || 0,
+            };
+
+            setFood(foodItem);
+
+            // Set default serving amount
+            const rawServing = getRawServing(foodItem);
+            const { grams: defaultGrams, display: displayServing } = computeServing(rawServing);
+
+            const units: MeasurementUnit[] = [
+              { name: `1 serving (${displayServing})`, grams: defaultGrams, isDefault: true },
+              { name: '1 gram', grams: 1 },
+            ];
+
+            if (defaultGrams !== 100) {
+              units.push({ name: '100g', grams: 100 });
+            }
+
+            if (defaultGrams !== 1) units.push({ name: '1g', grams: 1 });
+
+            // Add common units based on food type
+            const foodName = foodItem.name.toLowerCase();
+            if (foodName.includes('bread') || foodName.includes('rice') || foodName.includes('pasta')) {
+              units.push({ name: '1 cup cooked', grams: 150 });
+            } else if (foodName.includes('milk') || foodName.includes('juice')) {
+              units.push({ name: '1 cup (240ml)', grams: 240 });
+            } else if (foodName.includes('egg')) {
+              units.push({ name: '1 large egg', grams: 50 });
+            }
+
+            setMeasurementUnits(units);
+            setSelectedUnit(units[0]);
+          } else {
+            // No food found for barcode
+            console.warn('No food found for barcode:', barcode);
+            router.back();
+          }
+        } catch (error) {
+          console.error('Error looking up food by barcode:', error);
+          router.back();
+        }
+      }
+    };
+
+    lookupFood();
+  }, [barcode, food]);
+
   if (!food || !selectedUnit) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
@@ -199,13 +274,21 @@ const units: MeasurementUnit[] = [
 
   const calculateNutrition = () => {
     const amount = parseFloat(servingAmount) || 0;
-    const multiplier = (selectedUnit.grams / 100) * amount;
-    
+  
+    const gramsEaten = selectedUnit.grams * amount;
+  
+    const servingGrams = getServingGrams(food);
+  
+    const caloriesPerGram = food.calories / servingGrams;
+    const proteinPerGram = food.protein / servingGrams;
+    const carbsPerGram = food.carbs / servingGrams;
+    const fatsPerGram = food.fats / servingGrams;
+  
     return {
-      calories: Math.round(food.calories * multiplier),
-      protein: Math.round(food.protein * multiplier * 10) / 10,
-      carbs: Math.round(food.carbs * multiplier * 10) / 10,
-      fats: Math.round(food.fats * multiplier * 10) / 10,
+      calories: Math.round(caloriesPerGram * gramsEaten),
+      protein: Math.round(proteinPerGram * gramsEaten * 10) / 10,
+      carbs: Math.round(carbsPerGram * gramsEaten * 10) / 10,
+      fats: Math.round(fatsPerGram * gramsEaten * 10) / 10,
     };
   };
 
@@ -228,14 +311,13 @@ const units: MeasurementUnit[] = [
     }
 
     try {
-      const actualQuantity = (selectedUnit.grams / 100) * amount;
-    await addFoodToLog(food, actualQuantity, params.date as string, selectedMeal);
-
-
-
-
-
-      
+      const gramsEaten = selectedUnit.grams * amount;
+  
+      const servingGrams = getServingGrams(food);
+      const actualQuantity = gramsEaten / servingGrams;
+  
+      await addFoodToLog(food, actualQuantity, params.date as string, selectedMeal);
+  
       setShowSuccess(true);
       
       Animated.parallel([
@@ -323,7 +405,7 @@ const units: MeasurementUnit[] = [
         </Svg>
         <View style={styles.ringCenter}>
           <Text style={styles.ringCalories}>{nutrition.calories}</Text>
-          <Text style={styles.ringLabel}>calories</Text>
+          <Text style={styles.ringLabel}>{t('calories')}</Text>
         </View>
       </View>
     );
@@ -341,7 +423,7 @@ const units: MeasurementUnit[] = [
         <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
           <X size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Food</Text>
+        <Text style={styles.headerTitle}>{t('addFood')}</Text>
         <View style={{ width: 40 }} />
       </View>
       
@@ -351,18 +433,18 @@ const units: MeasurementUnit[] = [
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.foodHeader}>
-          <Text style={styles.foodName}>{food.name}</Text>
+          <Text style={[styles.foodName, isRTL && styles.rtlText]}>{food.name}</Text>
           {food.brand && (
-            <Text style={styles.brandName}>{food.brand}</Text>
+            <Text style={[styles.brandName, isRTL && styles.rtlText]}>{food.brand}</Text>
           )}
         </View>
 
         <View style={styles.servingSection}>
           <View style={styles.servingRow}>
             <View style={styles.servingInputGroup}>
-              <Text style={styles.inputLabel}>Servings</Text>
+              <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('servings')}</Text>
               <TextInput
-                style={styles.servingInput}
+                style={[styles.servingInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={servingAmount}
                 onChangeText={setServingAmount}
                 keyboardType="numeric"
@@ -373,12 +455,12 @@ const units: MeasurementUnit[] = [
             </View>
 
             <View style={styles.servingSizeGroup}>
-              <Text style={styles.inputLabel}>Serving Size</Text>
+              <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('servingSize')}</Text>
               <TouchableOpacity 
   style={styles.servingPicker}
   onPress={() => setShowServingModal(true)}
 >
- <Text style={styles.servingPickerText} numberOfLines={1}>
+ <Text style={[styles.servingPickerText, isRTL && styles.rtlText]} numberOfLines={1}>
   {selectedUnit.name}
 </Text>
 
@@ -396,7 +478,7 @@ const units: MeasurementUnit[] = [
     setShowServingModal(false);
   }}
 >
-  <Text style={{ color: colors.text, fontSize: 16 }}>
+  <Text style={{ color: colors.text, fontSize: 16, textAlign: isRTL ? 'left' : 'right' }}>
     {`1 serving (${computeServing(getRawServing(food)).display})`}
   </Text>
 </TouchableOpacity>
@@ -416,28 +498,28 @@ const units: MeasurementUnit[] = [
       servingText.includes('water');
 
     setSelectedUnit({
-      name: isLiquid ? '1 ml' : '1 gram',
+      name: isLiquid ? `1 ${t('ml')}` : `1 ${t('gram')}`,
       grams: 1,
     });
     setShowServingModal(false);
   }}
 >
-  <Text style={{ color: colors.text, fontSize: 16 }}>
+  <Text style={{ color: colors.text, fontSize: 16, textAlign: isRTL ? 'left' : 'right' }}>
     {getRawServing(food).toLowerCase().includes('ml') ||
     getRawServing(food).toLowerCase().includes('l') ||
     getRawServing(food).toLowerCase().includes('cup') ||
     getRawServing(food).toLowerCase().includes('juice') ||
     getRawServing(food).toLowerCase().includes('milk') ||
     getRawServing(food).toLowerCase().includes('water')
-      ? '1 ml'
-      : '1 gram'}
+      ? `1 ${t('ml')}`
+      : `1 ${t('gram')}`}
   </Text>
 </TouchableOpacity>
 
 
 
       <TouchableOpacity onPress={() => setShowServingModal(false)} style={{ paddingVertical: 16, alignItems: 'center' }}>
-        <Text style={{ color: colors.placeholder, fontSize: 16 }}>Cancel</Text>
+        <Text style={{ color: colors.placeholder, fontSize: 16 }}>{t('cancel')}</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -448,7 +530,7 @@ const units: MeasurementUnit[] = [
         </View>
 
         <View style={styles.mealSection}>
-          <Text style={styles.sectionLabel}>Meal</Text>
+          <Text style={[styles.sectionLabel, isRTL && styles.rtlText]}>{t('meal')}</Text>
           <View style={styles.mealGrid}>
             {MEAL_OPTIONS.map((meal) => {
               const MealIcon = meal.icon;
@@ -482,113 +564,126 @@ const units: MeasurementUnit[] = [
           {renderMacroRing()}
           
           <View style={styles.macroBreakdown}>
-            <View style={styles.macroItem}>
-              <View style={styles.macroHeader}>
-                <View style={[styles.macroDot, { backgroundColor: MACRO_COLORS.carbs }]} />
-                <Text style={styles.macroPercent}>{carbsPercent}%</Text>
-              </View>
-              <Text style={styles.macroName}>Carbs</Text>
-              <Text style={styles.macroValue}>{nutrition.carbs}g</Text>
-            </View>
+            {(() => {
+              const macroItems = [
+                {
+                  key: 'carbs',
+                  color: MACRO_COLORS.carbs,
+                  percent: carbsPercent,
+                  name: t('carbs'),
+                  value: nutrition.carbs,
+                },
+                {
+                  key: 'fat',
+                  color: MACRO_COLORS.fat,
+                  percent: fatsPercent,
+                  name: t('fat'),
+                  value: nutrition.fats,
+                },
+                {
+                  key: 'protein',
+                  color: MACRO_COLORS.protein,
+                  percent: proteinPercent,
+                  name: t('protein'),
+                  value: nutrition.protein,
+                },
+              ];
 
-            <View style={styles.macroItem}>
-              <View style={styles.macroHeader}>
-                <View style={[styles.macroDot, { backgroundColor: MACRO_COLORS.fat }]} />
-                <Text style={styles.macroPercent}>{fatsPercent}%</Text>
-              </View>
-              <Text style={styles.macroName}>Fat</Text>
-              <Text style={styles.macroValue}>{nutrition.fats}g</Text>
-            </View>
+              const orderedItems = isRTL ? macroItems.reverse() : macroItems;
 
-            <View style={styles.macroItem}>
-              <View style={styles.macroHeader}>
-                <View style={[styles.macroDot, { backgroundColor: MACRO_COLORS.protein }]} />
-                <Text style={styles.macroPercent}>{proteinPercent}%</Text>
-              </View>
-              <Text style={styles.macroName}>Protein</Text>
-              <Text style={styles.macroValue}>{nutrition.protein}g</Text>
-            </View>
+              return orderedItems.map((item) => (
+                <View key={item.key} style={styles.macroItem}>
+                  <View style={styles.macroHeader}>
+                    <View style={[styles.macroDot, { backgroundColor: item.color }]} />
+                    <Text style={styles.macroPercent}>{item.percent}%</Text>
+                  </View>
+                  <Text style={styles.macroName}>{item.name}</Text>
+                  <Text style={styles.macroValue}>{item.value}{t('g')}</Text>
+                </View>
+              ));
+            })()}
           </View>
         </View>
 
         <View style={styles.dailyGoalsSection}>
-          <Text style={styles.dailyGoalsTitle}>Percent of Daily Goals</Text>
-          
+          <Text style={[styles.dailyGoalsTitle, isRTL && styles.rtlText]}>{t('percentOfDailyGoals')}</Text>
+
           <View style={styles.goalItem}>
             <View style={styles.goalHeader}>
-              <Text style={styles.goalName}>Calories</Text>
-              <Text style={styles.goalValues}>{nutrition.calories} / {settings.calorieGoal}</Text>
+              <Text style={styles.goalName}>{t('caloriesLabel')}</Text>
+              {isRTL ? (
+                <Text style={styles.goalValues}>{settings.calorieGoal} / {nutrition.calories}</Text>
+              ) : (
+                <Text style={styles.goalValues}>{nutrition.calories} / {settings.calorieGoal}</Text>
+              )}
             </View>
             <View style={styles.goalBarContainer}>
-              <View 
+              <View
                 style={[
-                  styles.goalBar, 
-                  { 
+                  styles.goalBar,
+                  {
                     width: `${Math.min(caloriePercent, 100)}%`,
                     backgroundColor: colors.primary
                   }
-                ]} 
+                ]}
               />
             </View>
             <Text style={styles.goalPercent}>{caloriePercent}%</Text>
           </View>
 
-          <View style={styles.goalItem}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalName}>Carbs</Text>
-              <Text style={styles.goalValues}>{nutrition.carbs}g / {settings.carbsGoal}g</Text>
-            </View>
-            <View style={styles.goalBarContainer}>
-              <View 
-                style={[
-                  styles.goalBar, 
-                  { 
-                    width: `${Math.min(carbsGoalPercent, 100)}%`,
-                    backgroundColor: MACRO_COLORS.carbs
-                  }
-                ]} 
-              />
-            </View>
-            <Text style={styles.goalPercent}>{carbsGoalPercent}%</Text>
-          </View>
+          {(() => {
+            const macroGoalItems = [
+              {
+                key: 'protein',
+                name: t('protein'),
+                current: nutrition.protein,
+                goal: settings.proteinGoal,
+                percent: proteinGoalPercent,
+                color: MACRO_COLORS.protein,
+              },
+              {
+                key: 'carbs',
+                name: t('carbs'),
+                current: nutrition.carbs,
+                goal: settings.carbsGoal,
+                percent: carbsGoalPercent,
+                color: MACRO_COLORS.carbs,
+              },
+              {
+                key: 'fat',
+                name: t('fat'),
+                current: nutrition.fats,
+                goal: settings.fatsGoal,
+                percent: fatsGoalPercent,
+                color: MACRO_COLORS.fat,
+              }
+            ];
 
-          <View style={styles.goalItem}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalName}>Fat</Text>
-              <Text style={styles.goalValues}>{nutrition.fats}g / {settings.fatsGoal}g</Text>
-            </View>
-            <View style={styles.goalBarContainer}>
-              <View 
-                style={[
-                  styles.goalBar, 
-                  { 
-                    width: `${Math.min(fatsGoalPercent, 100)}%`,
-                    backgroundColor: MACRO_COLORS.fat
-                  }
-                ]} 
-              />
-            </View>
-            <Text style={styles.goalPercent}>{fatsGoalPercent}%</Text>
-          </View>
-
-          <View style={styles.goalItem}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalName}>Protein</Text>
-              <Text style={styles.goalValues}>{nutrition.protein}g / {settings.proteinGoal}g</Text>
-            </View>
-            <View style={styles.goalBarContainer}>
-              <View 
-                style={[
-                  styles.goalBar, 
-                  { 
-                    width: `${Math.min(proteinGoalPercent, 100)}%`,
-                    backgroundColor: MACRO_COLORS.protein
-                  }
-                ]} 
-              />
-            </View>
-            <Text style={styles.goalPercent}>{proteinGoalPercent}%</Text>
-          </View>
+            return macroGoalItems.map((item) => (
+              <View key={item.key} style={styles.goalItem}>
+                <View style={styles.goalHeader}>
+                  <Text style={styles.goalName}>{item.name}</Text>
+                  {isRTL ? (
+                    <Text style={styles.goalValues}>{item.goal}{t('g')} / {item.current}{t('g')}</Text>
+                  ) : (
+                    <Text style={styles.goalValues}>{item.current}{t('g')} / {item.goal}{t('g')}</Text>
+                  )}
+                </View>
+                <View style={styles.goalBarContainer}>
+                  <View
+                    style={[
+                      styles.goalBar,
+                      {
+                        width: `${Math.min(item.percent, 100)}%`,
+                        backgroundColor: item.color
+                      }
+                    ]}
+                  />
+                </View>
+                <Text style={styles.goalPercent}>{item.percent}%</Text>
+              </View>
+            ));
+          })()}
         </View>
 
 <View 
@@ -605,7 +700,7 @@ const units: MeasurementUnit[] = [
           onPress={handleLogFood}
           activeOpacity={0.85}
         >
-          <Text style={styles.logButtonText}>Add to {MEAL_OPTIONS.find(m => m.key === selectedMeal)?.label}</Text>
+          <Text style={styles.logButtonText}>{t('addTo')} {MEAL_OPTIONS.find(m => m.key === selectedMeal)?.label}</Text>
         </TouchableOpacity>
       </View>
 
@@ -930,4 +1025,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
+  rtlText:{
+    textAlign: 'left',
+  }
 });

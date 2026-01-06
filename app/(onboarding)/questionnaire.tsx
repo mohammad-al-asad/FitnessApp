@@ -30,26 +30,6 @@ interface QuestionnaireData {
   allergies: string;
 }
 
-const ACTIVITY_LEVELS = [
-  { key: 'sedentary', label: 'Sedentary', description: 'Little to no exercise (desk job)' },
-  { key: 'lightly_active', label: 'Lightly Active', description: 'Light exercise 1-3 days/week' },
-  { key: 'moderately_active', label: 'Moderately Active', description: 'Moderate exercise 3-5 days/week' },
-  { key: 'very_active', label: 'Very Active', description: 'Hard exercise 6-7 days/week' },
-  { key: 'extremely_active', label: 'Extremely Active', description: 'Very hard exercise or physical job' },
-] as const;
-
-const GENDERS = [
-  { key: 'male', label: 'Male', description: 'Biological male' },
-  { key: 'female', label: 'Female', description: 'Biological female' },
-] as const;
-
-const GOALS = [
-  { key: 'lose_weight', label: 'Lose Weight', description: 'Create a calorie deficit to lose weight' },
-  { key: 'maintain_weight', label: 'Maintain Weight', description: 'Keep your current weight stable' },
-  { key: 'gain_weight', label: 'Gain Weight', description: 'Increase calories to gain weight' },
-  { key: 'build_muscle', label: 'Build Muscle', description: 'Focus on protein and strength training' },
-] as const;
-
 export default function QuestionnaireScreen() {
   const { saveSettings } = useNutrition();
 
@@ -60,9 +40,29 @@ export default function QuestionnaireScreen() {
     });
   }, []);
 
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const colors = useSafeColors();
   const router = useRouter();
+
+  const ACTIVITY_LEVELS = [
+    { key: 'sedentary', label: t('sedentary'), description: t('sedentaryDesc') },
+    { key: 'lightly_active', label: t('lightlyActive'), description: t('lightlyActiveDesc') },
+    { key: 'moderately_active', label: t('moderatelyActive'), description: t('moderatelyActiveDesc') },
+    { key: 'very_active', label: t('veryActive'), description: t('veryActiveDesc') },
+    { key: 'extremely_active', label: t('extremelyActive'), description: t('extremelyActiveDesc') },
+  ] as const;
+
+  const GENDERS = [
+    { key: 'male', label: t('male'), description: t('maleDesc') },
+    { key: 'female', label: t('female'), description: t('femaleDesc') },
+  ] as const;
+
+  const GOALS = [
+    { key: 'lose_weight', label: t('loseWeight'), description: t('loseWeightDesc') },
+    { key: 'maintain_weight', label: t('maintainWeight'), description: t('maintainWeightDesc') },
+    { key: 'gain_weight', label: t('gainWeight'), description: t('gainWeightDesc') },
+    { key: 'build_muscle', label: t('buildMuscle'), description: t('buildMuscleDesc') },
+  ] as const;
 
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [data, setData] = useState<QuestionnaireData>({
@@ -239,14 +239,14 @@ if (questionnaireSettings) {
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <User size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>What&apos;s your age?</Text>
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('whatsYourAge')}</Text>
               <Text style={[styles.stepDescription, { color: colors.text }]}>
-                This helps us calculate your personalized nutrition goals
+                {t('helpsCalculateGoals')}
               </Text>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>Age</Text>
+              <Text style={[styles.label, { color: colors.text }]}>{t('age')}</Text>
               <WheelPicker
                 data={ageData}
                 selectedValue={data.age}
@@ -263,19 +263,19 @@ if (questionnaireSettings) {
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <User size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>What&apos;s your height?</Text>
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('whatsYourHeight')}</Text>
               <Text style={[styles.stepDescription, { color: colors.text }]}>
-                Height is important for calculating your daily calorie needs
+                {t('heightHelps')}
               </Text>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>Height</Text>
+              <Text style={[styles.label, { color: colors.text }]}>{t('height')}</Text>
               <WheelPicker
                 data={heightData}
                 selectedValue={data.height}
                 onValueChange={(value: number) => updateData('height', value)}
-                suffix=" cm"
+                suffix={isRTL ? 'سم' : ' cm'}
                 testID="height-picker"
               />
               {errors.height && <Text style={[styles.errorText, { color: colors.error }]}>{errors.height}</Text>}
@@ -288,19 +288,19 @@ if (questionnaireSettings) {
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <User size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>Current weight?</Text>
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('currentWeight')}</Text>
               <Text style={[styles.stepDescription, { color: colors.text }]}>
-                This helps us track your progress and set realistic goals
+                {t('helpsTrackProgress')}
               </Text>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>Current Weight</Text>
+              <Text style={[styles.label, { color: colors.text }]}>{t('currentWeightLabel')}</Text>
               <WheelPicker
                 data={weightData}
                 selectedValue={data.weight}
                 onValueChange={(value: number) => updateData('weight', value)}
-                suffix=" kg"
+                suffix={isRTL ? 'كجم' : ' kg'}
                 testID="weight-picker"
               />
               {errors.weight && <Text style={[styles.errorText, { color: colors.error }]}>{errors.weight}</Text>}
@@ -313,9 +313,9 @@ if (questionnaireSettings) {
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <User size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>What&apos;s your gender?</Text>
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('whatsYourGender')}</Text>
               <Text style={[styles.stepDescription, { color: colors.text }]}>
-                This helps us calculate more accurate calorie needs
+                {t('helpsAccurateNeeds')}
               </Text>
             </View>
 
@@ -353,9 +353,9 @@ if (questionnaireSettings) {
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <Activity size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>How active are you?</Text>
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('howActiveAreYou')}</Text>
               <Text style={[styles.stepDescription, { color: colors.text }]}>
-                This helps determine how many calories you need each day
+                {t('helpsDetermineCalories')}
               </Text>
             </View>
 
@@ -393,9 +393,9 @@ if (questionnaireSettings) {
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <Target size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>What&apos;s your goal?</Text>
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('whatsYourGoal')}</Text>
               <Text style={[styles.stepDescription, { color: colors.text }]}>
-                Choose the goal that best matches what you want to achieve
+                {t('chooseGoal')}
               </Text>
             </View>
 
@@ -441,7 +441,7 @@ if (questionnaireSettings) {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Target Weight</Text>
+                <Text style={[styles.label, { color: colors.text }]}>{t('targetWeight')}</Text>
                 <WheelPicker
                   data={weightData}
                   selectedValue={data.targetWeight || 70}
@@ -463,18 +463,18 @@ if (questionnaireSettings) {
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <Calendar size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>Any medical conditions?</Text>
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('anyMedicalConditions')}</Text>
               <Text style={[styles.stepDescription, { color: colors.text }]}>
-                This helps us provide better recommendations (optional)
+                {t('helpsBetterRecs')}
               </Text>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>Medical Conditions</Text>
+              <Text style={[styles.label, { color: colors.text }]}>{t('medicalConditions')}</Text>
               <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
                 <TextInput
-                  style={[styles.input, styles.textArea, { color: colors.text }]}
-                  placeholder="Diabetes, heart conditions, etc. (optional)"
+                  style={[styles.input, styles.textArea, { color: colors.text, textAlign: isRTL ? 'right' : 'left' }]}
+                  placeholder={t('medicalConditionsPlaceholder')}
                   placeholderTextColor={colors.placeholder}
                   value={data.medicalConditions}
                   onChangeText={(value) => updateData('medicalConditions', value)}
@@ -500,11 +500,11 @@ if (questionnaireSettings) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>Food Allergies</Text>
+              <Text style={[styles.label, { color: colors.text }]}>{t('foodAllergies')}</Text>
               <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
                 <TextInput
-                  style={[styles.input, styles.textArea, { color: colors.text }]}
-                  placeholder="Nuts, dairy, gluten, etc. (optional)"
+                  style={[styles.input, styles.textArea, { color: colors.text, textAlign: isRTL ? 'right' : 'left' }]}
+                  placeholder={t('foodAllergiesPlaceholder')}
                   placeholderTextColor={colors.placeholder}
                   value={data.allergies}
                   onChangeText={(value) => updateData('allergies', value)}
@@ -529,7 +529,7 @@ if (questionnaireSettings) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <Text style={[styles.logo, { color: colors.accent }]}>FITCO</Text>
-        <Text style={[styles.subtitle, { color: colors.text }]}>Let&apos;s personalize your experience</Text>
+        <Text style={[styles.subtitle, { color: colors.text }]}>{t('personalizeExperience')}</Text>
 
         <View style={styles.progressContainer}>
           {Array.from({ length: (data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 9 : 8 }, (_, i) => (
@@ -551,13 +551,13 @@ if (questionnaireSettings) {
       <View style={styles.footer}>
         {currentStep > 0 && (
           <TouchableOpacity style={styles.backButton} onPress={handleBack} testID="back-button">
-            <Text style={[styles.backButtonText, { color: colors.accent }]}>Back</Text>
+            <Text style={[styles.backButtonText, { color: colors.accent }]}>{t('back')}</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity style={[styles.nextButton, { backgroundColor: colors.accent }]} onPress={handleNext} testID="next-button">
           <Text style={[styles.nextButtonText, { color: colors.background }]}>
-            {currentStep === ((data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 8 : 7) ? 'Complete Setup' : 'Next'}
+            {currentStep === ((data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 8 : 7) ? t('completeSetupButton') : t('nextAr')}
           </Text>
           <ChevronRight size={20} color={colors.background} />
         </TouchableOpacity>

@@ -209,10 +209,10 @@ const styles = StyleSheet.create({
   },
   // RTL Styles
   rtlText: {
-    textAlign: 'right',
+    textAlign: 'left',
   },
   rtlRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
   },
 
 

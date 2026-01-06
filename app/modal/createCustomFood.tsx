@@ -1,11 +1,15 @@
 import colors from '@/constants/colors';
-import { addFoodToSheet } from '@/services/googleSheetService';
+import { useLanguage } from '@/hooks/language-context';
+import { addFoodToSheet, getFoodByBarcode } from '@/services/googleSheetService';
+import { responsiveHeight, responsiveWidth } from '@/utilities/ScalingUtils';
+import Barcode from '@alexartisan/react-native-barcode-builder';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Save, ScanBarcode, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -30,21 +34,68 @@ export default function CreateCustomFoodScreen() {
   const [carbs, setCarbs] = useState('');
   const [fats, setFats] = useState('');
   const [loading, setLoading] = useState(false);
+  const { t, isRTL } = useLanguage();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
 
 // STEP 2: read barcode coming from scanner
 const params = useLocalSearchParams();
 
-if (params.barcode && barcode === '') {
-  setBarcode(params.barcode.toString());
-}
+useEffect(() => {
+  const showListener = Keyboard.addListener(
+    'keyboardDidShow',
+    (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    }
+  );
+
+  const hideListener = Keyboard.addListener(
+    'keyboardDidHide',
+    () => {
+      setKeyboardHeight(0);
+    }
+  );
+
+  return () => {
+    showListener.remove();
+    hideListener.remove();
+  };
+}, []);
+
+useEffect(() => {
+  const lookupFood = async () => {
+    if (params.barcode && !barcode) {
+      const scannedBarcode = params.barcode.toString();
+      setBarcode(scannedBarcode);
+
+      const existingFood = await getFoodByBarcode(scannedBarcode);
+
+
+      if (existingFood) {
+        setFoodName(existingFood.PRODUCT || '');
+        setBrandName(existingFood.BRAND || '');
+        setServingSize(existingFood["SERVING SIZE"] || '');
+        setCalories(existingFood.CALORIES?.toString() || '');
+        setProtein(existingFood.PROTEIN?.toString() || '');
+        setCarbs(existingFood.CARBS?.toString() || '');
+        setFats(existingFood.FAT?.toString() || '');
+      }
+    }
+  };
+
+  lookupFood();
+}, [params.barcode, barcode]);
 
 
 
 
   const handleSave = async () => {
     if (!foodName || !calories) {
-      Alert.alert("Missing fields", "Please fill at least the food name and calories.");
+      Alert.alert(t('missingFields') as string, t('fillRequiredFields') as string);
+      return;
+    }
+    if (!servingSize || !servingSize.match(/^\d+(?:g|ml)?$/)) {
+      Alert.alert(t('invalidServingSize') as string, t('pleaseEnterValidServingSize') as string);
       return;
     }
 
@@ -62,10 +113,10 @@ if (params.barcode && barcode === '') {
 });
 
 
-      Alert.alert("✅ Success", "Food added to your database!");
+      Alert.alert(t('success') as string, t('foodAddedToDatabase') as string);
       router.back();
     } catch (error) {
-      Alert.alert("❌ Error", "Failed to save food. Try again.");
+      Alert.alert(t('error') as string, t('failedToSaveFood') as string);
     } finally {
       setLoading(false);
     }
@@ -73,12 +124,12 @@ if (params.barcode && barcode === '') {
 
   return (
     <KeyboardAvoidingView 
-      style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}
+      style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background, paddingBottom: keyboardHeight }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Stack.Screen 
         options={{ 
-          title: 'Create Custom Food',
+          title: t('createCustomFood'),
           headerShown: false,
         }} 
       />
@@ -92,7 +143,7 @@ if (params.barcode && barcode === '') {
         >
           <X size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Create Food</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('createFoodTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -105,7 +156,7 @@ if (params.barcode && barcode === '') {
         <TouchableOpacity 
           style={[styles.scannerCard, { backgroundColor: colors.surface, borderColor: colors.primary }]}
           activeOpacity={0.7}
-          onPress={() => router.push('/scanBarcode')}
+          onPress={() => router.push('/scanBarcode?source=createCustom')}
 
 
 
@@ -114,77 +165,83 @@ if (params.barcode && barcode === '') {
             <ScanBarcode size={28} color={colors.primary} />
           </View>
           <View style={styles.scannerContent}>
-            <Text style={[styles.scannerTitle, { color: colors.text }]}>Scan Barcode</Text>
+            <Text style={[styles.scannerTitle, { color: colors.text }]}>{t('scanBarcode')}</Text>
             <Text style={[styles.scannerSubtitle, { color: colors.placeholder }]}>
-              Quick way to add food info
+              {t('quickWayToAddFoodInfo')}
             </Text>
           </View>
         </TouchableOpacity>
 
+        {barcode && (
+          <View style={styles.barcodeContainer}>
+        <Barcode value={barcode} format="CODE128" text={barcode}  />
+        </View>
+        )}
+
         {/* Food Information Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Information</Text>
+        <View style={[styles.section, { direction: isRTL ? 'rtl' : 'ltr' }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text,textAlign: 'left' }]}>{t('basicInformation')}</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.placeholder }]}>Food Name *</Text>
+            <Text style={[styles.inputLabel, { color: colors.placeholder,textAlign: 'left' }]}>{t('foodName')} *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border,textAlign: isRTL ? 'right' : 'left' }]}
               value={foodName}
               onChangeText={setFoodName}
-              placeholder="e.g., Chicken Breast"
+              placeholder={t('foodNamePlaceholder')}
               placeholderTextColor={colors.placeholder}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.placeholder }]}>Brand (Optional)</Text>
+            <Text style={[styles.inputLabel, { color: colors.placeholder,textAlign: 'left' }]}>{t('brandOptional')}</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border,textAlign: isRTL ? 'right' : 'left' }]}
               value={brandName}
               onChangeText={setBrandName}
-              placeholder="e.g., Almarai"
+              placeholder={t('brandOptionalPlaceholder')}
               placeholderTextColor={colors.placeholder}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.placeholder }]}>Serving Size *</Text>
+            <Text style={[styles.inputLabel, { color: colors.placeholder,textAlign: 'left' }]}>{t('servingSize')} *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+              style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border,textAlign: isRTL ? 'right' : 'left' }]}
               value={servingSize}
               onChangeText={setServingSize}
-              placeholder="e.g., 100g or 1 cup"
+              placeholder={t('servingSizePlaceholder')}
               placeholderTextColor={colors.placeholder}
             />
           </View>
         </View>
 
         {/* Macronutrients Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Nutrition Facts</Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.placeholder }]}>
-            Per serving size
+        <View style={[styles.section, { direction: isRTL ? 'rtl' : 'ltr' }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text,textAlign: 'left' }]}>{t('nutritionFacts')}</Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.placeholder,textAlign: 'left' }]}>
+            {t('perServing')}
           </Text>
 
           {/* Macro Inputs */}
           {[
-            { label: 'Calories', color: '#EF4444', value: calories, setValue: setCalories, unit: 'kcal' },
-            { label: 'Protein', color: '#1E90FF', value: protein, setValue: setProtein, unit: 'g' },
-            { label: 'Carbs', color: '#F4C542', value: carbs, setValue: setCarbs, unit: 'g' },
-            { label: 'Fats', color: '#9B59B6', value: fats, setValue: setFats, unit: 'g' },
+            { label: t('caloriesLabel'), color: '#EF4444', value: calories, setValue: setCalories, unit: t('kcal') },
+            { label: t('protein'), color: '#1E90FF', value: protein, setValue: setProtein, unit: t('g') },
+            { label: t('carbs'), color: '#F4C542', value: carbs, setValue: setCarbs, unit: t('g') },
+            { label: t('fats'), color: '#9B59B6', value: fats, setValue: setFats, unit: t('g') },
           ].map((macro, index) => (
-            <View key={index} style={[styles.macroCard, { backgroundColor: colors.surface }]}>
+            <View key={index} style={[styles.macroCard, { backgroundColor: colors.surface,direction: isRTL ? 'rtl' : 'ltr' }]}>
               <View style={styles.macroCardContent}>
                 <View style={[styles.macroIconContainer, { backgroundColor: macro.color + '20' }]}>
                   <View style={[styles.macroIconDot, { backgroundColor: macro.color }]} />
                 </View>
-                <View style={styles.macroInfo}>
+                <View style={[styles.macroInfo,{alignItems: isRTL ? 'flex-start' : 'flex-start', paddingRight: isRTL && Platform.OS === 'ios' ? responsiveWidth(3) : 0 }]}>
                   <Text style={[styles.macroLabel, { color: colors.text }]}>{macro.label}</Text>
                   <Text style={[styles.macroUnit, { color: colors.placeholder }]}>{macro.unit}</Text>
                 </View>
               </View>
               <TextInput
-                style={[styles.macroInput, { color: colors.text }]}
+                style={[styles.macroInput, { color: colors.text,textAlign: isRTL ? 'right' : 'left' }]}
                 value={macro.value}
                 onChangeText={macro.setValue}
                 placeholder="0"
@@ -199,7 +256,7 @@ if (params.barcode && barcode === '') {
       </ScrollView>
 
       {/* Save Button */}
-      <View style={[styles.saveButtonContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+      <View style={[styles.saveButtonContainer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: keyboardHeight + 20 }]}>
         <TouchableOpacity 
           style={[styles.saveButton, { backgroundColor: colors.primary }]}
           activeOpacity={0.8}
@@ -212,7 +269,7 @@ if (params.barcode && barcode === '') {
             <>
               <Save size={20} color={colors.background} />
               <Text style={[styles.saveButtonText, { color: colors.background }]}>
-                Save Custom Food
+                {t('saveCustomFood')}
               </Text>
             </>
           )}
@@ -240,7 +297,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   headerTitle: { fontSize: 18, fontWeight: '600' },
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
+  content: { flex: 1, paddingTop: 20, marginHorizontal: 20, },
   scannerCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -312,4 +369,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   saveButtonText: { fontSize: 16, fontWeight: '600', letterSpacing: 0.3 },
+  rtlSection: {
+    flexDirection: 'row-reverse',
+  },
+  barcodeContainer: {
+    paddingVertical: responsiveHeight(1),
+    paddingHorizontal: responsiveWidth(1),
+    marginBottom: responsiveHeight(1),
+  },
 });

@@ -1,5 +1,6 @@
 // FloatingFitBot — draggable floating chat button and full-screen modal for the Fitco AI assistant; handles user messages, typing animation, and offline demo replies.
 
+import { useLanguage } from '@/hooks/language-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from "expo-router";
 import { Send, X } from 'lucide-react-native';
@@ -52,6 +53,7 @@ export default function FloatingFitBot({ bottom = 100, right = 20 }: FloatingFit
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { isRTL } = useLanguage();
 
   const scrollViewRef = useRef<ScrollView>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -375,7 +377,7 @@ Keep replies short, friendly, and helpful — one to three sentences max. You ca
             <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 10 }]}>
               <View className="inputWrapper" style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
                   value={inputText}
                   onChangeText={setInputText}
                   placeholder="Ask me anything about fitness..."

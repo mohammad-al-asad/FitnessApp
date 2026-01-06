@@ -57,7 +57,7 @@ const colors = useSafeColors();
     const today = new Date();
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - progressData.currentStreak + 1);
-    return startDate.toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { 
+    return startDate.toLocaleDateString(isRTL ? 'ar-SA-u-ca-gregory' : 'en-US', { 
       month: 'short', 
       day: 'numeric', 
       year: 'numeric' 
@@ -85,7 +85,7 @@ const colors = useSafeColors();
 
   const weekDays = getThisWeekDays();
   const dayLabels = isRTL 
-    ? ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+    ? ['احد', 'اثنين', 'ثلاثاء', 'اربعاء', 'خميس', 'جمعة', 'سبت']
     : ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
   const nextMilestone = Math.ceil((progressData.currentStreak + 1) / 7) * 7;
@@ -150,7 +150,7 @@ const colors = useSafeColors();
           {t('dayStreak').toUpperCase()}
         </Text>
 
-        <View style={[styles.statsRow, isRTL && styles.statsRowRTL]}>
+        <View style={[styles.statsRow]}>
           <View style={styles.statItem}>
             <Text style={[styles.statDate, { color: colors.text }]}>
               {getStreakStartDate()}
@@ -170,17 +170,17 @@ const colors = useSafeColors();
               <Info size={16} color={colors.placeholder} />
             </View>
             <Text style={[styles.statLabel, { color: colors.placeholder }]}>
-              {isRTL ? 'أقصى سلسلة' : 'Max streak'}
+              {isRTL ? 'اعلى سلسلة' : 'Max streak'}
             </Text>
           </View>
         </View>
 
         <View style={[styles.weekCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.weekTitle, { color: colors.text }]}>
-            {isRTL ? 'هذا الأسبوع' : 'THIS WEEK'}
+          <Text style={[styles.weekTitle, { color: colors.text, textAlign: isRTL ? 'left' : 'left' }]}>
+            {isRTL ? 'هذا الاسبوع' : 'THIS WEEK'}
           </Text>
           
-          <View style={[styles.weekDays, isRTL && styles.weekDaysRTL]}>
+          <View style={[styles.weekDays]}>
             {weekDays.map((day, index) => {
               const actualDayIndex = isRTL ? (6 - index) : day.dayIndex;
               return (
@@ -208,7 +208,7 @@ const colors = useSafeColors();
         </View>
 
         <View style={[styles.milestoneCard, { backgroundColor: colors.surface }]}>
-          <View style={[styles.milestoneRow, isRTL && styles.milestoneRowRTL]}>
+          <View style={[styles.milestoneRow]}>
             <View style={styles.milestoneCircle}>
               <View style={[styles.milestoneFlame, { opacity: 0.5 }]}>
                 <View style={styles.miniFlame} />
@@ -221,13 +221,13 @@ const colors = useSafeColors();
             <View style={styles.milestoneProgress}>
               <Text style={[styles.milestoneText, { color: colors.text }]}>
                 {isRTL 
-                  ? `${daysToMilestone} أيام أخرى`
+                  ? `${daysToMilestone} الأيام المتبقية`
                   : `${daysToMilestone} more days`
                 }
               </Text>
               <Text style={[styles.milestoneSubtext, { color: colors.placeholder }]}>
                 {isRTL 
-                  ? 'لفتح المرحلة التالية.'
+                  ? 'لفتح الانجاز القادم.'
                   : 'to unlock your next milestone.'}
               </Text>
               
@@ -384,9 +384,6 @@ const styles = StyleSheet.create({
     marginTop: 40,
     marginBottom: 32,
   },
-  statsRowRTL: {
-    flexDirection: 'row-reverse',
-  },
   statItem: {
     flex: 1,
     alignItems: 'center',
@@ -423,9 +420,6 @@ const styles = StyleSheet.create({
   weekDays: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  weekDaysRTL: {
-    flexDirection: 'row-reverse',
   },
   dayColumn: {
     alignItems: 'center',
@@ -467,9 +461,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-  },
-  milestoneRowRTL: {
-    flexDirection: 'row-reverse',
   },
   milestoneCircle: {
     width: 64,

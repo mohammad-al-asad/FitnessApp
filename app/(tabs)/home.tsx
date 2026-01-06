@@ -8,10 +8,10 @@ import { useLanguage, useSafeColors } from '@/hooks/language-context';
 import { useNutrition } from '@/hooks/nutrition-store';
 import { useRouter } from 'expo-router';
 import { Award, Flame, Target, TrendingUp, Zap } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
+import { responsiveWidth } from '@/utilities/ScalingUtils';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HomeScreen() {
@@ -129,7 +129,7 @@ const todayLog = {
   if (notReady) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text>WAITING FOR DATA</Text>
+        <Text>{t('waitingForData')}</Text>
       </View>
     );
   }
@@ -142,13 +142,18 @@ const todayLog = {
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={[styles.header, isRTL && styles.rtlRow]}>
+      <View
+        style={[
+        styles.header,
+        isRTL ? { paddingLeft: 20 } : { paddingLeft: 20 },
+        ]}
+        >
           <View style={isRTL ? styles.rtlAlign : undefined}>
             <Text style={[styles.greeting, isRTL && styles.rtlText, { color: colors.text }]}>
-              Hey there!
+            {t('heyThere')}
             </Text>
             <Text style={[styles.subtitle, isRTL && styles.rtlText, { color: colors.placeholder }]}>
-              Ready to log your day?
+            {t('readyToLog')}
             </Text>
           </View>
 
@@ -163,7 +168,6 @@ const todayLog = {
           <Text
             style={[
               styles.caloriesTitle,
-              isRTL && styles.rtlText,
               { color: colors.text, textAlign: 'center' },
             ]}
           >
@@ -171,29 +175,29 @@ const todayLog = {
           </Text>
 
           <View style={styles.caloriesProgress}>
-            <CalorieCircle current={todayLog.totalCalories} goal={safeSettings.calorieGoal} size={160} />
+            <CalorieCircle current={todayLog.totalCalories} goal={safeSettings.calorieGoal} size={170} />
 
-            <View style={[styles.macrosGrid, isRTL && { flexDirection: 'row-reverse' }]}>
+            <View style={[styles.macrosGrid]}>
              <MacroCircle
   label={String(t('protein'))}
   current={todayLog.totalProtein}
   goal={safeSettings.proteinGoal}
   color={MacroColors.protein}
-  size={90}
+  size={responsiveWidth(27)}
 />
 <MacroCircle
   label={String(t('carbs'))}
   current={todayLog.totalCarbs}
   goal={safeSettings.carbsGoal}
   color={MacroColors.carbs}
-  size={90}
+  size={responsiveWidth(27)}
 />
 <MacroCircle
   label={String(t('fats'))}
   current={todayLog.totalFats}
   goal={safeSettings.fatsGoal}
   color={MacroColors.fats}
-  size={90}
+  size={responsiveWidth(27)}
 />
 
             </View>
@@ -201,7 +205,7 @@ const todayLog = {
         </View>
 
         <View style={[styles.weeklySummaryCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, isRTL && styles.rtlText, { color: colors.text }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text, textAlign: isRTL ? 'left' : 'left' }]}>
             {t('weeklySummary')}
           </Text>
 
@@ -307,7 +311,7 @@ const todayLog = {
                 <Text
                   style={[styles.insightValue, isRTL && styles.rtlText, { color: colors.placeholder }]}
                 >
-                  {Math.round(todayLog.totalProtein)}g / {safeSettings.proteinGoal}g
+                  {Math.round(todayLog.totalProtein)}{t('g')} / {safeSettings.proteinGoal}{t('g')}
                 </Text>
               </View>
             </View>
@@ -343,7 +347,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingRight: 20,
     paddingVertical: 16,
   },
   greeting: { fontSize: 27, fontWeight: '700' },
@@ -380,7 +384,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-evenly',
     alignItems: 'center',
     marginTop: 30,
-    gap: 12,
+    gap: responsiveWidth(1),
   },
 
   weeklySummaryCard: { marginHorizontal: 20, marginBottom: 20, borderRadius: 16, padding: 20 },
@@ -404,9 +408,9 @@ const styles = StyleSheet.create({
   insightTitle: { fontSize: 14, fontWeight: '500', marginBottom: 2 },
   insightValue: { fontSize: 13 },
 
-  rtlText: { textAlign: 'right' },
+  rtlText: { textAlign: 'left',paddingRight: 10 },
   rtlRow: { flexDirection: 'row-reverse' },
-  rtlAlign: { alignItems: 'flex-end' },
+  rtlAlign: { alignItems: 'flex-start' },
 
   caloriesStatsRTL: { flexDirection: 'column-reverse' },
   statRowRTL: { flexDirection: 'row-reverse' },

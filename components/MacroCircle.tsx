@@ -29,7 +29,7 @@ export default function MacroCircle({
   size = 80,
 }: MacroCircleProps) {
   const colors = useSafeColors();
-  const { isRTL } = useLanguage();
+  const { isRTL, t } = useLanguage();
 
   const overLimit = current > goal;
   const percentage = Math.min((current / goal) * 100, 100);
@@ -107,7 +107,7 @@ export default function MacroCircle({
 
         {overLimit && (
           <Text style={[styles.overText, { color }]}>
-            {`${Math.round(current - goal)}g over`}
+            {`${Math.round(current - goal)} ${' ' + t('g') + ' ' + t('over')}`}
           </Text>
         )}
       </View>
@@ -140,7 +140,7 @@ export function CalorieCircle({
     <View
       style={[
         styles.container,
-        { width: size, height: size },
+        { width: size , height: size },
       ]}
     >
       {overLimit && (
@@ -208,12 +208,12 @@ export function CalorieCircle({
         >
           {isRTL
             ? `${t("ofDailyGoal")} ${Math.round(goal)} ${t("cal")}`
-            : `of ${Math.round(goal)} ${t("cal")}`}
+            : `${t("ofCalories")} ${Math.round(goal)} ${t("cal")}`}
         </Text>
 
         {overLimit && (
           <Text style={[styles.overText, { color: circleColor }]}>
-            {`${Math.round(current - goal)} cal over`}
+            {`${Math.round(current - goal)} ${' ' + t('cal') + ' ' + t('over')}`}
           </Text>
         )}
       </View>

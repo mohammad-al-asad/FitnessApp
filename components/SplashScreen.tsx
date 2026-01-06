@@ -1,6 +1,6 @@
 // SplashScreen — animated intro displaying the "FITCO" logo and tagline with smooth letter-by-letter transitions before entering the main app.
-console.log("🔥 Splash version B loaded");
-
+import { translations } from "@/constants/translations";
+import { useLanguage } from "@/hooks/language-context";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
@@ -15,15 +15,10 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
     text: "#FFFFFF",
   };
 
+  const { t, isRTL } = useLanguage();
 
-  
-  const taglines = [
-    "Step. Track. Transform.",
-    "Take the first step… we’ll do the rest.",
-    "Your journey starts here.",
-    "Step forward — we’ve got you.",
-    "Consistency is power.",
-  ];
+  const taglines = isRTL ? translations.ar.splash_taglines : translations.en.splash_taglines;
+
 
   const [tagline, setTagline] = useState("");
   useEffect(() => {
@@ -53,40 +48,37 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
   useEffect(() => {
     const letterSequence = letterAnimations.map((anim, i) =>
       Animated.sequence([
-        Animated.delay(i * 100),
+        Animated.delay(i * 60),
         Animated.timing(anim, {
           toValue: 1,
-          duration: 800,
+          duration: 450,
           useNativeDriver: true,
         }),
       ])
     );
 
     Animated.parallel(letterSequence).start(() => {
-      // ✨ Fade in tagline first, then Made in Saudi slightly after
-Animated.sequence([
-  Animated.timing(sloganAnimation, {
-    toValue: 1,
-    duration: 800,
-    delay: 300,
-    useNativeDriver: true,
-  }),
-  Animated.timing(madeInSaudiAnimation, {
-    toValue: 1,
-    duration: 800,
-    delay: 200, // small stagger after tagline
-    useNativeDriver: true,
-  }),
-]).start(() => {
-
-        // ⏳ Hold longer before fading out
+      Animated.sequence([
+        Animated.timing(sloganAnimation, {
+          toValue: 1,
+          duration: 500,
+          delay: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(madeInSaudiAnimation, {
+          toValue: 1,
+          duration: 500,
+          delay: 120,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
         setTimeout(() => {
           Animated.timing(fadeAnimation, {
             toValue: 0,
-            duration: 1000,
+            duration: 500,
             useNativeDriver: true,
           }).start(handleAnimationComplete);
-        }, 2500);
+        }, 900);
       });
     });
   }, []);
@@ -97,12 +89,12 @@ Animated.sequence([
     <Animated.View
       style={[
         styles.container,
-        { opacity: fadeAnimation, backgroundColor: colors.background },
+        { opacity: fadeAnimation, backgroundColor: colors.background, direction: "ltr" },
       ]}
     >
-      <View style={styles.content}>
+      <View style={[styles.content, { direction: "ltr" }]}>
         {/* FITCO animation */}
-        <View style={styles.logoContainer}>
+        <View style={[styles.logoContainer, { direction: "ltr" }]}>
           {letters.map((letter: string, index: number) => {
             const animatedStyle = {
               transform: [
@@ -185,7 +177,7 @@ Animated.sequence([
           ]}
         >
           <Text style={[styles.madeInSaudi, { color: colors.text }]}>
-            ❤️ Made in Saudi
+            {t('madeInSaudi')}
           </Text>
         </Animated.View>
       </View>

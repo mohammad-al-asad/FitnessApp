@@ -97,15 +97,15 @@ const insets = useSafeAreaInsets();
           <View style={styles.macroGoals}>
             <View style={styles.macroGoal}>
               <Text style={[styles.macroLabel, isRTL && styles.rtlText]}>{t('protein')}</Text>
-              <Text style={styles.macroValue}>{localSettings.proteinGoal}g</Text>
+              <Text style={styles.macroValue}>{localSettings.proteinGoal}{t('g')}</Text>
             </View>
             <View style={styles.macroGoal}>
               <Text style={[styles.macroLabel, isRTL && styles.rtlText]}>{t('carbs')}</Text>
-              <Text style={styles.macroValue}>{localSettings.carbsGoal}g</Text>
+              <Text style={styles.macroValue}>{localSettings.carbsGoal}{t('g')}</Text>
             </View>
             <View style={styles.macroGoal}>
               <Text style={[styles.macroLabel, isRTL && styles.rtlText]}>{t('fats')}</Text>
-              <Text style={styles.macroValue}>{localSettings.fatsGoal}g</Text>
+              <Text style={styles.macroValue}>{localSettings.fatsGoal}{t('g')}</Text>
             </View>
           </View>
         </View>
@@ -243,10 +243,10 @@ const styles = StyleSheet.create({
   },
   // RTL Styles
   rtlText: {
-    textAlign: 'right',
+    textAlign: 'left',
   },
   rtlRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
   },
   rtlInput: {
     textAlign: 'right',

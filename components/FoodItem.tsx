@@ -1,3 +1,4 @@
+import { useLanguage } from "@/hooks/language-context";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -8,6 +9,7 @@ interface FoodItemProps {
 }
 
 export default function FoodItem({ loggedFood, onRemove, showRemove = false }: FoodItemProps) {
+  const { t } = useLanguage();
   return (
     <View style={styles.container}>
       <Text
@@ -19,7 +21,7 @@ export default function FoodItem({ loggedFood, onRemove, showRemove = false }: F
 
       {showRemove && (
         <TouchableOpacity onPress={() => onRemove(loggedFood.id)}>
-          <Text style={styles.remove}>Remove</Text>
+          <Text style={styles.remove}>{t('remove')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -32,6 +34,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 8,
+    gap: 10,
   },
  text: {
   color: "#fff",

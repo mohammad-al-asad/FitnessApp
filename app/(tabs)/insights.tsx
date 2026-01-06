@@ -39,7 +39,9 @@ export default function ProgressScreen() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const dayIndex = date.getDay();
-    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const days = isRTL 
+    ? ['احد', 'اثنين', 'ثلاثاء', 'اربعاء', 'خميس', 'جمعة', 'سبت']
+    : ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
     return t(days[dayIndex] as any);
   };
 
@@ -91,12 +93,24 @@ export default function ProgressScreen() {
     ).start();
   }, [weeklyData]);
 
+  const macros = isRTL
+    ? [
+        { key: 'fats', color: MacroColors.fats, goal: settings.fatsGoal },
+        { key: 'carbs', color: MacroColors.carbs, goal: settings.carbsGoal },
+        { key: 'protein', color: MacroColors.protein, goal: settings.proteinGoal },
+      ]
+    : [
+        { key: 'protein', color: MacroColors.protein, goal: settings.proteinGoal },
+        { key: 'carbs', color: MacroColors.carbs, goal: settings.carbsGoal },
+        { key: 'fats', color: MacroColors.fats, goal: settings.fatsGoal },
+      ];
+
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={[styles.title, isRTL && styles.rtlText, { color: colors.text }]}>{t('progress')}</Text>
-          <Text style={[styles.subtitle, isRTL && styles.rtlText, { color: colors.placeholder }]}>{t('trackJourney')}</Text>
+          <Text style={[styles.title, { color: colors.text, textAlign: 'left' }]}>{t('progress')}</Text>
+          <Text style={[styles.subtitle, { color: colors.placeholder, textAlign: 'left' }]}>{t('trackJourney')}</Text>
         </View>
 
         {/* Streak Card */}
@@ -112,20 +126,11 @@ export default function ProgressScreen() {
             </View>
 
             <View style={styles.streakInfo}>
-              <Text style={[styles.streakNumber, { color: colors.text }]}>
+              <Text style={[styles.streakNumber, { color: colors.text, textAlign: isRTL ? 'right' : 'left' }]}>
                 {progressData.currentStreak}
               </Text>
-              <Text style={[styles.streakLabel, isRTL && styles.rtlText, { color: colors.placeholder }]}>
+              <Text style={[styles.streakLabel, isRTL && styles.rtlText, { color: colors.placeholder, textAlign: isRTL ? 'right' : 'left' }]}>
                 {t('dayStreak')}
-              </Text>
-            </View>
-
-            <View style={styles.streakStats}>
-              <Text style={[styles.streakMaxLabel, { color: colors.placeholder }]}>
-                {isRTL ? 'أقصى' : 'Max'}
-              </Text>
-              <Text style={[styles.streakMaxValue, { color: colors.text }]}>
-                {progressData.longestStreak}
               </Text>
             </View>
 
@@ -166,12 +171,8 @@ export default function ProgressScreen() {
     {/* Removed ChevronRight (arrow icon) */}
   </View>
 
-  <Text style={[styles.chartSubtitle, isRTL && styles.rtlText, { color: colors.placeholder }]}>
-    {t('average')}: {getWeeklyAverage('calories')} {t('cal')}/day
-  </Text>
-
   <View style={styles.chart}>
-    <View style={styles.chartBars}>
+    <View style={[styles.chartBars, isRTL && styles.chartBarsRTL]}>
       {(isRTL ? [...weeklyData].reverse() : weeklyData).map((day, i) => (
         <View key={day.date || i} style={styles.barContainer}>
           <Text style={[styles.barValue, { color: colors.text }]}>
@@ -182,10 +183,14 @@ export default function ProgressScreen() {
             style={[
               styles.bar,
               {
-                height: animatedHeights[i]?.interpolate({
-                  inputRange: [0, 100],
-                  outputRange: ['0%', '100%'],
-                }) || '0%',
+                height: isRTL ? animatedHeights[weeklyData.length - 1 - i]?.interpolate({
+                    inputRange: [0, 100],
+                    outputRange: ['0%', '100%'],
+                  }) || '0%'
+                : animatedHeights[i]?.interpolate({
+                    inputRange: [0, 100],
+                    outputRange: ['0%', '100%'],
+                  }) || '0%',
                 backgroundColor: getBarColor(
                   day.calories || 0,
                   settings.calorieGoal,
@@ -207,45 +212,55 @@ export default function ProgressScreen() {
 
         {/* Weekly Macros */}
         <View style={[styles.macrosCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.chartTitle, isRTL && styles.rtlText, { color: colors.text }]}>{t('weeklyMacrosAverage')}</Text>
+          <Text style={[styles.chartTitle, isRTL && styles.rtlText, { color: colors.text, textAlign: isRTL ? 'left' : 'left' }]}>{t('weeklyMacrosAverage')}</Text>
 
           <View style={[styles.macrosList, isRTL && styles.macrosListRTL]}>
-            {(isRTL
-              ? [
-                  { key: 'fats', color: MacroColors.fats, goal: settings.fatsGoal },
-                  { key: 'carbs', color: MacroColors.carbs, goal: settings.carbsGoal },
-                  { key: 'protein', color: MacroColors.protein, goal: settings.proteinGoal },
-                ]
-              : [
-                  { key: 'protein', color: MacroColors.protein, goal: settings.proteinGoal },
-                  { key: 'carbs', color: MacroColors.carbs, goal: settings.carbsGoal },
-                  { key: 'fats', color: MacroColors.fats, goal: settings.fatsGoal },
-                ]
-            ).map((macro) => (
-              <View key={macro.key} style={[styles.macroItem, isRTL && styles.macroItemRTL]}>
-                <View style={[styles.macroColor, { backgroundColor: macro.color }]} />
-                <View style={styles.macroInfo}>
-                  <Text style={[styles.macroName, isRTL && styles.rtlText, { color: colors.text }]}>
-                    {t(macro.key as any)}
-                  </Text>
-                  <Text style={[styles.macroValue, isRTL && styles.rtlText, { color: colors.placeholder }]}>
-                    {getWeeklyAverage(macro.key as any)}g / {macro.goal}g
-                  </Text>
-                </View>
-                <View style={[styles.macroBar, { backgroundColor: colors.border }]}>
-                  <View
-                    style={[
-                      styles.macroBarFill,
-                      {
-                        width: `${Math.min((getWeeklyAverage(macro.key as any) / macro.goal) * 100, 100)}%`,
-                        backgroundColor: macro.color,
-                      },
-                      isRTL && styles.macroBarFillRTL,
-                    ]}
-                  />
-                </View>
-              </View>
-            ))}
+            {macros.map((macro) => {
+  const average = getWeeklyAverage(macro.key as any);
+  const percentage = Math.min((average / macro.goal) * 100, 100);
+
+  return (
+    <View
+      key={macro.key}
+      style={[styles.macroItem, isRTL && styles.macroItemRTL]}
+    >
+      <View
+        style={[styles.macroColor, { backgroundColor: macro.color }]}
+      />
+
+      <View style={styles.macroInfo}>
+        <Text
+          style={[styles.macroName, isRTL && styles.rtlText, { color: colors.text }]}
+        >
+          {t(macro.key as any)}
+        </Text>
+
+        <Text
+          style={[
+            styles.macroValue,
+            isRTL && styles.rtlText,
+            { color: colors.placeholder },
+          ]}
+        >
+          {average}
+          {t('g')} / {macro.goal}
+          {t('g')}
+        </Text>
+      </View>
+
+      <View style={[styles.macroBar, { backgroundColor: colors.border }]}>
+        <View
+          style={[
+            styles.macroBarFill,
+            { width: `${percentage}%`, backgroundColor: macro.color },
+            isRTL && styles.macroBarFillRTL,
+          ]}
+        />
+      </View>
+    </View>
+  );
+})}
+
           </View>
         </View>
       </ScrollView>
@@ -268,6 +283,7 @@ const styles = StyleSheet.create({
   chartSubtitle: { fontSize: 14, marginBottom: 20 },
   chart: { height: 150, position: 'relative', marginTop: 6 },
   chartBars: { flexDirection: 'row', alignItems: 'flex-end', height: 160, paddingBottom: 20 },
+  chartBarsRTL: { flexDirection: 'row-reverse' },
   barContainer: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
   bar: { width: 20, borderRadius: 4, minHeight: 8 },
   barLabel: { fontSize: 12, marginTop: 8, fontWeight: '500' },
@@ -281,14 +297,26 @@ const styles = StyleSheet.create({
   macroValue: { fontSize: 14 },
   macroBar: { width: 80, height: 6, borderRadius: 3 },
   macroBarFill: { height: '100%', borderRadius: 3 },
-  rtlText: { textAlign: 'right', writingDirection: 'rtl' },
-  macrosListRTL: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
-  macroItemRTL: { flexDirection: 'row-reverse', justifyContent: 'flex-end' },
-  macroBarFillRTL: { alignSelf: 'flex-end' },
-  statsContainerRTL: { flexDirection: 'row-reverse' },
+  rtlText: {
+    textAlign: 'right',
+  },
+  macrosListRTL: {
+    direction: 'ltr',
+  },
+  macroItemRTL: {
+    flexDirection: 'row',
+  },
+  macroBarFillRTL: {
+    transform: [{ scaleX: -1 }],
+  },
+  statsContainerRTL: {
+    flexDirection: 'row',
+  },
   streakCard: { marginHorizontal: 20, marginBottom: 20, borderRadius: 20, padding: 20 },
   streakCardContent: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  streakCardContentRTL: { flexDirection: 'row-reverse' },
+  streakCardContentRTL: {
+    flexDirection: 'row',
+  },
   streakFlameContainer: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   streakFlameGlow: { position: 'absolute', width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255, 107, 53, 0.2)' },
   streakInfo: { flex: 1 },

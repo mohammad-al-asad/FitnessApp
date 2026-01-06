@@ -15,29 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 type UserSettings = any;
 
 
-
-
-
-const ACTIVITY_LEVELS = [
-  { key: 'sedentary', label: 'Sedentary', description: 'Little to no exercise (desk job)' },
-  { key: 'lightly_active', label: 'Lightly Active', description: 'Light exercise 1-3 days/week' },
-  { key: 'moderately_active', label: 'Moderately Active', description: 'Moderate exercise 3-5 days/week' },
-  { key: 'very_active', label: 'Very Active', description: 'Hard exercise 6-7 days/week' },
-  { key: 'extremely_active', label: 'Extremely Active', description: 'Very hard exercise or physical job' },
-] as const;
-
-const GENDERS = [
-  { key: 'male', label: 'Male', description: 'Biological male' },
-  { key: 'female', label: 'Female', description: 'Biological female' },
-] as const;
-
-const GOALS = [
-  { key: 'lose_weight', label: 'Lose Weight', description: 'Create a calorie deficit to lose weight' },
-  { key: 'maintain_weight', label: 'Maintain Weight', description: 'Keep your current weight stable' },
-  { key: 'gain_weight', label: 'Gain Weight', description: 'Increase calories to gain weight' },
-  { key: 'build_muscle', label: 'Build Muscle', description: 'Focus on protein and strength training' },
-] as const;
-
 export default function AccountScreen() {
 
 
@@ -50,7 +27,6 @@ export default function AccountScreen() {
 
   
 const navigation = useNavigation();
-
 
 const { user } = useAuth();
 
@@ -87,7 +63,26 @@ const { user } = useAuth();
 
 
   const { t, isRTL } = useLanguage();
+
+  const GENDERS = [
+    { key: 'male', label: String(t('male')), description: String(t('maleDesc')) },
+    { key: 'female', label: String(t('female')), description: String(t('femaleDesc')) },
+  ] as const;
+
+  const ACTIVITY_LEVELS = [
+    { key: 'sedentary', label: t('sedentary'), description: t('sedentaryDesc') },
+    { key: 'lightly_active', label: t('lightlyActive'), description: t('lightlyActiveDesc') },
+    { key: 'moderately_active', label: t('moderatelyActive'), description: t('moderatelyActiveDesc') },
+    { key: 'very_active', label: t('veryActive'), description: t('veryActiveDesc') },
+    { key: 'extremely_active', label: t('extremelyActive'), description: t('extremelyActiveDesc') },
+  ] as const;
   
+  const GOALS = [
+    { key: 'lose_weight', label: t('loseWeight'), description: t('loseWeightDesc') },
+    { key: 'maintain_weight', label: t('maintainWeight'), description: t('maintainWeightDesc') },
+    { key: 'gain_weight', label: t('gainWeight'), description: t('gainWeightDesc') },
+    { key: 'build_muscle', label: t('buildMuscle'), description: t('buildMuscleDesc') },
+  ] as const;
 
 useEffect(() => {
   (async () => {
@@ -237,10 +232,10 @@ if (profileLoading) {
     }
 
     setHasProfileChanges(false);
-    Alert.alert('Success', 'Profile updated and synced!');
+    Alert.alert(t('success') as string, t('profileUpdated') as string);
   } catch (error) {
     console.error('Error updating profile:', error);
-    Alert.alert('Error', 'Failed to update profile. Please try again.');
+    Alert.alert(t('error') as string, t('failedToUpdateProfile') as string);
   }
 };
 
@@ -288,8 +283,8 @@ if (profileLoading) {
             <View style={[styles.menuItemLeft, isRTL && styles.rtlRow]}>
               <User size={20} color={Colors.primary} />
               <View style={styles.menuItemText}>
-                <Text style={[styles.menuItemTitle, isRTL && styles.rtlText]}>Personal Information</Text>
-                <Text style={[styles.menuItemSubtitle, isRTL && styles.rtlText]}>Age, height, weight, activity level</Text>
+                <Text style={[styles.menuItemTitle, isRTL && styles.rtlText]}>{t('personalInformation')}</Text>
+                <Text style={[styles.menuItemSubtitle, isRTL && styles.rtlText]}>{t('ageHeightWeightActivityLevelSubtitle')}</Text>
               </View>
             </View>
             <ChevronRight size={20} color={Colors.placeholder} style={isRTL && { transform: [{ rotate: '180deg' }] }} />
@@ -316,7 +311,7 @@ if (profileLoading) {
                 }
               }}
               keyboardType="numeric"
-             placeholder={String(t('enterWeight'))}
+              placeholder={String(t('enterWeight'))}
 
               placeholderTextColor={Colors.placeholder}
             />
@@ -350,11 +345,11 @@ if (profileLoading) {
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowEditProfile(false)}>
-                <Text style={styles.modalCancel}>Cancel</Text>
+                <Text style={styles.modalCancel}>{t('cancel')}</Text>
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <Text style={styles.modalTitle}>{t('editProfile')}</Text>
               <TouchableOpacity onPress={() => setShowEditProfile(false)}>
-                <Text style={styles.modalDone}>Done</Text>
+                <Text style={styles.modalDone}>{t('done')}</Text>
               </TouchableOpacity>
             </View>
             
@@ -375,23 +370,23 @@ if (profileLoading) {
               <View style={styles.modalSection}>
                     <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
                       <User size={20} color={Colors.primary} />
-                      <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>Basic Information</Text>
+                      <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t('basicInformation')}</Text>
                     </View>
 
                     {/* Age */}
                     <View style={styles.inputGroup}>
-                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Age</Text>
+                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('age')}</Text>
                       <TouchableOpacity
                         style={styles.pickerButton}
                         onPress={() => setShowPicker('age')}
                       >
-                        <Text style={styles.pickerButtonText}>{profileData.age} years</Text>
+                        <Text style={styles.pickerButtonText}>{profileData.age} {t('years')}</Text>
                       </TouchableOpacity>
                     </View>
 
                     {/* Height */}
                     <View style={styles.inputGroup}>
-                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Height</Text>
+                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('height')}</Text>
                       <TouchableOpacity
                         style={styles.pickerButton}
                         onPress={() => setShowPicker('height')}
@@ -402,7 +397,7 @@ if (profileLoading) {
 
                     {/* Weight */}
                     <View style={styles.inputGroup}>
-                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Current Weight</Text>
+                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('currentWeightLabel')}</Text>
                       <TouchableOpacity
                         style={styles.pickerButton}
                         onPress={() => setShowPicker('weight')}
@@ -413,7 +408,7 @@ if (profileLoading) {
 
                     {/* Gender */}
                     <View style={styles.inputGroup}>
-                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Gender</Text>
+                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('gender')}</Text>
                       <View style={styles.optionsContainer}>
                         {GENDERS.map((gender) => (
                           <TouchableOpacity
@@ -440,12 +435,12 @@ if (profileLoading) {
                   <View style={styles.modalSection}>
                     <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
                       <Activity size={20} color={Colors.primary} />
-                      <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>Activity & Goals</Text>
+                      <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t('activityAndGoals')}</Text>
                     </View>
 
                     {/* Activity Level */}
                     <View style={styles.inputGroup}>
-                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Activity Level</Text>
+                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('activityLevel')}</Text>
                       <View style={styles.optionsContainer}>
                         {ACTIVITY_LEVELS.map((level) => (
                           <TouchableOpacity
@@ -475,7 +470,7 @@ if (profileLoading) {
 
                     {/* Goal */}
                     <View style={styles.inputGroup}>
-                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Goal</Text>
+                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('goalLabel')}</Text>
                       <View style={styles.optionsContainer}>
                         {GOALS.map((goal) => (
                           <TouchableOpacity
@@ -506,7 +501,7 @@ if (profileLoading) {
                     {/* Target Weight */}
                     {(profileData.goal === 'lose_weight' || profileData.goal === 'gain_weight') && (
                       <View style={styles.inputGroup}>
-                        <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Target Weight</Text>
+                        <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('targetWeight')}</Text>
                         <TouchableOpacity
                           style={styles.pickerButton}
                           onPress={() => setShowPicker('targetWeight')}
@@ -521,15 +516,15 @@ if (profileLoading) {
                   <View style={styles.modalSection}>
                     <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
                       <Target size={20} color={Colors.primary} />
-                      <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>Health Information</Text>
+                      <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t('healthInformation')}</Text>
                     </View>
 
                     {/* Medical Conditions */}
                     <View style={styles.inputGroup}>
-                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Medical Conditions</Text>
+                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('medicalConditions')}</Text>
                       <TextInput
                         style={[styles.textArea, isRTL && styles.rtlInput]}
-                        placeholder="Diabetes, heart conditions, etc. (optional)"
+                        placeholder={t('medicalConditionsPlaceholder')}
                         placeholderTextColor={Colors.placeholder}
                         value={profileData.medicalConditions}
                         onChangeText={(value) => updateProfileField('medicalConditions', value)}
@@ -541,10 +536,10 @@ if (profileLoading) {
 
                     {/* Allergies */}
                     <View style={styles.inputGroup}>
-                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>Food Allergies</Text>
+                      <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('foodAllergies')}</Text>
                       <TextInput
                         style={[styles.textArea, isRTL && styles.rtlInput]}
-                        placeholder="Nuts, dairy, gluten, etc. (optional)"
+                        placeholder={t('foodAllergiesPlaceholder')}
                         placeholderTextColor={Colors.placeholder}
                         value={profileData.allergies}
                         onChangeText={(value) => updateProfileField('allergies', value)}
@@ -563,7 +558,7 @@ if (profileLoading) {
                         onPress={handleProfileSave}
                       >
                         <Save size={20} color={Colors.background} />
-                        <Text style={styles.saveButtonText}>Save Profile Changes</Text>
+                        <Text style={styles.saveButtonText}>{t('saveProfileChanges')}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -579,7 +574,7 @@ if (profileLoading) {
           <View style={styles.pickerModal}>
             <View style={styles.pickerHeader}>
               <TouchableOpacity onPress={() => setShowPicker(null)}>
-                <Text style={styles.pickerCancel}>Cancel</Text>
+                <Text style={styles.pickerCancel}>{t('cancel')}</Text>
               </TouchableOpacity>
               <Text style={styles.pickerTitle}>
                 {showPicker === 'age' && 'Select Age'}
@@ -588,14 +583,14 @@ if (profileLoading) {
                 {showPicker === 'targetWeight' && 'Select Target Weight'}
               </Text>
               <TouchableOpacity onPress={() => setShowPicker(null)}>
-                <Text style={styles.pickerDone}>Done</Text>
+                <Text style={styles.pickerDone}>{t('done')}</Text>
               </TouchableOpacity>
             </View>
             <WheelPicker
               data={showPicker === 'age' ? ageData : showPicker === 'height' ? heightData : weightData}
               selectedValue={profileData[showPicker as keyof typeof profileData] as number}
               onValueChange={(value) => updateProfileField(showPicker, value)}
-              suffix={showPicker === 'age' ? ' years' : showPicker === 'height' ? ' cm' : ' kg'}
+              suffix={showPicker === 'age' ? isRTL ? 'سنوات ' : ' years' : showPicker === 'height' ? isRTL ? 'سم' : ' cm' : isRTL ? 'كجم' : ' kg'}
             />
           </View>
         </View>
@@ -693,10 +688,10 @@ const styles = StyleSheet.create({
   },
   // RTL Styles
   rtlText: {
-    textAlign: 'right',
+    textAlign: 'left',
   },
   rtlRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
   },
   rtlInput: {
     textAlign: 'right',

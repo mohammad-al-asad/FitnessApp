@@ -1,9 +1,28 @@
+import { TranslationKey } from "@/constants/translations";
+import { useLanguage } from "@/hooks/language-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import { Pressable } from "react-native";
+import { ArrowLeft, ArrowRight } from "lucide-react-native";
+import { Pressable, Text } from "react-native";
 
 export default function SettingsLayout() {
   const router = useRouter();
+  const { t, isRTL } = useLanguage();
+
+  const getTitleKey = (name: string): TranslationKey => {
+    switch (name) {
+      case "account":
+        return "account";
+      case "goals":
+        return "goalsNutrition";
+      case "preferences":
+        return "preferences";
+      case "about":
+        return "about";
+      default:
+        return "account";
+    }
+  };
+  
 
   return (
     <Stack
@@ -20,15 +39,27 @@ export default function SettingsLayout() {
           key={name}
           name={name}
           options={{
-            title: name.charAt(0).toUpperCase() + name.slice(1),
-            headerLeft: () => (
-              <Pressable
-                onPress={() => router.back()}
-                style={{ marginLeft: 5 }}
-              >
-                <ArrowLeft size={24} color="#fff" />
-              </Pressable>
+            headerTitle: () => (
+              <Text style={{
+                color: '#fff',
+                fontWeight: '600',
+                fontSize: 17,
+                textAlign: 'left',
+                flex: 1,
+              }}>
+                {String(t(getTitleKey(name)))}
+              </Text>
             ),
+            headerBackVisible: false,
+
+              headerLeft: () => (
+                <Pressable
+                  onPress={() => router.back()}
+                  style={{ marginLeft: 5 }}
+                >
+                  <ArrowLeft size={24} color="#fff" />
+                </Pressable>
+              ),
           }}
         />
       ))}

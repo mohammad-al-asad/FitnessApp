@@ -1,9 +1,12 @@
 
+import { useLanguage } from '@/hooks/language-context';
+import { responsiveHeight } from '@/utilities/ScalingUtils';
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { RefreshCw, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,6 +16,8 @@ export default function ScanBarcode() {
   const [isScanning, setIsScanning] = useState<boolean>(true);
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const { t, isRTL } = useLanguage();
   const colors = {
   text: "#FFFFFF",
   background: "#1A1A1A",
@@ -21,6 +26,7 @@ export default function ScanBarcode() {
   border: "#404040",
   placeholder: "#999999",
 };
+const [keyboardVisible, setKeyboardVisible] = useState(false);
 
 
   useEffect(() => {
@@ -29,16 +35,47 @@ export default function ScanBarcode() {
     }
   }, [permission, requestPermission]);
 
+  useFocusEffect(useCallback(() => {
+    setScannedCode(null);
+    setIsScanning(true);
+  }, []));
+
+  useEffect(() => {
+    const showListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (event) => {
+        setKeyboardVisible(true);
+      }
+    );
+  
+    const hideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+  
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
+
   const handleBarCodeScanned = ({ data }: BarcodeScanningResult) => {
     if (!isScanning) return;
-    
+
     console.log('Barcode scanned:', data);
     setScannedCode(data);
     setIsScanning(false);
-router.push(`/modal/createCustomFood?barcode=${data}`);
 
-
-
+    // Check source parameter to determine navigation
+    const source = params.source as string;
+    if (source === 'createCustom') {
+      router.navigate(`/modal/createCustomFood?barcode=${data}`);
+    } else {
+      // Default to food log for barcode scanning from tabs
+      router.navigate(`/logFood?barcode=${data}`);
+    }
   };
 
   const handleScanAgain = () => {
@@ -63,17 +100,17 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
       <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         <View style={styles.permissionContainer}>
           <Text style={[styles.permissionTitle, { color: colors.text }]}>
-            Camera Permission Required
+            {t('cameraPermissionRequired')}
           </Text>
           <Text style={[styles.permissionMessage, { color: colors.placeholder }]}>
-            We need access to your camera to scan barcodes.
+            {t('cameraPermissionRequiredDescription')}
           </Text>
           <TouchableOpacity
             style={[styles.permissionButton, { backgroundColor: colors.primary }]}
             onPress={requestPermission}
           >
             <Text style={[styles.permissionButtonText, { color: '#FFFFFF' }]}>
-              Grant Permission
+              {t('grantPermission')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -81,7 +118,7 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
             onPress={handleClose}
           >
             <Text style={[styles.cancelButtonText, { color: colors.placeholder }]}>
-              Cancel
+              {t('cancel')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -130,7 +167,7 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
 
           <View style={styles.instructionContainer}>
             <Text style={styles.instructionText}>
-              {isScanning ? 'Align barcode within frame' : 'Barcode detected'}
+              {isScanning ? t('alignBarcodeWithinFrame') : t('barcodeDetected')}
             </Text>
           </View>
         </View>
@@ -140,7 +177,7 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
         <View style={[styles.resultOverlay, { paddingBottom: insets.bottom + 20 }]}>
           <View style={[styles.resultCard, { backgroundColor: colors.surface }]}>
             <Text style={[styles.resultTitle, { color: colors.text }]}>
-              Scanned Barcode
+              {t('scannedBarcode')}
             </Text>
             <Text style={[styles.resultCode, { color: colors.primary }]}>
               {scannedCode}
@@ -150,7 +187,7 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
               onPress={handleScanAgain}
             >
               <RefreshCw size={20} color="#FFFFFF" />
-              <Text style={styles.scanAgainButtonText}>Scan Again</Text>
+              <Text style={styles.scanAgainButtonText}>{t('scanAgain')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -168,9 +205,10 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+        marginBottom: keyboardVisible ? Platform.OS === 'ios' ? responsiveHeight(20) : responsiveHeight(25) : 0,
       }}>
         <TextInput
-          placeholder="Enter barcode manually"
+          placeholder={t('enterBarcodeManually')}
           placeholderTextColor={colors.placeholder}
           style={{
             flex: 1,
@@ -180,6 +218,7 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
             paddingVertical: 10,
             borderRadius: 10,
             marginRight: 10,
+            textAlign: isRTL ? 'right' : 'left',
             borderColor: colors.border,
             borderWidth: 1,
           }}
@@ -191,7 +230,12 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
         <TouchableOpacity
           onPress={() => {
             if (!scannedCode) return;
-            router.push(`/modal/createCustomFood?barcode=${scannedCode}`);
+            const source = params.source as string;
+            if (source === 'createCustom') {
+             router.navigate(`/modal/createCustomFood?barcode=${scannedCode}`);
+           } else {
+             router.navigate(`/logFood?barcode=${scannedCode}`);
+           }
           }}
           style={{
             backgroundColor: colors.primary,
@@ -200,7 +244,7 @@ router.push(`/modal/createCustomFood?barcode=${data}`);
             borderRadius: 10,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "600" }}>Use</Text>
+          <Text style={{ color: "#fff", fontWeight: "600" }}>{t('use')}</Text>
         </TouchableOpacity>
       </View>
       {/* ⭐ END MANUAL INPUT BOX ⭐ */}
@@ -283,7 +327,7 @@ const styles = StyleSheet.create({
   },
   instructionContainer: {
     position: 'absolute',
-    bottom: 100,
+    bottom: Platform.OS === 'ios' ? 130 : 100,
     left: 0,
     right: 0,
     alignItems: 'center',

@@ -1,6 +1,8 @@
+import { useLanguage } from "@/hooks/language-context";
 import { Stack } from "expo-router";
 
 export default function LogLayout() {
+  const { t } = useLanguage();
   return (
     <Stack
       screenOptions={{
@@ -12,7 +14,7 @@ export default function LogLayout() {
     >
       <Stack.Screen
         name="log"
-        options={{ title: "Log Food" }}
+        options={{ title: t("logFood") as string }}
       />
     </Stack>
   );

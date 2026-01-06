@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Plus, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -16,7 +16,6 @@ import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { searchFood } from "@/services/food-api";
 import { getFoodsFromSheetCached } from "@/services/googleSheetService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Stack } from "expo-router";
 
 // ---- Types ----
 type FoodRow = {
@@ -27,12 +26,13 @@ type FoodRow = {
   protein: number;
   carbs: number;
   fats: number;
+  barcode?: string;
 };
 
 export default function LogFoodScreen() {
   const params = useLocalSearchParams();
-const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date as string | undefined);
-
+  const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date as string | undefined);
+  const scannedBarcode = Array.isArray(params.barcode) ? params.barcode[0] : (params.barcode as string | undefined);
   const { t, isRTL } = useLanguage();
   const colors = useSafeColors();
   const insets = useSafeAreaInsets();
@@ -41,6 +41,24 @@ const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date 
   const [filteredFoods, setFilteredFoods] = useState<FoodRow[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+
+  // ------- handle scanned barcode -------
+  useEffect(() => {
+    if (scannedBarcode && foods.length > 0) {
+      const matchingFoods = foods.filter(food =>
+        food.barcode === scannedBarcode ||
+        food.name.toLowerCase().includes(scannedBarcode.toLowerCase()) ||
+        food.brand.toLowerCase().includes(scannedBarcode.toLowerCase())
+      );
+      if (matchingFoods.length > 0) {
+        setFilteredFoods(matchingFoods);
+      } else {
+        // If no exact match, show all foods and set search query to barcode
+        setSearchQuery(scannedBarcode);
+        setFilteredFoods(foods.slice(0, 150));
+      }
+    }
+  }, [scannedBarcode, foods]);
 
   // ------- data load (cache → network) -------
   useEffect(() => {
@@ -63,6 +81,7 @@ const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date 
           protein: Number(row["PROTEIN"]) || 0,
           carbs: Number(row["CARBS"]) || 0,
           fats: Number(row["FAT"]) || 0,
+          barcode: row["BARCODE ID"] || "",
         }));
 
         if (formatted.length) {
@@ -112,7 +131,7 @@ const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date 
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.text, marginTop: 12 }}>Loading...</Text>
+        <Text style={{ color: colors.text, marginTop: 12 }}>{t("loading")}</Text>
       </View>
     );
   }
@@ -133,7 +152,7 @@ const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date 
         <Pressable style={styles.closeButton} onPress={() => router.back()} hitSlop={10}>
           <X size={24} color={colors.text} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Log Food</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('logFood')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -154,9 +173,9 @@ const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date 
           style={[
             styles.searchInput,
             { color: colors.text },
-            isRTL && styles.rtlInput,
+            { textAlign: isRTL ? 'right' : 'left' }
           ]}
-          placeholder={t("searchForDeliciousFuel") || "Search for your delicious fuel!"}
+          placeholder={(t("searchForDeliciousFuel") as string) || "Search for your delicious fuel!"}
           placeholderTextColor={colors.placeholder}
           value={searchQuery}
           onChangeText={onSearch}
@@ -180,7 +199,7 @@ const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date 
               ]}
             >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.foodName, { color: colors.text }]} numberOfLines={1}>
+                <Text style={[styles.foodName, { color: colors.text, textAlign: isRTL ? 'left' : 'left' }]} numberOfLines={1}>
                   {food.name}
                 </Text>
 
@@ -197,10 +216,10 @@ const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date 
                 </View>
 
                 <View style={styles.macroRow}>
-                  <Text style={[styles.cal, { color: colors.primary }]}>{food.calories} kcal</Text>
-                  <Text style={[styles.macro, { color: colors.placeholder }]}>P {food.protein}g</Text>
-                  <Text style={[styles.macro, { color: colors.placeholder }]}>C {food.carbs}g</Text>
-                  <Text style={[styles.macro, { color: colors.placeholder }]}>F {food.fats}g</Text>
+                  <Text style={[styles.cal, { color: colors.primary }]}>{food.calories} {t('kcal')}</Text>
+                  <Text style={[styles.macro, { color: colors.placeholder }]}>{t('p')} {food.protein} {t('g')}</Text>
+                  <Text style={[styles.macro, { color: colors.placeholder }]}>{t('c')} {food.carbs} {t('g')}</Text>
+                  <Text style={[styles.macro, { color: colors.placeholder }]}>{t('f')} {food.fats} {t('g')}</Text>
                 </View>
               </View>
 
@@ -303,9 +322,9 @@ const styles = StyleSheet.create({
   serving: { fontSize: 12 },
   dot: { fontSize: 12, opacity: 0.6 },
 
-  macroRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  cal: { fontSize: 14, fontWeight: "800" },
-  macro: { fontSize: 12, fontWeight: "600" },
+  macroRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap" },
+  cal: { fontSize: 14, fontWeight: "800", paddingRight: 10 },
+  macro: { fontSize: 12, fontWeight: "600", paddingRight: 10 },
 
   addBtn: {
     width: 38,
@@ -319,6 +338,6 @@ const styles = StyleSheet.create({
 
   empty: { textAlign: "center", marginTop: 40, fontSize: 16 },
 
-  rtlText: { textAlign: "right" },
-  rtlInput: { textAlign: "right" },
+  rtlText: { textAlign: "left" },
+  rtlInput: { textAlign: "left" },
 });

@@ -2,7 +2,7 @@
 import { useLanguage } from '@/hooks/language-context';
 import { useNutrition } from '@/hooks/nutrition-store';
 import { Bell, Globe, Save } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,6 +13,12 @@ export default function PreferencesScreen() {
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
   const [hasChanges, setHasChanges] = useState(false);
 const insets = useSafeAreaInsets();
+
+console.log(currentLanguage);
+
+useEffect(() => {
+  setLocalSettings((prev: UserSettings) => ({ ...prev, language: currentLanguage }));
+}, [currentLanguage]);
 
   const updateSetting = <K extends keyof UserSettings>(
     key: K,
@@ -83,56 +89,7 @@ const insets = useSafeAreaInsets();
             </View>
           </View>
         </View>
-
-        {/* Notifications Section */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
-            <Bell size={20} color={colors.primary} />
-            <Text style={[styles.sectionTitle, isRTL && styles.rtlText, { color: colors.text }]}>{t('notifications')}</Text>
-          </View>
-
-          <View style={[styles.switchGroup, isRTL && styles.rtlRow]}>
-            <View style={styles.switchInfo}>
-              <Text style={[styles.switchLabel, isRTL && styles.rtlText, { color: colors.text }]}>{t('dailyReminders')}</Text>
-              <Text style={[styles.switchDescription, isRTL && styles.rtlText, { color: colors.placeholder }]}>
-                {t('getDailyReminders')}
-              </Text>
-            </View>
-            <Switch
-              value={localSettings.dailyReminders}
-              onValueChange={(value) => updateSetting('dailyReminders', value)}
-              trackColor={{ 
-                false: colors.border, 
-                true: colors.secondary 
-              }}
-              thumbColor={
-                localSettings.dailyReminders 
-                  ? colors.primary 
-                  : colors.placeholder
-              }
-            />
-          </View>
-
-          {localSettings.dailyReminders && (
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, isRTL && styles.rtlText, { color: colors.text }]}>{t('reminderTime')}</Text>
-              <TextInput
-                style={[styles.input, isRTL && styles.rtlInput, { 
-                  borderColor: colors.border, 
-                  color: colors.text, 
-                  backgroundColor: colors.background 
-                }]}
-                value={localSettings.reminderTime}
-                onChangeText={(value) => updateSetting('reminderTime', value)}
-                placeholder="20:00"
-                placeholderTextColor={colors.placeholder}
-              />
-              <Text style={[styles.inputHint, isRTL && styles.rtlText, { color: colors.placeholder }]}>
-                {t('timeFormatHint')}
-              </Text>
-            </View>
-          )}
-        </View>
+  
 
         {/* Save Button */}
         {hasChanges && (
@@ -166,11 +123,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     gap: 8,
+    
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16,
   },
   inputGroup: {
     marginBottom: 16,
@@ -243,10 +200,10 @@ const styles = StyleSheet.create({
   },
   // RTL Styles
   rtlText: {
-    textAlign: 'right',
+    textAlign: 'left',
   },
   rtlRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
   },
   rtlInput: {
     textAlign: 'right',
