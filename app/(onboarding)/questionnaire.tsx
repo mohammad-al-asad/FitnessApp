@@ -9,7 +9,6 @@ import { useRouter } from 'expo-router';
 import { Activity, Calendar, ChevronRight, Target, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface QuestionnaireData {
   age: number;
@@ -474,7 +474,7 @@ if (questionnaireSettings) {
               <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
                 <TextInput
                   style={[styles.input, styles.textArea, { color: colors.text, textAlign: isRTL ? 'right' : 'left' }]}
-                  placeholder={t('medicalConditionsPlaceholder')}
+                  placeholder={t('medicalConditionsPlaceholder') as string}
                   placeholderTextColor={colors.placeholder}
                   value={data.medicalConditions}
                   onChangeText={(value) => updateData('medicalConditions', value)}
@@ -504,7 +504,7 @@ if (questionnaireSettings) {
               <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
                 <TextInput
                   style={[styles.input, styles.textArea, { color: colors.text, textAlign: isRTL ? 'right' : 'left' }]}
-                  placeholder={t('foodAllergiesPlaceholder')}
+                  placeholder={t('foodAllergiesPlaceholder') as string}
                   placeholderTextColor={colors.placeholder}
                   value={data.allergies}
                   onChangeText={(value) => updateData('allergies', value)}

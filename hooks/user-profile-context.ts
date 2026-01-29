@@ -17,11 +17,7 @@ export interface UserProfile {
     | "moderately_active"
     | "very_active"
     | "extremely_active";
-  goal:
-    | "lose_weight"
-    | "maintain_weight"
-    | "gain_weight"
-    | "build_muscle";
+  goal: "lose_weight" | "maintain_weight" | "gain_weight" | "build_muscle";
   targetWeight?: number;
   medicalConditions: string;
   allergies: string;
@@ -74,69 +70,86 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       if (!user || !USER_PROFILE_KEY) return;
       const data = await AsyncStorage.getItem(USER_PROFILE_KEY);
       console.log("🧩 Loading profile from:", USER_PROFILE_KEY);
-console.log("📦 Raw data found:", data);
+      console.log("📦 Raw data found:", data);
 
       // ✅ Also load questionnaire data for missing fields
-const questionnaire = await AsyncStorage.getItem(`questionnaireData_${user.uid}`);
-let questionnaireData = null;
-if (questionnaire) {
-  try {
-    questionnaireData = JSON.parse(questionnaire);
-  } catch {
-    questionnaireData = null;
-  }
-}
+      const questionnaire = await AsyncStorage.getItem(
+        `questionnaireData_${user.uid}`,
+      );
+      let questionnaireData = null;
+      if (questionnaire) {
+        try {
+          questionnaireData = JSON.parse(questionnaire);
+        } catch {
+          questionnaireData = null;
+        }
+      }
 
       if (data) {
-  const parsed = JSON.parse(data);
+        const parsed = JSON.parse(data);
 
-  // ✅ Merge questionnaire data (if newer or missing in profile)
-  if (questionnaireData) {
-    parsed.age = questionnaireData.age ?? parsed.age;
-    parsed.height = questionnaireData.height ?? parsed.height;
-    parsed.weight = questionnaireData.weight ?? parsed.weight;
-    parsed.gender = questionnaireData.gender ?? parsed.gender;
-    parsed.activityLevel = questionnaireData.activityLevel ?? parsed.activityLevel;
-    parsed.goal = questionnaireData.goal ?? parsed.goal;
-    parsed.targetWeight = questionnaireData.targetWeight ?? parsed.targetWeight;
-    parsed.medicalConditions = questionnaireData.medicalConditions ?? parsed.medicalConditions;
-    parsed.allergies = questionnaireData.allergies ?? parsed.allergies;
-  }
+        // ✅ Merge questionnaire data (if newer or missing in profile)
+        if (questionnaireData) {
+          parsed.age = questionnaireData.age ?? parsed.age;
+          parsed.height = questionnaireData.height ?? parsed.height;
+          parsed.weight = questionnaireData.weight ?? parsed.weight;
+          parsed.gender = questionnaireData.gender ?? parsed.gender;
+          parsed.activityLevel =
+            questionnaireData.activityLevel ?? parsed.activityLevel;
+          parsed.goal = questionnaireData.goal ?? parsed.goal;
+          parsed.targetWeight =
+            questionnaireData.targetWeight ?? parsed.targetWeight;
+          parsed.medicalConditions =
+            questionnaireData.medicalConditions ?? parsed.medicalConditions;
+          parsed.allergies = questionnaireData.allergies ?? parsed.allergies;
+        }
 
-  setProfile(parsed);
-} else if (questionnaireData) {
-  // ✅ If no stored profile, build full computed profile from questionnaire
-  const { age, height, weight, gender, activityLevel, goal } = questionnaireData;
+        setProfile(parsed);
+      } else if (questionnaireData) {
+        // ✅ If no stored profile, build full computed profile from questionnaire
+        const { age, height, weight, gender, activityLevel, goal } =
+          questionnaireData;
 
-  const bmr = 10 * weight + 6.25 * height - 5 * age + (gender === "male" ? 5 : -161);
-  const tdee = bmr * (ACTIVITY_MULTIPLIERS[activityLevel as keyof typeof ACTIVITY_MULTIPLIERS] || 1.55);
-const targetCalories = Math.round(tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof GOAL_ADJUSTMENTS] || 0));
+        const bmr =
+          10 * weight +
+          6.25 * height -
+          5 * age +
+          (gender === "male" ? 5 : -161);
+        const tdee =
+          bmr *
+          (ACTIVITY_MULTIPLIERS[
+            activityLevel as keyof typeof ACTIVITY_MULTIPLIERS
+          ] || 1.55);
+        const targetCalories = Math.round(
+          tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof GOAL_ADJUSTMENTS] || 0),
+        );
 
-  const macros = {
-    targetProtein: Math.round((targetCalories * 0.3) / 4),
-    targetFat: Math.round((targetCalories * 0.25) / 9),
-    targetCarbs: Math.round((targetCalories * 0.45) / 4),
-  };
+        const macros = {
+          targetProtein: Math.round((targetCalories * 0.3) / 4),
+          targetFat: Math.round((targetCalories * 0.25) / 9),
+          targetCarbs: Math.round((targetCalories * 0.45) / 4),
+        };
 
-  const builtProfile = {
-    userId: user.uid,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    ...questionnaireData,
-    bmr: Math.round(bmr),
-    tdee: Math.round(tdee),
-    targetCalories,
-    ...macros,
-  };
+        const builtProfile = {
+          userId: user.uid,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          ...questionnaireData,
+          bmr: Math.round(bmr),
+          tdee: Math.round(tdee),
+          targetCalories,
+          ...macros,
+        };
 
-  await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(builtProfile));
-  setProfile(builtProfile);
-  console.log("🧱 Built profile from questionnaire:", builtProfile);
-} else {
-  setProfile(null);
-}
-
-
+        await AsyncStorage.setItem(
+          USER_PROFILE_KEY,
+          JSON.stringify(builtProfile),
+        );
+        setProfile(builtProfile);
+        console.log("🧱 Built profile from questionnaire:", builtProfile);
+      } else {
+        setProfile(null);
+      }
     } catch (error) {
       console.error("Error loading user profile:", error);
     } finally {
@@ -145,20 +158,30 @@ const targetCalories = Math.round(tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof 
   };
 
   // 🧮 Macro calculations
-  const calculateBMR = (age: number, height: number, weight: number, gender: "male" | "female") => {
+  const calculateBMR = (
+    age: number,
+    height: number,
+    weight: number,
+    gender: "male" | "female",
+  ) => {
     const base = 10 * weight + 6.25 * height - 5 * age;
     return gender === "male" ? base + 5 : base - 161;
   };
 
-  const calculateTDEE = (bmr: number, activity: keyof typeof ACTIVITY_MULTIPLIERS) =>
-    bmr * (ACTIVITY_MULTIPLIERS[activity] || 1.55);
+  const calculateTDEE = (
+    bmr: number,
+    activity: keyof typeof ACTIVITY_MULTIPLIERS,
+  ) => bmr * (ACTIVITY_MULTIPLIERS[activity] || 1.55);
 
-  const calculateTargetCalories = (tdee: number, goal: keyof typeof GOAL_ADJUSTMENTS) =>
-    tdee + (GOAL_ADJUSTMENTS[goal] || 0);
+  const calculateTargetCalories = (
+    tdee: number,
+    goal: keyof typeof GOAL_ADJUSTMENTS,
+  ) => tdee + (GOAL_ADJUSTMENTS[goal] || 0);
 
   const calculateMacros = (calories: number, goal: UserProfile["goal"]) => {
     let ratios = { protein: 0.25, fat: 0.25, carb: 0.5 };
-    if (goal === "build_muscle") ratios = { protein: 0.3, fat: 0.25, carb: 0.45 };
+    if (goal === "build_muscle")
+      ratios = { protein: 0.3, fat: 0.25, carb: 0.45 };
     if (goal === "lose_weight") ratios = { protein: 0.3, fat: 0.3, carb: 0.4 };
     return {
       targetProtein: Math.round((calories * ratios.protein) / 4),
@@ -173,7 +196,12 @@ const targetCalories = Math.round(tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof 
       try {
         if (!user || !USER_PROFILE_KEY) return;
 
-        const bmr = calculateBMR(data.age!, data.height!, data.weight!, data.gender!);
+        const bmr = calculateBMR(
+          data.age!,
+          data.height!,
+          data.weight!,
+          data.gender!,
+        );
         const tdee = calculateTDEE(bmr, data.activityLevel!);
         const calories = calculateTargetCalories(tdee, data.goal!);
         const macros = calculateMacros(calories, data.goal!);
@@ -197,14 +225,17 @@ const targetCalories = Math.round(tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof 
           ...macros,
         };
 
-        await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(newProfile));
+        await AsyncStorage.setItem(
+          USER_PROFILE_KEY,
+          JSON.stringify(newProfile),
+        );
         setProfile(newProfile);
         console.log("✅ User profile saved:", newProfile);
       } catch (error) {
         console.error("Error saving profile:", error);
       }
     },
-    [user, USER_PROFILE_KEY]
+    [user, USER_PROFILE_KEY],
   );
 
   // ✅ Update profile safely
@@ -213,7 +244,11 @@ const targetCalories = Math.round(tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof 
       try {
         if (!user || !USER_PROFILE_KEY || !profile) return;
 
-        const updated: UserProfile = { ...profile, ...updates, updatedAt: new Date().toISOString() };
+        const updated: UserProfile = {
+          ...profile,
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        };
 
         // Recalculate macros if key metrics changed
         if (
@@ -224,7 +259,12 @@ const targetCalories = Math.round(tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof 
           updates.activityLevel ||
           updates.goal
         ) {
-          const bmr = calculateBMR(updated.age, updated.height, updated.weight, updated.gender);
+          const bmr = calculateBMR(
+            updated.age,
+            updated.height,
+            updated.weight,
+            updated.gender,
+          );
           const tdee = calculateTDEE(bmr, updated.activityLevel);
           const calories = calculateTargetCalories(tdee, updated.goal);
           const macros = calculateMacros(calories, updated.goal);
@@ -243,9 +283,8 @@ const targetCalories = Math.round(tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof 
         console.error("Error updating profile:", error);
       }
     },
-    [user, USER_PROFILE_KEY, profile]
+    [user, USER_PROFILE_KEY, profile],
   );
-
 
   // 🔁 Auto-reload profile whenever AsyncStorage data changes (after save/update)
   useEffect(() => {
@@ -264,9 +303,6 @@ const targetCalories = Math.round(tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof 
     };
     refresh();
   }, [USER_PROFILE_KEY]);
-
-
-
 
   // ✅ Delete profile on logout or user switch
   const deleteProfile = useCallback(async () => {

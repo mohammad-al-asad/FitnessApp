@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   LogBox,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 LogBox.ignoreLogs(["Text strings must be rendered within a <Text> component"]);
 
 // 🧩 Temporary fallback for removed translation system
@@ -42,15 +42,16 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
 
   const [isLogin, setIsLogin] = useState(true);
 
-  const funnyLines = isRTL ? translations.ar.authCyclingTexts : translations.en.authCyclingTexts;
+  const funnyLines = isRTL
+    ? translations.ar.authCyclingTexts
+    : translations.en.authCyclingTexts;
 
+  const [funnyLine, setFunnyLine] = useState("");
 
-const [funnyLine, setFunnyLine] = useState("");
-
-useEffect(() => {
-  const randomIndex = Math.floor(Math.random() * funnyLines.length);
-  setFunnyLine(funnyLines[randomIndex]);
-}, []);
+  useEffect(() => {
+    const randomIndex = Math.floor(Math.random() * funnyLines.length);
+    setFunnyLine(funnyLines[randomIndex]);
+  }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -60,50 +61,45 @@ useEffect(() => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleAuth = async () => {
-  setIsLoading(true);
-  setErrors({});
-  try {
-    const result = isLogin
-      ? await signIn(email, password)
-      : await signUp(email, password, firstName, lastName);
-if (result.success) {
-  setTimeout(async () => {
+    setIsLoading(true);
+    setErrors({});
     try {
-      console.log("✅ Auth success. isLogin:", isLogin);
+      const result = isLogin
+        ? await signIn(email, password)
+        : await signUp(email, password, firstName, lastName);
+      if (result.success) {
+        setTimeout(async () => {
+          try {
+            console.log("✅ Auth success. isLogin:", isLogin);
 
-      if (isLogin) {
-        router.replace("/(tabs)/home");
+            if (isLogin) {
+              router.replace("/(tabs)/home");
+            } else {
+              await AsyncStorage.removeItem("hasCompletedQuestionnaire");
+              console.log("🧭 New signup → redirecting to questionnaire");
+              router.replace("/(onboarding)/questionnaire");
+            }
+          } catch (err) {
+            console.error("Error checking questionnaire status:", err);
+            router.replace("/(onboarding)/questionnaire");
+          }
+        }, 300);
       } else {
-        await AsyncStorage.removeItem("hasCompletedQuestionnaire");
-        console.log("🧭 New signup → redirecting to questionnaire");
-        router.replace("/(onboarding)/questionnaire");
+        // handle error
+        Alert.alert(t("error") as string, result.error.message);
+        if (result.error.message.toLowerCase().includes("email")) {
+          setErrors({ email: result.error.message });
+        } else if (result.error.message.toLowerCase().includes("password")) {
+          setErrors({ password: result.error.message });
+        }
       }
-    } catch (err) {
-      console.error("Error checking questionnaire status:", err);
-      router.replace("/(onboarding)/questionnaire");
+    } catch (error) {
+      Alert.alert(t("error") as string, t("somethingWentWrong") as string);
+      console.error("Auth Error:", error);
+    } finally {
+      setIsLoading(false);
     }
-  }, 300);
-}
-
-
-
- else {
-      // handle error
-      Alert.alert(t('error'), result.error.message);
-      if (result.error.message.toLowerCase().includes("email")) {
-        setErrors({ email: result.error.message });
-      } else if (result.error.message.toLowerCase().includes("password")) {
-        setErrors({ password: result.error.message });
-      }
-    }
-  } catch (error) {
-    Alert.alert(t('error'), t('somethingWentWrong'));
-    console.error("Auth Error:", error);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
+  };
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
@@ -115,12 +111,17 @@ if (result.success) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.logo, { color: colors.accent }]}>FITCO</Text>
@@ -128,10 +129,8 @@ if (result.success) {
               {isLogin ? t("welcomeBack") : t("readyToStart")}
             </Text>
             <Text style={[styles.description, { color: colors.text }]}>
- {isLogin ? funnyLine : t("makeFutureSelfProud")}
-
-</Text>
-
+              {isLogin ? funnyLine : t("makeFutureSelfProud")}
+            </Text>
           </View>
 
           {/* Form */}
@@ -147,13 +146,20 @@ if (result.success) {
                     },
                   ]}
                 >
-                  <User size={20} color={colors.accent} style={styles.inputIcon} />
+                  <User
+                    size={20}
+                    color={colors.accent}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={[
                       styles.input,
-                      { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
+                      {
+                        color: colors.text,
+                        textAlign: isRTL ? "right" : "left",
+                      },
                     ]}
-                    placeholder={t('firstName')}
+                    placeholder={t("firstName") as string}
                     placeholderTextColor={colors.placeholder}
                     value={firstName}
                     onChangeText={setFirstName}
@@ -170,13 +176,20 @@ if (result.success) {
                     },
                   ]}
                 >
-                  <User size={20} color={colors.accent} style={styles.inputIcon} />
+                  <User
+                    size={20}
+                    color={colors.accent}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={[
                       styles.input,
-                      { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
+                      {
+                        color: colors.text,
+                        textAlign: isRTL ? "right" : "left",
+                      },
                     ]}
-                    placeholder={t('lastName')}
+                    placeholder={t("lastName") as any}
                     placeholderTextColor={colors.placeholder}
                     value={lastName}
                     onChangeText={setLastName}
@@ -196,13 +209,17 @@ if (result.success) {
                 },
               ]}
             >
-              <Mail size={20} color={colors.accent} style={{ marginStart: 12, marginEnd: 8 }} />
+              <Mail
+                size={20}
+                color={colors.accent}
+                style={{ marginStart: 12, marginEnd: 8 }}
+              />
               <TextInput
                 style={[
                   styles.input,
-                  { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
+                  { color: colors.text, textAlign: isRTL ? "right" : "left" },
                 ]}
-                placeholder={t('emailAddress')}
+                placeholder={t("emailAddress") as string}
                 placeholderTextColor={colors.placeholder}
                 value={email}
                 onChangeText={setEmail}
@@ -222,13 +239,17 @@ if (result.success) {
                 },
               ]}
             >
-              <Lock size={20} color={colors.accent} style={{ marginStart: 12, marginEnd: 8 }} />
+              <Lock
+                size={20}
+                color={colors.accent}
+                style={{ marginStart: 12, marginEnd: 8 }}
+              />
               <TextInput
                 style={[
                   styles.input,
-                  { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
+                  { color: colors.text, textAlign: isRTL ? "right" : "left" },
                 ]}
-                placeholder={t('password')}
+                placeholder={t("password") as string}
                 placeholderTextColor={colors.placeholder}
                 value={password}
                 onChangeText={setPassword}
@@ -258,21 +279,29 @@ if (result.success) {
               onPress={handleAuth}
               disabled={isLoading}
             >
-              <Text style={[styles.authButtonText, { color: colors.background }]}>
-                {isLoading ? t('pleaseWait') : isLogin ? t('signIn') : t('createAccount')}
+              <Text
+                style={[styles.authButtonText, { color: colors.background }]}
+              >
+                {isLoading
+                  ? t("pleaseWait")
+                  : isLogin
+                    ? t("signIn")
+                    : t("createAccount")}
               </Text>
             </TouchableOpacity>
 
             {isLogin && (
               <TouchableOpacity style={styles.forgotPassword}>
-                <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
-                  {t('forgotPassword')}
+                <Text
+                  style={[styles.forgotPasswordText, { color: colors.accent }]}
+                >
+                  {t("forgotPassword")}
                 </Text>
               </TouchableOpacity>
             )}
           </View>
 
-                   {/* Footer */}
+          {/* Footer */}
           <View
             style={[
               styles.footer,
@@ -289,7 +318,7 @@ if (result.success) {
                 { color: colors.text, textAlign: "left" },
               ]}
             >
-              {isLogin ? t('dontHaveAccount') : t('alreadyHaveAccount')}
+              {isLogin ? t("dontHaveAccount") : t("alreadyHaveAccount")}
             </Text>
             <TouchableOpacity onPress={toggleAuthMode}>
               <Text
@@ -298,12 +327,10 @@ if (result.success) {
                   { color: colors.accent, textAlign: "left" },
                 ]}
               >
-                {isLogin ? t('signUp') : t('signIn')}
+                {isLogin ? t("signUp") : t("signIn")}
               </Text>
             </TouchableOpacity>
           </View>
-
-          
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -321,27 +348,32 @@ const styles = StyleSheet.create({
   },
   header: { alignItems: "center", marginBottom: 40 },
   logo: {
-  fontSize: 72,
-  fontWeight: "900",
-  letterSpacing: -2,
-  marginBottom: 8,
-  includeFontPadding: false,
-  textShadowColor: "rgba(0, 0, 0, 0.1)",
-  textShadowOffset: { width: 0, height: 2 },
-  textShadowRadius: 4,
-},
+    fontSize: 72,
+    fontWeight: "900",
+    letterSpacing: -2,
+    marginBottom: 8,
+    includeFontPadding: false,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
 
-  subtitle: { fontSize: 24, fontWeight: "600", marginBottom: 8, textAlign: "center" },
+  subtitle: {
+    fontSize: 24,
+    fontWeight: "600",
+    marginBottom: 8,
+    textAlign: "center",
+  },
   description: {
-  fontSize: 17,
-  fontWeight: "500",
-  letterSpacing: 0.4,
-  textAlign: "center",
-  opacity: 0.9,
-  lineHeight: 24,
-  marginTop: 4,
-  color: "#CCCCCC",
-},
+    fontSize: 17,
+    fontWeight: "500",
+    letterSpacing: 0.4,
+    textAlign: "center",
+    opacity: 0.9,
+    lineHeight: 24,
+    marginTop: 4,
+    color: "#CCCCCC",
+  },
 
   form: { marginBottom: 32 },
   inputContainer: {
@@ -377,4 +409,3 @@ const styles = StyleSheet.create({
   switchText: { fontSize: 16, marginRight: 6 },
   switchButton: { fontSize: 16, fontWeight: "600" },
 });
-
