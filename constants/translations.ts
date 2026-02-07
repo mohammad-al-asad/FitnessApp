@@ -488,7 +488,7 @@ export const translations = {
     protein: "بروتين",
     carbs: "كربوهيدرات",
     fats: "دهون",
-    fat: "سمين",
+    fat: "دهن",
     weeklySummary: "ملخّص الأسبوع",
     avgCalories: "متوسط السعرات",
     goalsHit: "الأهداف المُحققة",

@@ -1,12 +1,20 @@
 //log food screen
-import colors from '@/constants/colors';
-import { useLanguage } from '@/hooks/language-context';
-import { useNutrition } from '@/hooks/nutrition-store';
-import { getFoodByBarcode } from '@/services/googleSheetService';
-import type { FoodItem } from '@/types/nutrition';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { Apple, Check, ChevronDown, Moon, Sun, Sunrise, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import colors from "@/constants/colors";
+import { useLanguage } from "@/hooks/language-context";
+import { useNutrition } from "@/hooks/nutrition-store";
+import { getFoodByBarcode } from "@/services/googleSheetService";
+import type { FoodItem } from "@/types/nutrition";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import {
+  Apple,
+  Check,
+  ChevronDown,
+  Moon,
+  Sun,
+  Sunrise,
+  X,
+} from "lucide-react-native";
+import React, { useEffect, useState } from "react";
 import {
   Animated,
   Modal,
@@ -16,15 +24,17 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
-
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Circle } from "react-native-svg";
 
 // --- Serving size parser (robust) ---
-function computeServing(servingRaw?: string): { grams: number; display: string } {
-  const raw = (servingRaw ?? '').toString().trim();
-  if (!raw || /^na$/i.test(raw)) return { grams: 100, display: '100g' };
+function computeServing(servingRaw?: string): {
+  grams: number;
+  display: string;
+} {
+  const raw = (servingRaw ?? "").toString().trim();
+  if (!raw || /^na$/i.test(raw)) return { grams: 100, display: "100g" };
 
   const s = raw.toLowerCase();
 
@@ -42,7 +52,7 @@ function computeServing(servingRaw?: string): { grams: number; display: string }
 
   // fraction cups like "1/2 cup 130 g"
   const frac = s.match(/(\d+)\s*\/\s*(\d+)/);
-  if (frac && s.includes('cup')) {
+  if (frac && s.includes("cup")) {
     const v = parseFloat(frac[1]) / parseFloat(frac[2]);
     return { grams: Math.round(v * 240), display: raw };
   }
@@ -63,10 +73,8 @@ function computeServing(servingRaw?: string): { grams: number; display: string }
   if (m) return { grams: parseFloat(m[1]), display: `${m[1]}g` };
 
   // last resort
-  return { grams: 100, display: '100g' };
+  return { grams: 100, display: "100g" };
 }
-
-
 
 // --- Serving key resolver (accepts many shapes) ---
 function getRawServing(anyFood: any): string {
@@ -88,53 +96,57 @@ function getServingGrams(food: FoodItem): number {
   return computeServing(rawServing).grams || 100;
 }
 
-
-
-
 type MeasurementUnit = {
   name: string;
   grams: number;
   isDefault?: boolean;
 };
 
-type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
-
+type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
 
 const MACRO_COLORS = {
-  protein: '#5B9FFF',
-  carbs: '#FFB547',
-  fat: '#B47EFF',
+  protein: "#5B9FFF",
+  carbs: "#FFB547",
+  fat: "#B47EFF",
 };
 
 export default function LogFoodScreen() {
   const { addFoodToLog, settings } = useNutrition();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
- const date = Array.isArray(params.date)
-  ? params.date[0]
-  : params.date || new Date().toISOString().split('T')[0];
+  const date = Array.isArray(params.date)
+    ? params.date[0]
+    : params.date || new Date().toISOString().split("T")[0];
 
   const barcode = Array.isArray(params.barcode)
     ? params.barcode[0]
     : params.barcode;
 
   const [food, setFood] = useState<FoodItem | null>(null);
-  const [servingAmount, setServingAmount] = useState('1');
-  const [selectedUnit, setSelectedUnit] = useState<MeasurementUnit | null>(null);
-  const [selectedMeal, setSelectedMeal] = useState<MealType>('breakfast');
-  const [measurementUnits, setMeasurementUnits] = useState<MeasurementUnit[]>([]);
-  
+  const [servingAmount, setServingAmount] = useState("1");
+  const [selectedUnit, setSelectedUnit] = useState<MeasurementUnit | null>(
+    null,
+  );
+  const [selectedMeal, setSelectedMeal] = useState<MealType>("breakfast");
+  const [measurementUnits, setMeasurementUnits] = useState<MeasurementUnit[]>(
+    [],
+  );
+
   const checkmarkScale = new Animated.Value(0);
   const checkmarkOpacity = new Animated.Value(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showServingModal, setShowServingModal] = useState(false);
   const { t, isRTL } = useLanguage();
 
-  const MEAL_OPTIONS: { key: MealType; label: string; icon: React.ComponentType<{ size: number; color: string }> }[] = [
-    { key: 'breakfast', label: String(t('breakfast')), icon: Sunrise },
-    { key: 'lunch', label: String(t('lunch')), icon: Sun },
-    { key: 'dinner', label: String(t('dinner')), icon: Moon },
-    { key: 'snacks', label: String(t('snacks')), icon: Apple },
+  const MEAL_OPTIONS: {
+    key: MealType;
+    label: string;
+    icon: React.ComponentType<{ size: number; color: string }>;
+  }[] = [
+    { key: "breakfast", label: String(t("breakfast")), icon: Sunrise },
+    { key: "lunch", label: String(t("lunch")), icon: Sun },
+    { key: "dinner", label: String(t("dinner")), icon: Moon },
+    { key: "snacks", label: String(t("snacks")), icon: Apple },
   ];
 
   useEffect(() => {
@@ -143,55 +155,52 @@ export default function LogFoodScreen() {
         const foodData = JSON.parse(params.foodData as string) as FoodItem;
         setFood(foodData);
 
-      const rawServing = getRawServing(foodData);
-const { grams: defaultGrams, display: displayServing } = computeServing(rawServing);
+        const rawServing = getRawServing(foodData);
+        const { grams: defaultGrams, display: displayServing } =
+          computeServing(rawServing);
 
+        // Debug + use helper to resolve the correct serving key
+        console.log("🔎 foodData keys:", Object.keys(foodData));
+        console.log("🔎 serving candidates:", {
+          servingSize: (foodData as any).servingSize,
+          SERVING_SIZE: (foodData as any)["SERVING SIZE"],
+        });
 
-// Debug + use helper to resolve the correct serving key
-console.log("🔎 foodData keys:", Object.keys(foodData));
-console.log("🔎 serving candidates:", {
-  servingSize: (foodData as any).servingSize,
-  SERVING_SIZE: (foodData as any)["SERVING SIZE"],
-});
-
-
-
-
-
-
-const units: MeasurementUnit[] = [
-  { name: `1 serving (${displayServing})`, grams: defaultGrams, isDefault: true },
-  { name: '1 gram', grams: 1 },
-];
-
-
-
-
-
-  
+        const units: MeasurementUnit[] = [
+          {
+            name: `1 serving (${displayServing})`,
+            grams: defaultGrams,
+            isDefault: true,
+          },
+          { name: "1 gram", grams: 1 },
+        ];
 
         if (defaultGrams !== 100) {
-  units.push({ name: '100g', grams: 100 });
-}
+          units.push({ name: "100g", grams: 100 });
+        }
 
-        if (defaultGrams !== 1) units.push({ name: '1g', grams: 1 });
+        if (defaultGrams !== 1) units.push({ name: "1g", grams: 1 });
 
         const foodName = foodData.name.toLowerCase();
-        if (foodName.includes('bread') || foodName.includes('slice')) {
-          units.push({ name: '1 slice', grams: 30 });
-        } else if (foodName.includes('cup') || foodName.includes('rice') || foodName.includes('pasta')) {
-          units.push({ name: '1 cup', grams: 200 });
-          units.push({ name: '1/2 cup', grams: 100 });
-        } else if (foodName.includes('milk') || foodName.includes('juice')) {
-          units.push({ name: '1 cup (240ml)', grams: 240 });
-        } else if (foodName.includes('egg')) {
-          units.push({ name: '1 large egg', grams: 50 });
+        if (foodName.includes("bread") || foodName.includes("slice")) {
+          units.push({ name: "1 slice", grams: 30 });
+        } else if (
+          foodName.includes("cup") ||
+          foodName.includes("rice") ||
+          foodName.includes("pasta")
+        ) {
+          units.push({ name: "1 cup", grams: 200 });
+          units.push({ name: "1/2 cup", grams: 100 });
+        } else if (foodName.includes("milk") || foodName.includes("juice")) {
+          units.push({ name: "1 cup (240ml)", grams: 240 });
+        } else if (foodName.includes("egg")) {
+          units.push({ name: "1 large egg", grams: 50 });
         }
 
         setMeasurementUnits(units);
         setSelectedUnit(units[0]);
       } catch (error) {
-        console.error('Error parsing food data:', error);
+        console.error("Error parsing food data:", error);
         router.back();
       }
     }
@@ -200,14 +209,15 @@ const units: MeasurementUnit[] = [
   // Handle barcode lookup
   useEffect(() => {
     const lookupFood = async () => {
-      if (barcode && !food) { // Only lookup if we have barcode and no food is set yet
+      if (barcode && !food) {
+        // Only lookup if we have barcode and no food is set yet
         try {
           const existingFood = await getFoodByBarcode(barcode);
 
           if (existingFood) {
             // Convert SheetFood to FoodItem format
             const foodItem: FoodItem = {
-              name: existingFood.PRODUCT || 'Unknown Food',
+              name: existingFood.PRODUCT || "Unknown Food",
               brand: existingFood.BRAND,
               servingSize: existingFood["SERVING SIZE"],
               calories: existingFood.CALORIES || 0,
@@ -220,38 +230,50 @@ const units: MeasurementUnit[] = [
 
             // Set default serving amount
             const rawServing = getRawServing(foodItem);
-            const { grams: defaultGrams, display: displayServing } = computeServing(rawServing);
+            const { grams: defaultGrams, display: displayServing } =
+              computeServing(rawServing);
 
             const units: MeasurementUnit[] = [
-              { name: `1 serving (${displayServing})`, grams: defaultGrams, isDefault: true },
-              { name: '1 gram', grams: 1 },
+              {
+                name: `1 serving (${displayServing})`,
+                grams: defaultGrams,
+                isDefault: true,
+              },
+              { name: "1 gram", grams: 1 },
             ];
 
             if (defaultGrams !== 100) {
-              units.push({ name: '100g', grams: 100 });
+              units.push({ name: "100g", grams: 100 });
             }
 
-            if (defaultGrams !== 1) units.push({ name: '1g', grams: 1 });
+            if (defaultGrams !== 1) units.push({ name: "1g", grams: 1 });
 
             // Add common units based on food type
             const foodName = foodItem.name.toLowerCase();
-            if (foodName.includes('bread') || foodName.includes('rice') || foodName.includes('pasta')) {
-              units.push({ name: '1 cup cooked', grams: 150 });
-            } else if (foodName.includes('milk') || foodName.includes('juice')) {
-              units.push({ name: '1 cup (240ml)', grams: 240 });
-            } else if (foodName.includes('egg')) {
-              units.push({ name: '1 large egg', grams: 50 });
+            if (
+              foodName.includes("bread") ||
+              foodName.includes("rice") ||
+              foodName.includes("pasta")
+            ) {
+              units.push({ name: "1 cup cooked", grams: 150 });
+            } else if (
+              foodName.includes("milk") ||
+              foodName.includes("juice")
+            ) {
+              units.push({ name: "1 cup (240ml)", grams: 240 });
+            } else if (foodName.includes("egg")) {
+              units.push({ name: "1 large egg", grams: 50 });
             }
 
             setMeasurementUnits(units);
             setSelectedUnit(units[0]);
           } else {
             // No food found for barcode
-            console.warn('No food found for barcode:', barcode);
+            console.warn("No food found for barcode:", barcode);
             router.back();
           }
         } catch (error) {
-          console.error('Error looking up food by barcode:', error);
+          console.error("Error looking up food by barcode:", error);
           router.back();
         }
       }
@@ -262,11 +284,16 @@ const units: MeasurementUnit[] = [
 
   if (!food || !selectedUnit) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-        <Stack.Screen 
-          options={{ 
+      <View
+        style={[
+          styles.container,
+          { paddingTop: insets.top, backgroundColor: colors.background },
+        ]}
+      >
+        <Stack.Screen
+          options={{
             headerShown: false,
-          }} 
+          }}
         />
       </View>
     );
@@ -274,16 +301,16 @@ const units: MeasurementUnit[] = [
 
   const calculateNutrition = () => {
     const amount = parseFloat(servingAmount) || 0;
-  
+
     const gramsEaten = selectedUnit.grams * amount;
-  
+
     const servingGrams = getServingGrams(food);
-  
+
     const caloriesPerGram = food.calories / servingGrams;
     const proteinPerGram = food.protein / servingGrams;
     const carbsPerGram = food.carbs / servingGrams;
     const fatsPerGram = food.fats / servingGrams;
-  
+
     return {
       calories: Math.round(caloriesPerGram * gramsEaten),
       protein: Math.round(proteinPerGram * gramsEaten * 10) / 10,
@@ -295,14 +322,25 @@ const units: MeasurementUnit[] = [
   const nutrition = calculateNutrition();
 
   const totalMacros = nutrition.protein + nutrition.carbs + nutrition.fats;
-  const proteinPercent = totalMacros > 0 ? Math.round((nutrition.protein / totalMacros) * 100) : 0;
-  const carbsPercent = totalMacros > 0 ? Math.round((nutrition.carbs / totalMacros) * 100) : 0;
-  const fatsPercent = totalMacros > 0 ? Math.round((nutrition.fats / totalMacros) * 100) : 0;
+  const proteinPercent =
+    totalMacros > 0 ? Math.round((nutrition.protein / totalMacros) * 100) : 0;
+  const carbsPercent =
+    totalMacros > 0 ? Math.round((nutrition.carbs / totalMacros) * 100) : 0;
+  const fatsPercent =
+    totalMacros > 0 ? Math.round((nutrition.fats / totalMacros) * 100) : 0;
 
-  const caloriePercent = Math.round((nutrition.calories / settings.calorieGoal) * 100);
-  const proteinGoalPercent = Math.round((nutrition.protein / settings.proteinGoal) * 100);
-  const carbsGoalPercent = Math.round((nutrition.carbs / settings.carbsGoal) * 100);
-  const fatsGoalPercent = Math.round((nutrition.fats / settings.fatsGoal) * 100);
+  const caloriePercent = Math.round(
+    (nutrition.calories / settings.calorieGoal) * 100,
+  );
+  const proteinGoalPercent = Math.round(
+    (nutrition.protein / settings.proteinGoal) * 100,
+  );
+  const carbsGoalPercent = Math.round(
+    (nutrition.carbs / settings.carbsGoal) * 100,
+  );
+  const fatsGoalPercent = Math.round(
+    (nutrition.fats / settings.fatsGoal) * 100,
+  );
 
   const handleLogFood = async () => {
     const amount = parseFloat(servingAmount);
@@ -312,14 +350,19 @@ const units: MeasurementUnit[] = [
 
     try {
       const gramsEaten = selectedUnit.grams * amount;
-  
+
       const servingGrams = getServingGrams(food);
       const actualQuantity = gramsEaten / servingGrams;
-  
-      await addFoodToLog(food, actualQuantity, params.date as string, selectedMeal);
-  
+
+      await addFoodToLog(
+        food,
+        actualQuantity,
+        params.date as string,
+        selectedMeal,
+      );
+
       setShowSuccess(true);
-      
+
       Animated.parallel([
         Animated.spring(checkmarkScale, {
           toValue: 1,
@@ -334,11 +377,11 @@ const units: MeasurementUnit[] = [
         }),
       ]).start(() => {
         setTimeout(() => {
-          router.push('/(tabs)/home');
+          router.push("/(tabs)/home");
         }, 400);
       });
     } catch (error) {
-      console.error('Error logging food:', error);
+      console.error("Error logging food:", error);
     }
   };
 
@@ -405,7 +448,7 @@ const units: MeasurementUnit[] = [
         </Svg>
         <View style={styles.ringCenter}>
           <Text style={styles.ringCalories}>{nutrition.calories}</Text>
-          <Text style={styles.ringLabel}>{t('calories')}</Text>
+          <Text style={styles.ringLabel}>{t("calories")}</Text>
         </View>
       </View>
     );
@@ -413,38 +456,50 @@ const units: MeasurementUnit[] = [
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen 
-        options={{ 
+      <Stack.Screen
+        options={{
           headerShown: false,
-        }} 
+        }}
       />
-      
+
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.closeButton}
+        >
           <X size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('addFood')}</Text>
+        <Text style={styles.headerTitle}>{t("addFood")}</Text>
         <View style={{ width: 40 }} />
       </View>
-      
-      <ScrollView 
-        style={styles.scrollContent} 
+
+      <ScrollView
+        style={styles.scrollContent}
         contentContainerStyle={styles.scrollInner}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.foodHeader}>
-          <Text style={[styles.foodName, isRTL && styles.rtlText]}>{food.name}</Text>
+          <Text style={[styles.foodName, isRTL && styles.rtlText]}>
+            {food.name}
+          </Text>
           {food.brand && (
-            <Text style={[styles.brandName, isRTL && styles.rtlText]}>{food.brand}</Text>
+            <Text style={[styles.brandName, isRTL && styles.rtlText]}>
+              {food.brand}
+            </Text>
           )}
         </View>
 
         <View style={styles.servingSection}>
           <View style={styles.servingRow}>
             <View style={styles.servingInputGroup}>
-              <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('servings')}</Text>
+              <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
+                {t("servings")}
+              </Text>
               <TextInput
-                style={[styles.servingInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                style={[
+                  styles.servingInput,
+                  { textAlign: isRTL ? "right" : "left" },
+                ]}
                 value={servingAmount}
                 onChangeText={setServingAmount}
                 keyboardType="numeric"
@@ -455,82 +510,122 @@ const units: MeasurementUnit[] = [
             </View>
 
             <View style={styles.servingSizeGroup}>
-              <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>{t('servingSize')}</Text>
-              <TouchableOpacity 
-  style={styles.servingPicker}
-  onPress={() => setShowServingModal(true)}
->
- <Text style={[styles.servingPickerText, isRTL && styles.rtlText]} numberOfLines={1}>
-  {selectedUnit.name}
-</Text>
+              <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
+                {t("servingSize")}
+              </Text>
+              <TouchableOpacity
+                style={styles.servingPicker}
+                onPress={() => setShowServingModal(true)}
+              >
+                <Text
+                  style={[styles.servingPickerText, isRTL && styles.rtlText]}
+                  numberOfLines={1}
+                >
+                  {selectedUnit.name}
+                </Text>
 
-<ChevronDown size={16} color={colors.placeholder} />
+                <ChevronDown size={16} color={colors.placeholder} />
+              </TouchableOpacity>
+              <Modal
+                visible={showServingModal}
+                transparent
+                animationType="fade"
+              >
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    backgroundColor: "rgba(0,0,0,0.5)",
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: colors.surface,
+                      margin: 30,
+                      borderRadius: 12,
+                      paddingVertical: 16,
+                    }}
+                  >
+                    <TouchableOpacity
+                      style={{ paddingVertical: 16, paddingHorizontal: 20 }}
+                      onPress={() => {
+                        const { grams, display } = computeServing(
+                          getRawServing(food),
+                        );
+                        setSelectedUnit({
+                          name: `1 serving (${display})`,
+                          grams,
+                        });
+                        setShowServingModal(false);
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: colors.text,
+                          fontSize: 16,
+                          textAlign: isRTL ? "left" : "right",
+                        }}
+                      >
+                        {`1 serving (${computeServing(getRawServing(food)).display})`}
+                      </Text>
+                    </TouchableOpacity>
 
-</TouchableOpacity>
-<Modal visible={showServingModal} transparent animationType="fade">
-  <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-    <View style={{ backgroundColor: colors.surface, margin: 30, borderRadius: 12, paddingVertical: 16 }}>
-      <TouchableOpacity
-  style={{ paddingVertical: 16, paddingHorizontal: 20 }}
-  onPress={() => {
-    const { grams, display } = computeServing(getRawServing(food));
-    setSelectedUnit({ name: `1 serving (${display})`, grams });
-    setShowServingModal(false);
-  }}
->
-  <Text style={{ color: colors.text, fontSize: 16, textAlign: isRTL ? 'left' : 'right' }}>
-    {`1 serving (${computeServing(getRawServing(food)).display})`}
-  </Text>
-</TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ paddingVertical: 16, paddingHorizontal: 20 }}
+                      onPress={() => {
+                        const servingText = getRawServing(food).toLowerCase();
+                        const isLiquid =
+                          servingText.includes("ml") ||
+                          servingText.includes("l") ||
+                          servingText.includes("cup") ||
+                          servingText.includes("juice") ||
+                          servingText.includes("milk") ||
+                          servingText.includes("water");
 
+                        setSelectedUnit({
+                          name: isLiquid ? `1 ${t("ml")}` : `1 ${t("gram")}`,
+                          grams: 1,
+                        });
+                        setShowServingModal(false);
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: colors.text,
+                          fontSize: 16,
+                          textAlign: isRTL ? "left" : "right",
+                        }}
+                      >
+                        {getRawServing(food).toLowerCase().includes("ml") ||
+                        getRawServing(food).toLowerCase().includes("l") ||
+                        getRawServing(food).toLowerCase().includes("cup") ||
+                        getRawServing(food).toLowerCase().includes("juice") ||
+                        getRawServing(food).toLowerCase().includes("milk") ||
+                        getRawServing(food).toLowerCase().includes("water")
+                          ? `1 ${t("ml")}`
+                          : `1 ${t("gram")}`}
+                      </Text>
+                    </TouchableOpacity>
 
-
-      <TouchableOpacity
-  style={{ paddingVertical: 16, paddingHorizontal: 20 }}
-  onPress={() => {
-    const servingText = getRawServing(food).toLowerCase();
-    const isLiquid =
-      servingText.includes('ml') ||
-      servingText.includes('l') ||
-      servingText.includes('cup') ||
-      servingText.includes('juice') ||
-      servingText.includes('milk') ||
-      servingText.includes('water');
-
-    setSelectedUnit({
-      name: isLiquid ? `1 ${t('ml')}` : `1 ${t('gram')}`,
-      grams: 1,
-    });
-    setShowServingModal(false);
-  }}
->
-  <Text style={{ color: colors.text, fontSize: 16, textAlign: isRTL ? 'left' : 'right' }}>
-    {getRawServing(food).toLowerCase().includes('ml') ||
-    getRawServing(food).toLowerCase().includes('l') ||
-    getRawServing(food).toLowerCase().includes('cup') ||
-    getRawServing(food).toLowerCase().includes('juice') ||
-    getRawServing(food).toLowerCase().includes('milk') ||
-    getRawServing(food).toLowerCase().includes('water')
-      ? `1 ${t('ml')}`
-      : `1 ${t('gram')}`}
-  </Text>
-</TouchableOpacity>
-
-
-
-      <TouchableOpacity onPress={() => setShowServingModal(false)} style={{ paddingVertical: 16, alignItems: 'center' }}>
-        <Text style={{ color: colors.placeholder, fontSize: 16 }}>{t('cancel')}</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
-
+                    <TouchableOpacity
+                      onPress={() => setShowServingModal(false)}
+                      style={{ paddingVertical: 16, alignItems: "center" }}
+                    >
+                      <Text style={{ color: colors.placeholder, fontSize: 16 }}>
+                        {t("cancel")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
             </View>
           </View>
         </View>
 
         <View style={styles.mealSection}>
-          <Text style={[styles.sectionLabel, isRTL && styles.rtlText]}>{t('meal')}</Text>
+          <Text style={[styles.sectionLabel, isRTL && styles.rtlText]}>
+            {t("meal")}
+          </Text>
           <View style={styles.mealGrid}>
             {MEAL_OPTIONS.map((meal) => {
               const MealIcon = meal.icon;
@@ -539,19 +634,21 @@ const units: MeasurementUnit[] = [
                   key={meal.key}
                   style={[
                     styles.mealButton,
-                    selectedMeal === meal.key && styles.mealButtonActive
+                    selectedMeal === meal.key && styles.mealButtonActive,
                   ]}
                   onPress={() => setSelectedMeal(meal.key)}
                   activeOpacity={0.7}
                 >
-                  <MealIcon 
-                    size={18} 
-                    color={selectedMeal === meal.key ? '#121212' : colors.text} 
+                  <MealIcon
+                    size={18}
+                    color={selectedMeal === meal.key ? "#121212" : colors.text}
                   />
-                  <Text style={[
-                    styles.mealLabel,
-                    selectedMeal === meal.key && styles.mealLabelActive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.mealLabel,
+                      selectedMeal === meal.key && styles.mealLabelActive,
+                    ]}
+                  >
                     {meal.label}
                   </Text>
                 </TouchableOpacity>
@@ -562,29 +659,29 @@ const units: MeasurementUnit[] = [
 
         <View style={styles.nutritionSection}>
           {renderMacroRing()}
-          
+
           <View style={styles.macroBreakdown}>
             {(() => {
               const macroItems = [
                 {
-                  key: 'carbs',
+                  key: "carbs",
                   color: MACRO_COLORS.carbs,
                   percent: carbsPercent,
-                  name: t('carbs'),
+                  name: t("carbs"),
                   value: nutrition.carbs,
                 },
                 {
-                  key: 'fat',
+                  key: "fat",
                   color: MACRO_COLORS.fat,
                   percent: fatsPercent,
-                  name: t('fat'),
+                  name: t("fat"),
                   value: nutrition.fats,
                 },
                 {
-                  key: 'protein',
+                  key: "protein",
                   color: MACRO_COLORS.protein,
                   percent: proteinPercent,
-                  name: t('protein'),
+                  name: t("protein"),
                   value: nutrition.protein,
                 },
               ];
@@ -594,11 +691,16 @@ const units: MeasurementUnit[] = [
               return orderedItems.map((item) => (
                 <View key={item.key} style={styles.macroItem}>
                   <View style={styles.macroHeader}>
-                    <View style={[styles.macroDot, { backgroundColor: item.color }]} />
+                    <View
+                      style={[styles.macroDot, { backgroundColor: item.color }]}
+                    />
                     <Text style={styles.macroPercent}>{item.percent}%</Text>
                   </View>
                   <Text style={styles.macroName}>{item.name}</Text>
-                  <Text style={styles.macroValue}>{item.value}{t('g')}</Text>
+                  <Text style={styles.macroValue}>
+                    {item.value}
+                    {t("g")}
+                  </Text>
                 </View>
               ));
             })()}
@@ -606,15 +708,21 @@ const units: MeasurementUnit[] = [
         </View>
 
         <View style={styles.dailyGoalsSection}>
-          <Text style={[styles.dailyGoalsTitle, isRTL && styles.rtlText]}>{t('percentOfDailyGoals')}</Text>
+          <Text style={[styles.dailyGoalsTitle, isRTL && styles.rtlText]}>
+            {t("percentOfDailyGoals")}
+          </Text>
 
           <View style={styles.goalItem}>
             <View style={styles.goalHeader}>
-              <Text style={styles.goalName}>{t('caloriesLabel')}</Text>
+              <Text style={styles.goalName}>{t("caloriesLabel")}</Text>
               {isRTL ? (
-                <Text style={styles.goalValues}>{settings.calorieGoal} / {nutrition.calories}</Text>
+                <Text style={styles.goalValues}>
+                  {settings.calorieGoal} / {nutrition.calories}
+                </Text>
               ) : (
-                <Text style={styles.goalValues}>{nutrition.calories} / {settings.calorieGoal}</Text>
+                <Text style={styles.goalValues}>
+                  {nutrition.calories} / {settings.calorieGoal}
+                </Text>
               )}
             </View>
             <View style={styles.goalBarContainer}>
@@ -623,8 +731,8 @@ const units: MeasurementUnit[] = [
                   styles.goalBar,
                   {
                     width: `${Math.min(caloriePercent, 100)}%`,
-                    backgroundColor: colors.primary
-                  }
+                    backgroundColor: colors.primary,
+                  },
                 ]}
               />
             </View>
@@ -634,29 +742,29 @@ const units: MeasurementUnit[] = [
           {(() => {
             const macroGoalItems = [
               {
-                key: 'protein',
-                name: t('protein'),
+                key: "protein",
+                name: t("protein"),
                 current: nutrition.protein,
                 goal: settings.proteinGoal,
                 percent: proteinGoalPercent,
                 color: MACRO_COLORS.protein,
               },
               {
-                key: 'carbs',
-                name: t('carbs'),
+                key: "carbs",
+                name: t("carbs"),
                 current: nutrition.carbs,
                 goal: settings.carbsGoal,
                 percent: carbsGoalPercent,
                 color: MACRO_COLORS.carbs,
               },
               {
-                key: 'fat',
-                name: t('fat'),
+                key: "fat",
+                name: t("fat"),
                 current: nutrition.fats,
                 goal: settings.fatsGoal,
                 percent: fatsGoalPercent,
                 color: MACRO_COLORS.fat,
-              }
+              },
             ];
 
             return macroGoalItems.map((item) => (
@@ -664,9 +772,17 @@ const units: MeasurementUnit[] = [
                 <View style={styles.goalHeader}>
                   <Text style={styles.goalName}>{item.name}</Text>
                   {isRTL ? (
-                    <Text style={styles.goalValues}>{item.goal}{t('g')} / {item.current}{t('g')}</Text>
+                    <Text style={styles.goalValues}>
+                      {item.goal}
+                      {t("g")} / {item.current}
+                      {t("g")}
+                    </Text>
                   ) : (
-                    <Text style={styles.goalValues}>{item.current}{t('g')} / {item.goal}{t('g')}</Text>
+                    <Text style={styles.goalValues}>
+                      {item.current}
+                      {t("g")} / {item.goal}
+                      {t("g")}
+                    </Text>
                   )}
                 </View>
                 <View style={styles.goalBarContainer}>
@@ -675,8 +791,8 @@ const units: MeasurementUnit[] = [
                       styles.goalBar,
                       {
                         width: `${Math.min(item.percent, 100)}%`,
-                        backgroundColor: item.color
-                      }
+                        backgroundColor: item.color,
+                      },
                     ]}
                   />
                 </View>
@@ -686,38 +802,38 @@ const units: MeasurementUnit[] = [
           })()}
         </View>
 
-<View 
-        style={[
-          styles.footer, 
-          { 
-            paddingBottom: insets.bottom + 16,
-           
-          }
-        ]}
-      >
-        <TouchableOpacity 
-          style={styles.logButton} 
-          onPress={handleLogFood}
-          activeOpacity={0.85}
+        <View
+          style={[
+            styles.footer,
+            {
+              paddingBottom: insets.bottom + 16,
+            },
+          ]}
         >
-          <Text style={styles.logButtonText}>{t('addTo')} {MEAL_OPTIONS.find(m => m.key === selectedMeal)?.label}</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.logButton}
+            onPress={handleLogFood}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.logButtonText}>
+              {t("addTo")}{" "}
+              {MEAL_OPTIONS.find((m) => m.key === selectedMeal)?.label}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      
-
       {showSuccess && (
         <View style={styles.successOverlay}>
-          <Animated.View 
+          <Animated.View
             style={[
               styles.successCircle,
-              { 
+              {
                 opacity: checkmarkOpacity,
-                transform: [{ scale: checkmarkScale }]
-              }
+                transform: [{ scale: checkmarkScale }],
+              },
             ]}
           >
             <Check size={32} color="#121212" strokeWidth={3} />
@@ -733,21 +849,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
   closeButton: {
     width: 40,
     height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
     letterSpacing: -0.3,
   },
@@ -763,21 +879,21 @@ const styles = StyleSheet.create({
   },
   foodName: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
     letterSpacing: -0.5,
     marginBottom: 4,
   },
   brandName: {
     fontSize: 13,
-    fontWeight: '400',
+    fontWeight: "400",
     color: colors.placeholder,
   },
   servingSection: {
     marginBottom: 24,
   },
   servingRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   servingInputGroup: {
@@ -788,9 +904,9 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.placeholder,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 8,
   },
@@ -800,7 +916,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 16,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
   },
   servingPicker: {
@@ -808,13 +924,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 10,
     paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   servingPickerText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.text,
     flex: 1,
   },
@@ -823,26 +939,26 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.placeholder,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 12,
   },
   mealGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   mealButton: {
     flex: 1,
-    minWidth: '47%',
+    minWidth: "47%",
     height: 56,
     backgroundColor: colors.surface,
     borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
   },
   mealButtonActive: {
@@ -850,59 +966,59 @@ const styles = StyleSheet.create({
   },
   mealLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
   },
   mealLabelActive: {
-    color: '#121212',
+    color: "#121212",
   },
   nutritionSection: {
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   ringContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
   },
   svg: {
-    transform: [{ rotate: '0deg' }],
+    transform: [{ rotate: "0deg" }],
   },
   ringCenter: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
   },
   ringCalories: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
     letterSpacing: -0.5,
   },
   ringLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.placeholder,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginTop: 2,
   },
   macroBreakdown: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-around",
   },
   macroItem: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 4,
   },
   macroHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginBottom: 2,
   },
@@ -913,17 +1029,17 @@ const styles = StyleSheet.create({
   },
   macroPercent: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
   },
   macroName: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.placeholder,
   },
   macroValue: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
   },
   dailyGoalsSection: {
@@ -934,7 +1050,7 @@ const styles = StyleSheet.create({
   },
   dailyGoalsTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
     marginBottom: 16,
   },
@@ -942,43 +1058,43 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   goalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 6,
   },
   goalName: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.text,
   },
   goalValues: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.placeholder,
   },
   goalBarContainer: {
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 4,
   },
   goalBar: {
-    height: '100%',
+    height: "100%",
     borderRadius: 3,
   },
   goalPercent: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
-    textAlign: 'right',
+    textAlign: "right",
   },
   footer: {
     paddingHorizontal: 20,
     paddingTop: 16,
     backgroundColor: colors.background,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -988,8 +1104,8 @@ const styles = StyleSheet.create({
     height: 52,
     backgroundColor: colors.primary,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -998,34 +1114,34 @@ const styles = StyleSheet.create({
   },
   logButtonText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#121212',
+    fontWeight: "700",
+    color: "#121212",
     letterSpacing: 0.3,
   },
   successOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
   },
   successCircle: {
     width: 70,
     height: 70,
     borderRadius: 35,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 16,
     elevation: 8,
   },
-  rtlText:{
-    textAlign: 'left',
-  }
+  rtlText: {
+    textAlign: "left",
+  },
 });

@@ -4,7 +4,7 @@ import React, {
   useContext,
   useEffect,
   useState,
-  type ReactNode
+  type ReactNode,
 } from "react";
 
 import { auth } from "@/config/firebaseConfig";
@@ -20,8 +20,7 @@ import {
 } from "firebase/auth";
 
 // AsyncStorage key for persisting user data
-const USER_STORAGE_KEY = 'fitco_auth_user';
-
+const USER_STORAGE_KEY = "fitco_auth_user";
 
 type AuthResult =
   | { success: true; user: User }
@@ -36,7 +35,7 @@ type AuthContextType = {
     email: string,
     password: string,
     firstName: string,
-    lastName: string
+    lastName: string,
   ) => Promise<AuthResult>;
   logout: () => Promise<void>;
 };
@@ -58,7 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(userData);
         }
       } catch (error) {
-        console.log('Error loading persisted user:', error);
+        console.log("Error loading persisted user:", error);
       }
     };
 
@@ -68,7 +67,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 🔥 Watch authentication state with persistence
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-
       if (firebaseUser) {
         const userData = {
           uid: firebaseUser.uid,
@@ -81,16 +79,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(firebaseUser);
 
         try {
-          await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+          await AsyncStorage.setItem(
+            USER_STORAGE_KEY,
+            JSON.stringify(userData),
+          );
         } catch (error) {
-          console.log('Error persisting user data:', error);
+          console.log("Error persisting user data:", error);
         }
       } else {
         const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
         if (!storedUser) {
           setUser(null);
         } else {
-          console.log('🔄 Have stored data but Firebase reports no user - keeping for UI');
+          console.log(
+            "🔄 Have stored data but Firebase reports no user - keeping for UI",
+          );
         }
       }
 
@@ -100,37 +103,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return unsubscribe;
   }, []);
 
- // 🧹 Utility: Clear only temporary or cached Fitco data (preserves user data)
-const clearFitcoData = async () => {
-  try {
-    const keys = await AsyncStorage.getAllKeys();
-    // ❗ Skip per-user data — only remove truly temporary/global keys
-    const filtered = keys.filter(
-      (k) =>
-        !k.startsWith("fitco_daily_logs_") &&
-        !k.startsWith("fitco_settings_") &&
-        !k.startsWith("fitco_user_profile_") &&
-        !k.startsWith("fitco_auth_") &&
-        !k.startsWith("questionnaireData_") &&
-        !k.startsWith("hasCompletedQuestionnaire_")
-    );
-    if (filtered.length > 0) {
-      await AsyncStorage.multiRemove(filtered);
-      console.log("🧼 Cleared Fitco data (safe):", filtered);
+  // 🧹 Utility: Clear only temporary or cached Fitco data (preserves user data)
+  const clearFitcoData = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      // ❗ Skip per-user data — only remove truly temporary/global keys
+      const filtered = keys.filter(
+        (k) =>
+          !k.startsWith("fitco_daily_logs_") &&
+          !k.startsWith("fitco_settings_") &&
+          !k.startsWith("fitco_user_profile_") &&
+          !k.startsWith("fitco_auth_") &&
+          !k.startsWith("questionnaireData_") &&
+          !k.startsWith("hasCompletedQuestionnaire_"),
+      );
+      if (filtered.length > 0) {
+        await AsyncStorage.multiRemove(filtered);
+        console.log("🧼 Cleared Fitco data (safe):", filtered);
+      }
+    } catch (error) {
+      console.error("Error clearing storage (safe):", error);
     }
-  } catch (error) {
-    console.error("Error clearing storage (safe):", error);
-  }
-};
-
+  };
 
   // ✅ Sign In
   const signIn = async (
     email: string,
-    password: string
+    password: string,
   ): Promise<AuthResult> => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
       await clearFitcoData(); // ensure clean load per user
       return { success: true, user: userCredential.user };
     } catch (error: any) {
@@ -139,66 +145,82 @@ const clearFitcoData = async () => {
     }
   };
 
- // ✅ Sign Up
-const signUp = async (
-  email: string,
-  password: string,
-  firstName: string,
-  lastName: string
-): Promise<AuthResult> => {
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+  // ✅ Sign Up
+  const signUp = async (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+  ): Promise<AuthResult> => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const user = userCredential.user;
 
-    // ✅ Give user a display name so Settings shows correctly
-    await updateProfile(user, {
-      displayName: `${firstName} ${lastName}`,
-    });
+      // ✅ Give user a display name so Settings shows correctly
+      await updateProfile(user, {
+        displayName: `${firstName} ${lastName}`,
+      });
 
-    // ✅ Clear any global Fitco cache
-    await clearFitcoData();
+      // ✅ Clear any global Fitco cache
+      await clearFitcoData();
 
-    // ✅ Create a blank profile for this specific user
-    const blankProfile = {
-  userId: userCredential.user.uid,
-  firstName,
-  lastName,
-  email,
-  weight: 70,
-  height: 170,
-  goal: "maintain_weight",
-  activityLevel: "moderately_active",
-  // ❌ remove targetCalories/Protein/Carbs/Fat here
-};
+      // ✅ Create a blank profile for this specific user
+      const blankProfile = {
+        userId: userCredential.user.uid,
+        firstName,
+        lastName,
+        email,
+        weight: 70,
+        height: 170,
+        goal: "maintain_weight",
+        activityLevel: "moderately_active",
+        // ❌ remove targetCalories/Protein/Carbs/Fat here
+      };
 
+      // ✅ Only initialize if not already existing
+      const existingProfile = await AsyncStorage.getItem(
+        `fitco_user_profile_${user.uid}`,
+      );
+      if (!existingProfile) {
+        await AsyncStorage.setItem(
+          `fitco_user_profile_${user.uid}`,
+          JSON.stringify(blankProfile),
+        );
+      }
 
-  // ✅ Only initialize if not already existing
-const existingProfile = await AsyncStorage.getItem(`fitco_user_profile_${user.uid}`);
-if (!existingProfile) {
-  await AsyncStorage.setItem(`fitco_user_profile_${user.uid}`, JSON.stringify(blankProfile));
-}
+      const existingSettings = await AsyncStorage.getItem(
+        `fitco_settings_${user.uid}`,
+      );
+      if (!existingSettings) {
+        await AsyncStorage.setItem(
+          `fitco_settings_${user.uid}`,
+          JSON.stringify({}),
+        );
+      }
 
-const existingSettings = await AsyncStorage.getItem(`fitco_settings_${user.uid}`);
-if (!existingSettings) {
-  await AsyncStorage.setItem(`fitco_settings_${user.uid}`, JSON.stringify({}));
-}
+      const existingLogs = await AsyncStorage.getItem(
+        `fitco_daily_logs_${user.uid}`,
+      );
+      if (!existingLogs) {
+        await AsyncStorage.setItem(
+          `fitco_daily_logs_${user.uid}`,
+          JSON.stringify({}),
+        );
+      }
 
-const existingLogs = await AsyncStorage.getItem(`fitco_daily_logs_${user.uid}`);
-if (!existingLogs) {
-  await AsyncStorage.setItem(`fitco_daily_logs_${user.uid}`, JSON.stringify({}));
-}
+      console.log("✅ New user created:", user.uid, user.displayName);
+      setUser(user);
 
-
-    console.log("✅ New user created:", user.uid, user.displayName);
-    setUser(user);
-
-    return { success: true, user };
-  } catch (error: any) {
-    console.error("[Auth] SignUp error:", error);
-    return { success: false, error: { message: error.message } };
-  }
-};
-
+      return { success: true, user };
+    } catch (error: any) {
+      console.error("[Auth] SignUp error:", error);
+      return { success: false, error: { message: error.message } };
+    }
+  };
 
   // ✅ Safe Logout (clears user data from storage)
   const logout = async (): Promise<void> => {
@@ -214,7 +236,7 @@ if (!existingLogs) {
           !key.startsWith("fitco_settings_") &&
           !key.startsWith("questionnaireData_") &&
           !key.startsWith("fitco_user_profile_") &&
-          !key.startsWith("hasCompletedQuestionnaire_")
+          !key.startsWith("hasCompletedQuestionnaire_"),
       );
       await AsyncStorage.multiRemove(filtered);
       setUser(null);
@@ -225,14 +247,14 @@ if (!existingLogs) {
     }
   };
 
-// ✅ Context provider
-return (
-  <AuthContext.Provider
-    value={{ user, loading, isInitialized, signIn, signUp, logout }}
-  >
-    {children}
-  </AuthContext.Provider>
-);
+  // ✅ Context provider
+  return (
+    <AuthContext.Provider
+      value={{ user, loading, isInitialized, signIn, signUp, logout }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 // ✅ Hook for accessing Auth context

@@ -1,14 +1,26 @@
+import { useLanguage } from "@/hooks/language-context";
+import { responsiveHeight } from "@/utilities/ScalingUtils";
+import {
+  BarcodeScanningResult,
+  CameraView,
+  useCameraPermissions,
+} from "expo-camera";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { RefreshCw, X } from "lucide-react-native";
 
-import { useLanguage } from '@/hooks/language-context';
-import { responsiveHeight } from '@/utilities/ScalingUtils';
-import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { RefreshCw, X } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, ScrollView } from 'react-native';
-import { ActivityIndicator, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ScanBarcode() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -19,15 +31,14 @@ export default function ScanBarcode() {
   const params = useLocalSearchParams();
   const { t, isRTL } = useLanguage();
   const colors = {
-  text: "#FFFFFF",
-  background: "#1A1A1A",
-  primary: "#4CAF50",
-  surface: "#2D2D2D",
-  border: "#404040",
-  placeholder: "#999999",
-};
-const [keyboardVisible, setKeyboardVisible] = useState(false);
-
+    text: "#FFFFFF",
+    background: "#1A1A1A",
+    primary: "#4CAF50",
+    surface: "#2D2D2D",
+    border: "#404040",
+    placeholder: "#999999",
+  };
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) {
@@ -35,26 +46,22 @@ const [keyboardVisible, setKeyboardVisible] = useState(false);
     }
   }, [permission, requestPermission]);
 
-  useFocusEffect(useCallback(() => {
-    setScannedCode(null);
-    setIsScanning(true);
-  }, []));
+  useFocusEffect(
+    useCallback(() => {
+      setScannedCode(null);
+      setIsScanning(true);
+    }, []),
+  );
 
   useEffect(() => {
-    const showListener = Keyboard.addListener(
-      'keyboardDidShow',
-      (event) => {
-        setKeyboardVisible(true);
-      }
-    );
-  
-    const hideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-      }
-    );
-  
+    const showListener = Keyboard.addListener("keyboardDidShow", (event) => {
+      setKeyboardVisible(true);
+    });
+
+    const hideListener = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardVisible(false);
+    });
+
     return () => {
       showListener.remove();
       hideListener.remove();
@@ -64,13 +71,13 @@ const [keyboardVisible, setKeyboardVisible] = useState(false);
   const handleBarCodeScanned = ({ data }: BarcodeScanningResult) => {
     if (!isScanning) return;
 
-    console.log('Barcode scanned:', data);
+    console.log("Barcode scanned:", data);
     setScannedCode(data);
     setIsScanning(false);
 
     // Check source parameter to determine navigation
     const source = params.source as string;
-    if (source === 'createCustom') {
+    if (source === "createCustom") {
       router.navigate(`/modal/createCustomFood?barcode=${data}`);
     } else {
       // Default to food log for barcode scanning from tabs
@@ -97,28 +104,37 @@ const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   if (!permission.granted) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          { paddingTop: insets.top, backgroundColor: colors.background },
+        ]}
+      >
         <View style={styles.permissionContainer}>
           <Text style={[styles.permissionTitle, { color: colors.text }]}>
-            {t('cameraPermissionRequired')}
+            {t("cameraPermissionRequired")}
           </Text>
-          <Text style={[styles.permissionMessage, { color: colors.placeholder }]}>
-            {t('cameraPermissionRequiredDescription')}
+          <Text
+            style={[styles.permissionMessage, { color: colors.placeholder }]}
+          >
+            {t("cameraPermissionRequiredDescription")}
           </Text>
           <TouchableOpacity
-            style={[styles.permissionButton, { backgroundColor: colors.primary }]}
+            style={[
+              styles.permissionButton,
+              { backgroundColor: colors.primary },
+            ]}
             onPress={requestPermission}
           >
-            <Text style={[styles.permissionButtonText, { color: '#FFFFFF' }]}>
-              {t('grantPermission')}
+            <Text style={[styles.permissionButtonText, { color: "#FFFFFF" }]}>
+              {t("grantPermission")}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleClose}
-          >
-            <Text style={[styles.cancelButtonText, { color: colors.placeholder }]}>
-              {t('cancel')}
+          <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
+            <Text
+              style={[styles.cancelButtonText, { color: colors.placeholder }]}
+            >
+              {t("cancel")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -134,81 +150,105 @@ const [keyboardVisible, setKeyboardVisible] = useState(false);
         onBarcodeScanned={isScanning ? handleBarCodeScanned : undefined}
         barcodeScannerSettings={{
           barcodeTypes: [
-            'qr',
-            'ean13',
-            'ean8',
-            'upc_a',
-            'upc_e',
-            'code39',
-            'code93',
-            'code128',
-            'codabar',
-            'itf14',
-            'pdf417',
-            'aztec',
-            'datamatrix',
+            "qr",
+            "ean13",
+            "ean8",
+            "upc_a",
+            "upc_e",
+            "code39",
+            "code93",
+            "code128",
+            "codabar",
+            "itf14",
+            "pdf417",
+            "aztec",
+            "datamatrix",
           ],
         }}
       >
         <View style={[styles.overlay, { paddingTop: insets.top }]}>
           <TouchableOpacity
-            style={[styles.closeButton, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+            style={[styles.closeButton, { backgroundColor: "rgba(0,0,0,0.5)" }]}
             onPress={handleClose}
           >
             <X size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
           <View style={styles.scanArea}>
-            <View style={[styles.cornerTopLeft, { borderColor: colors.primary }]} />
-            <View style={[styles.cornerTopRight, { borderColor: colors.primary }]} />
-            <View style={[styles.cornerBottomLeft, { borderColor: colors.primary }]} />
-            <View style={[styles.cornerBottomRight, { borderColor: colors.primary }]} />
+            <View
+              style={[styles.cornerTopLeft, { borderColor: colors.primary }]}
+            />
+            <View
+              style={[styles.cornerTopRight, { borderColor: colors.primary }]}
+            />
+            <View
+              style={[styles.cornerBottomLeft, { borderColor: colors.primary }]}
+            />
+            <View
+              style={[
+                styles.cornerBottomRight,
+                { borderColor: colors.primary },
+              ]}
+            />
           </View>
 
           <View style={styles.instructionContainer}>
             <Text style={styles.instructionText}>
-              {isScanning ? t('alignBarcodeWithinFrame') : t('barcodeDetected')}
+              {isScanning ? t("alignBarcodeWithinFrame") : t("barcodeDetected")}
             </Text>
           </View>
         </View>
       </CameraView>
 
       {scannedCode && (
-        <View style={[styles.resultOverlay, { paddingBottom: insets.bottom + 20 }]}>
-          <View style={[styles.resultCard, { backgroundColor: colors.surface }]}>
+        <View
+          style={[styles.resultOverlay, { paddingBottom: insets.bottom + 20 }]}
+        >
+          <View
+            style={[styles.resultCard, { backgroundColor: colors.surface }]}
+          >
             <Text style={[styles.resultTitle, { color: colors.text }]}>
-              {t('scannedBarcode')}
+              {t("scannedBarcode")}
             </Text>
             <Text style={[styles.resultCode, { color: colors.primary }]}>
               {scannedCode}
             </Text>
             <TouchableOpacity
-              style={[styles.scanAgainButton, { backgroundColor: colors.primary }]}
+              style={[
+                styles.scanAgainButton,
+                { backgroundColor: colors.primary },
+              ]}
               onPress={handleScanAgain}
             >
               <RefreshCw size={20} color="#FFFFFF" />
-              <Text style={styles.scanAgainButtonText}>{t('scanAgain')}</Text>
+              <Text style={styles.scanAgainButtonText}>{t("scanAgain")}</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
-    
-     {/* ⭐ MANUAL BARCODE INPUT BOX (add this) ⭐ */}
-      <View style={{
-        position: "absolute",
-        bottom: insets.bottom + 20,
-        left: 20,
-        right: 20,
-        backgroundColor: colors.surface,
-        padding: 14,
-        borderRadius: 14,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: keyboardVisible ? Platform.OS === 'ios' ? responsiveHeight(20) : responsiveHeight(25) : 0,
-      }}>
+
+      {/* ⭐ MANUAL BARCODE INPUT BOX (add this) ⭐ */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: insets.bottom + 20,
+          left: 20,
+          right: 20,
+          backgroundColor: colors.surface,
+          padding: 14,
+          borderRadius: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: keyboardVisible
+            ? Platform.OS === "ios"
+              ? responsiveHeight(20)
+              : responsiveHeight(25)
+            : 0,
+        }}
+      >
         <TextInput
-          placeholder={t('enterBarcodeManually')}
+          placeholder={t("enterBarcodeManually") as string}
           placeholderTextColor={colors.placeholder}
           style={{
             flex: 1,
@@ -218,7 +258,7 @@ const [keyboardVisible, setKeyboardVisible] = useState(false);
             paddingVertical: 10,
             borderRadius: 10,
             marginRight: 10,
-            textAlign: isRTL ? 'right' : 'left',
+            textAlign: isRTL ? "right" : "left",
             borderColor: colors.border,
             borderWidth: 1,
           }}
@@ -231,11 +271,11 @@ const [keyboardVisible, setKeyboardVisible] = useState(false);
           onPress={() => {
             if (!scannedCode) return;
             const source = params.source as string;
-            if (source === 'createCustom') {
-             router.navigate(`/modal/createCustomFood?barcode=${scannedCode}`);
-           } else {
-             router.navigate(`/logFood?barcode=${scannedCode}`);
-           }
+            if (source === "createCustom") {
+              router.navigate(`/modal/createCustomFood?barcode=${scannedCode}`);
+            } else {
+              router.navigate(`/logFood?barcode=${scannedCode}`);
+            }
           }}
           style={{
             backgroundColor: colors.primary,
@@ -244,13 +284,11 @@ const [keyboardVisible, setKeyboardVisible] = useState(false);
             borderRadius: 10,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "600" }}>{t('use')}</Text>
+          <Text style={{ color: "#fff", fontWeight: "600" }}>{t("use")}</Text>
         </TouchableOpacity>
       </View>
       {/* ⭐ END MANUAL INPUT BOX ⭐ */}
-    
     </View>
-  
   );
 }
 
@@ -263,30 +301,30 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   closeButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 60,
     right: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 10,
   },
   scanArea: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
+    position: "absolute",
+    top: "50%",
+    left: "50%",
     width: 250,
     height: 250,
     marginTop: -125,
     marginLeft: -125,
   },
   cornerTopLeft: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     width: 40,
@@ -296,7 +334,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 8,
   },
   cornerTopRight: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
     width: 40,
@@ -306,7 +344,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
   },
   cornerBottomLeft: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     width: 40,
@@ -316,7 +354,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 8,
   },
   cornerBottomRight: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
     width: 40,
@@ -326,24 +364,24 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
   },
   instructionContainer: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 130 : 100,
+    position: "absolute",
+    bottom: Platform.OS === "ios" ? 130 : 100,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: "center",
   },
   instructionText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    fontWeight: "600",
+    color: "#FFFFFF",
+    backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   resultOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -352,8 +390,8 @@ const styles = StyleSheet.create({
   resultCard: {
     borderRadius: 16,
     padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -361,19 +399,19 @@ const styles = StyleSheet.create({
   },
   resultTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
   },
   resultCode: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   scanAgainButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -381,24 +419,24 @@ const styles = StyleSheet.create({
   },
   scanAgainButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   permissionContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 40,
   },
   permissionTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   permissionMessage: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 32,
     lineHeight: 24,
   },
@@ -408,17 +446,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     minWidth: 200,
-    alignItems: 'center',
+    alignItems: "center",
   },
   permissionButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   cancelButton: {
     paddingVertical: 12,
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

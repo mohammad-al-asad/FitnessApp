@@ -68,7 +68,8 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
   };
 
   const filteredRoutes = state.routes.filter(
-    (route: any) => !["createCustomFood", "scanBarcode", "explore"].includes(route.name)
+    (route: any) =>
+      !["createCustomFood", "scanBarcode", "explore"].includes(route.name),
   );
 
   const leftRoutes = isRTL
@@ -85,22 +86,35 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         { backgroundColor: colors.background, borderTopColor: colors.border },
       ]}
     >
-      <View style={[styles.tabContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+      <View
+        style={[
+          styles.tabContainer,
+          { flexDirection: isRTL ? "row-reverse" : "row" },
+        ]}
+      >
         {/* LEFT SIDE TABS (Home + Journal) */}
-        <View style={[isRTL ? styles.rightTabs :styles.leftTabs, { flexDirection: isRTL ? 'row-reverse' : 'row' }, isRTL ? { paddingRight: 20 } : { paddingLeft: 20 }]}>
+        <View
+          style={[
+            isRTL ? styles.rightTabs : styles.leftTabs,
+            { flexDirection: isRTL ? "row-reverse" : "row" },
+            isRTL ? { paddingRight: 20 } : { paddingLeft: 20 },
+          ]}
+        >
           {leftRoutes.map((route: any) => (
-            <View key={route.key}>
-              {renderTabButton(route)}
-            </View>
+            <View key={route.key}>{renderTabButton(route)}</View>
           ))}
         </View>
 
         {/* RIGHT SIDE TABS (Insights + Settings) */}
-        <View style={[isRTL ? styles.leftTabs : styles.rightTabs, { flexDirection: isRTL ? 'row-reverse' : 'row' }, isRTL ? { paddingLeft: 20 } : { paddingRight: 20 }]}>
+        <View
+          style={[
+            isRTL ? styles.leftTabs : styles.rightTabs,
+            { flexDirection: isRTL ? "row-reverse" : "row" },
+            isRTL ? { paddingLeft: 20 } : { paddingRight: 20 },
+          ]}
+        >
           {rightRoutes.map((route: any) => (
-            <View key={route.key}>
-              {renderTabButton(route)}
-            </View>
+            <View key={route.key}>{renderTabButton(route)}</View>
           ))}
         </View>
       </View>

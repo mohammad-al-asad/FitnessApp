@@ -119,13 +119,15 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { user, isInitialized } = useAuth();
+  console.log(!user);
+  
 
   if (!isInitialized) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       {!user ? (
-        <Stack.Screen name="(auth)/index" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       ) : (
         <>
           <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />

@@ -49,7 +49,7 @@ export default function FoodLogModal({
 
         {/* header */}
         <View style={styles.headerRow}>
-          <Text style={styles.title}>{t('addFoodMenu')}</Text>
+          <Text style={styles.title}>{t("addFoodMenu")}</Text>
           <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
             <X size={22} color="#22c55e" />
           </TouchableOpacity>
@@ -62,7 +62,7 @@ export default function FoodLogModal({
           activeOpacity={0.8}
         >
           <BookOpen size={22} color="#22c55e" />
-          <Text style={[styles.optionText, isRTL && styles.rtlOptionText]}>{t('logFood')}</Text>
+          <Text style={[styles.optionText]}>{t("logFood")}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -71,7 +71,7 @@ export default function FoodLogModal({
           activeOpacity={0.8}
         >
           <Plus size={22} color="#22c55e" />
-          <Text style={[styles.optionText, isRTL && styles.rtlOptionText]}>{t('createCustomFood')}</Text>
+          <Text style={[styles.optionText]}>{t("createCustomFood")}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -80,12 +80,12 @@ export default function FoodLogModal({
           activeOpacity={0.8}
         >
           <QrCode size={22} color="#22c55e" />
-          <Text style={[styles.optionText, isRTL && styles.rtlOptionText]}>{t('scanBarcode')}</Text>
+          <Text style={[styles.optionText]}>{t("scanBarcode")}</Text>
         </TouchableOpacity>
 
         {/* cancel */}
         <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-          <Text style={styles.cancelText}>{t('cancel')}</Text>
+          <Text style={styles.cancelText}>{t("cancel")}</Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -137,14 +137,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.08)",
   },
   optionText: {
+    marginEnd: 12,
+    marginStart: 12,
     fontSize: 16,
     color: "#fff",
-    marginLeft: 12,
   },
-  rtlOptionText: {
-    marginLeft: 0,
-    marginRight: 12,
-  },
+
   cancelButton: {
     marginTop: 18,
     alignItems: "center",
