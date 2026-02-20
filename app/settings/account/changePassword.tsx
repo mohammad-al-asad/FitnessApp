@@ -1,7 +1,9 @@
 import CustomButton from "@/components/CustomButton";
 import CustomInput from "@/components/CustomInput";
+import { backendChangePassword } from "@/services/backend-auth";
 import React, { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,10 +19,53 @@ const ChangePasswordScreen = () => {
     new: "",
     confirm: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleUpdate = () => {
-    // Logic to validate and update password
-    console.log("Password Update Triggered", passwords);
+  const handleUpdate = async () => {
+    const currentPassword = passwords.current;
+    const newPassword = passwords.new;
+    const confirmPassword = passwords.confirm;
+
+    console.log(currentPassword, newPassword, confirmPassword);
+    
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert("Error", "Please fill all password fields.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      Alert.alert("Error", "New password must be at least 8 characters.");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      Alert.alert(
+        "Error",
+        "New password must be different from current password.",
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Error", "New password and confirm password do not match.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await backendChangePassword({
+        currentPassword,
+        newPassword,
+      });
+
+      setPasswords({ current: "", new: "", confirm: "" });
+      Alert.alert("Success", "Password updated successfully.");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to update password.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -41,6 +86,8 @@ const ChangePasswordScreen = () => {
               placeholder="********"
               value={passwords.current}
               secureTextEntry // Ensures dot masking seen in image
+              autoCapitalize="none"
+              autoCorrect={false}
               onChangeText={(txt: string) =>
                 setPasswords({ ...passwords, current: txt })
               }
@@ -52,6 +99,8 @@ const ChangePasswordScreen = () => {
               placeholder="********"
               value={passwords.new}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
               onChangeText={(txt: string) =>
                 setPasswords({ ...passwords, new: txt })
               }
@@ -63,6 +112,8 @@ const ChangePasswordScreen = () => {
               placeholder="********"
               value={passwords.confirm}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
               onChangeText={(txt: string) =>
                 setPasswords({ ...passwords, confirm: txt })
               }
@@ -70,11 +121,15 @@ const ChangePasswordScreen = () => {
           </View>
         </ScrollView>
 
+      </KeyboardAvoidingView>
         {/* Footer Button fixed at bottom */}
         <View style={styles.footer}>
-          <CustomButton text="updatePassword" onPress={handleUpdate} />
+          <CustomButton
+            text={isSubmitting ? "pleaseWait" : "updatePassword"}
+            onPress={handleUpdate}
+            disabled={isSubmitting}
+          />
         </View>
-      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -89,7 +144,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: scale(20),
     paddingTop: verticalScale(20),
-    paddingBottom: verticalScale(100), 
+    paddingBottom: verticalScale(100),
   },
   form: {
     gap: verticalScale(8),

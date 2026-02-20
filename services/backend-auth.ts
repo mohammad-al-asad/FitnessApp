@@ -1,0 +1,413 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const TOKEN_STORAGE_KEY = "fitco_auth_token";
+const REFRESH_TOKEN_STORAGE_KEY = "fitco_refresh_token";
+const USER_STORAGE_KEY = "fitco_auth_user";
+
+export type BackendUser = {
+  uid: string;
+  email: string;
+  displayName?: string | null;
+  firstName?: string;
+  lastName?: string;
+  [key: string]: any;
+};
+
+type AuthApiResponse = {
+  user: BackendUser;
+  token?: string;
+  refreshToken?: string;
+};
+
+export type PublicCmsContent = {
+  key: string;
+  title: string;
+  content: string;
+};
+
+export type ReportPayload = {
+  issueType: string;
+  description: string;
+  contactInfo: string;
+};
+
+export type UpdateMyProfilePayload = {
+  age: number;
+  height: number;
+  currentWeight: number;
+  gender: "male" | "female";
+  activityLevel:
+    | "sedentary"
+    | "lightly_active"
+    | "moderately_active"
+    | "very_active"
+    | "extremely_active";
+  goal: "lose_weight" | "maintain_weight" | "gain_weight" | "build_muscle";
+};
+
+export type UpdateMyHealthPayload = {
+  medicalConditions: string;
+  foodAllergies: string;
+};
+
+export type ChatHistoryItem = {
+  _id?: string;
+  prompt: string;
+  response: string;
+  createdAt?: string;
+};
+
+function normalizeBaseUrl(raw?: string): string {
+  const value = (raw || "").trim();
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+export function getServerUrl(): string {
+  const base = normalizeBaseUrl(
+    process.env.EXPO_PUBLIC_SERVER_URL || process.env.SERVER_URL,
+  );
+
+  if (!base) {
+    throw new Error(
+      "Missing SERVER_URL. Set EXPO_PUBLIC_SERVER_URL in .env for Expo runtime.",
+    );
+  }
+
+  return base;
+}
+
+function toBackendUser(raw: any): BackendUser {
+  const uid = String(
+    raw?.uid ?? raw?.id ?? raw?._id ?? raw?.userId ?? raw?.user?.id ?? "",
+  );
+
+  if (!uid) {
+    throw new Error("Backend user payload missing id/uid");
+  }
+
+  const email = String(raw?.email ?? raw?.user?.email ?? "");
+  const firstName = raw?.firstName ?? raw?.first_name;
+  const lastName = raw?.lastName ?? raw?.last_name;
+  const fallbackName = [firstName, lastName].filter(Boolean).join(" ");
+  const rawDisplayName = raw?.displayName ?? raw?.name ?? fallbackName;
+  const displayName = rawDisplayName ? String(rawDisplayName) : null;
+  const allergies = raw?.allergies ?? raw?.foodAllergies ?? "";
+  const goal = raw?.goal ?? raw?.goals;
+  const weight = raw?.weight ?? raw?.currentWeight;
+
+  return {
+    ...raw,
+    uid,
+    email,
+    firstName,
+    lastName,
+    displayName,
+    allergies,
+    goal,
+    weight,
+  };
+}
+
+function extractAuthPayload(json: any): AuthApiResponse {
+  const root = json?.data ?? json;
+  const rawUser = root?.user ?? root?.account ?? root?.profile ?? root;
+  const user = toBackendUser(rawUser);
+  const token =
+    root?.token ?? root?.accessToken ?? root?.access_token ?? root?.jwt;
+  const refreshToken =
+    root?.refreshToken ?? root?.refresh_token ?? root?.refresh;
+
+  return { user, token, refreshToken };
+}
+
+async function request(path: string, init?: RequestInit): Promise<any> {
+  const url = `${getServerUrl()}${path}`;
+  const { headers: initHeaders, ...restInit } = init ?? {};
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...restInit,
+      headers: {
+        "Content-Type": "application/json",
+        ...(initHeaders || {}),
+      },
+    });
+  } catch (error: any) {
+    const raw = String(error?.message ?? "");
+    const isNetworkError =
+      raw.toLowerCase().includes("network request failed") ||
+      raw.toLowerCase().includes("failed to fetch");
+
+    if (isNetworkError) {
+      throw new Error(
+        `Cannot reach backend at ${url}. Check EXPO_PUBLIC_SERVER_URL and ensure the server/tunnel is running.`,
+      );
+    }
+
+    throw error;
+  }
+  
+
+  const text = await response.text();
+  const json = text ? safeJson(text) : {};
+
+  if (!response.ok) {
+    const message = extractErrorMessage(json, response.status);
+    throw new Error(message);
+  }
+
+  return json;
+}
+
+function safeJson(text: string): any {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+}
+
+function extractErrorMessage(json: any, status: number): string {
+  if (!json) return `Request failed (${status})`;
+
+  if (typeof json?.message === "string" && json.message.trim()) {
+    return json.message;
+  }
+
+  if (typeof json?.error === "string" && json.error.trim()) {
+    return json.error;
+  }
+
+  const details = json?.errors ?? json?.details ?? json?.issues;
+  if (Array.isArray(details) && details.length > 0) {
+    const first = details[0];
+    if (typeof first === "string") return first;
+    const field =
+      first?.path ?? first?.field ?? first?.param ?? first?.property ?? "";
+    const msg = first?.message ?? first?.msg;
+    if (typeof msg === "string") {
+      return field ? `${field}: ${msg}` : msg;
+    }
+  }
+
+  if (typeof details === "object" && details !== null) {
+    const firstKey = Object.keys(details)[0];
+    const val = details[firstKey];
+    if (Array.isArray(val) && val.length > 0) return String(val[0]);
+    if (typeof val === "string") return val;
+  }
+
+  return `Request failed (${status})`;
+}
+
+async function saveSession(
+  user: BackendUser,
+  token?: string,
+  refreshToken?: string,
+) {
+  await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  if (token) {
+    await AsyncStorage.setItem(TOKEN_STORAGE_KEY, token);
+  }
+  if (refreshToken) {
+    await AsyncStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
+  }
+}
+
+export async function readStoredSession(): Promise<{
+  user: BackendUser | null;
+  token: string | null;
+  refreshToken: string | null;
+}> {
+  const [storedUser, token, refreshToken] = await Promise.all([
+    AsyncStorage.getItem(USER_STORAGE_KEY),
+    AsyncStorage.getItem(TOKEN_STORAGE_KEY),
+    AsyncStorage.getItem(REFRESH_TOKEN_STORAGE_KEY),
+  ]);
+
+  return {
+    user: storedUser ? (JSON.parse(storedUser) as BackendUser) : null,
+    token,
+    refreshToken,
+  };
+}
+
+export async function clearStoredSession() {
+  await Promise.all([
+    AsyncStorage.removeItem(USER_STORAGE_KEY),
+    AsyncStorage.removeItem(TOKEN_STORAGE_KEY),
+    AsyncStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY),
+  ]);
+}
+
+export async function backendSignIn(
+  email: string,
+  password: string,
+): Promise<BackendUser> {
+  const json = await request("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+
+  const { user, token, refreshToken } = extractAuthPayload(json);
+  await saveSession(user, token, refreshToken);
+  return user;
+}
+
+export async function backendSignUp(params: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}): Promise<BackendUser> {
+  const json = await request("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+
+  const { user, token, refreshToken } = extractAuthPayload(json);
+  if (token) {
+    await saveSession(user, token, refreshToken);
+    return user;
+  }
+
+  // Register endpoint may return user only; fetch tokens by logging in.
+  return backendSignIn(params.email, params.password);
+}
+
+export async function backendMe(token?: string): Promise<BackendUser> {
+  const session = token ? { token } : await readStoredSession();
+  if (!session.token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/users/me", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+    },
+  });
+
+  const { user } = extractAuthPayload(json);
+  await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  return user;
+}
+
+export async function backendLogout() {
+  await clearStoredSession();
+}
+
+export async function backendChangePassword(params: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  await request("/api/v1/auth/change-password", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(params),
+  });
+}
+
+export async function backendDeleteAccount(): Promise<void> {
+  const { token } = await readStoredSession();
+
+  if (!token) throw new Error("No auth token");
+
+  await request("/api/v1/auth/delete-account", {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function backendGetPublicCms(
+  cmsKey: "privacy" | "about" | "terms",
+): Promise<PublicCmsContent> {
+  const json = await request(`/api/v1/cms/public/${encodeURIComponent(cmsKey)}`);
+  const root = json?.data ?? json;
+  return {
+    key: String(root?.key ?? cmsKey),
+    title: String(root?.title ?? cmsKey),
+    content: String(root?.content ?? ""),
+  };
+}
+
+export async function backendSubmitReport(payload: ReportPayload): Promise<void> {
+  const { token } = await readStoredSession();
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+  await request("/api/v1/reports", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function backendSendChatMessage(message: string): Promise<string> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/chat", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ message }),
+  });
+
+  const root = json?.data ?? json;
+  return String(root?.message ?? root?.response ?? "");
+}
+
+export async function backendGetChatHistory(): Promise<ChatHistoryItem[]> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/chat/history", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const root = json?.data ?? json;
+  if (Array.isArray(root)) return root as ChatHistoryItem[];
+  if (Array.isArray(root?.items)) return root.items as ChatHistoryItem[];
+  if (Array.isArray(root?.history)) return root.history as ChatHistoryItem[];
+  return [];
+}
+
+export async function backendUpdateMyProfile(
+  payload: UpdateMyProfilePayload,
+): Promise<void> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  await request("/api/v1/users/me/profile", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function backendUpdateMyHealth(
+  payload: UpdateMyHealthPayload,
+): Promise<void> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  await request("/api/v1/users/me/health", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}

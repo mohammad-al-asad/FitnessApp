@@ -1,8 +1,13 @@
-// Handles user profile management — lets users view, edit, and save personal data, activity level, goals, and nutrition settings.
+// Handles user profile management â€” lets users view, edit, and save personal data, activity level, goals, and nutrition settings.
 import AccountMenu from "@/components/AccountMenu";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import WheelPicker from "@/components/WheelPicker";
 import Colors from "@/constants/colors";
+import {
+  backendDeleteAccount,
+  backendUpdateMyHealth,
+  backendUpdateMyProfile,
+} from "@/services/backend-auth";
 import { useAuth } from "@/hooks/auth-context";
 import { useLanguage } from "@/hooks/language-context";
 import { useNutrition } from "@/hooks/nutrition-store";
@@ -97,10 +102,11 @@ export default function AccountScreen() {
     isLoading: profileLoading,
   } = useUserProfile();
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isDeleteModal, setIsDeleteModal] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
-  // 🧠 Force reload profile each time Account screen is focused
+  // ðŸ§  Force reload profile each time Account screen is focused
   useEffect(() => {
     const loadProfile = async () => {
       const userId = user?.uid;
@@ -108,7 +114,7 @@ export default function AccountScreen() {
       const stored = await AsyncStorage.getItem(`fitco_user_profile_${userId}`);
       if (stored) {
         const parsed = JSON.parse(stored);
-        console.log("🔄 Reloaded profile from AsyncStorage:", parsed);
+        console.log("ðŸ”„ Reloaded profile from AsyncStorage:", parsed);
         setProfileData({
           age: parsed.age ?? 0,
           height: parsed.height ?? 0,
@@ -132,14 +138,14 @@ export default function AccountScreen() {
   useEffect(() => {
     (async () => {
       const keys = await AsyncStorage.getAllKeys();
-      console.log("🔑 All AsyncStorage keys:", keys);
+      console.log("ðŸ”‘ All AsyncStorage keys:", keys);
 
       const userId = user?.uid;
       if (userId) {
         const q = await AsyncStorage.getItem(`questionnaireData_${userId}`);
         const p = await AsyncStorage.getItem(`fitco_user_profile_${userId}`);
-        console.log("🧠 questionnaireData:", q);
-        console.log("👤 fitco_user_profile:", p);
+        console.log("ðŸ§  questionnaireData:", q);
+        console.log("ðŸ‘¤ fitco_user_profile:", p);
       }
     })();
   }, [user]);
@@ -185,9 +191,9 @@ export default function AccountScreen() {
       try {
         await AsyncStorage.setItem("testKey", "hello-ios");
         const value = await AsyncStorage.getItem("testKey");
-        console.log("🔍 AsyncStorage test value on iOS:", value);
+        console.log("ðŸ” AsyncStorage test value on iOS:", value);
       } catch (err) {
-        console.log("❌ AsyncStorage test failed:", err);
+        console.log("âŒ AsyncStorage test failed:", err);
       }
     })();
   }, []);
@@ -220,10 +226,26 @@ export default function AccountScreen() {
 
   const handleProfileSave = async () => {
     try {
-      // 1️⃣ Save to Firebase (if applicable)
+      // 1) Save to backend APIs
+      await Promise.all([
+        backendUpdateMyProfile({
+          age: profileData.age,
+          height: profileData.height,
+          currentWeight: profileData.weight,
+          gender: profileData.gender,
+          activityLevel: profileData.activityLevel,
+          goal: profileData.goal,
+        }),
+        backendUpdateMyHealth({
+          medicalConditions: profileData.medicalConditions || "",
+          foodAllergies: profileData.allergies || "",
+        }),
+      ]);
+
+      // 2) Keep local profile in sync for immediate UI updates
       await updateProfile(profileData);
 
-      // 2️⃣ Recalculate calories from new data
+      // 3) Recalculate calories from new data
       const { weight, height, age, gender, activityLevel, goal } = profileData;
       let bmr =
         gender === "male"
@@ -250,7 +272,7 @@ export default function AccountScreen() {
         (calorieGoal - (proteinGoal * 4 + fatsGoal * 9)) / 4
       );
 
-      // 3️⃣ Save locally so Nutrition Store picks it up
+      // 4) Save locally so Nutrition Store picks it up
       await saveSettings({
         ...settings,
         weight,
@@ -260,16 +282,16 @@ export default function AccountScreen() {
         carbsGoal,
       });
 
-      // 🧩 NEW — manually reload nutrition context right away
+      // 5) Optional manual reload hook
       if (typeof settings.reload === "function") {
         settings.reload();
       }
 
       setHasProfileChanges(false);
       Alert.alert("Success", "Profile updated and synced!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating profile:", error);
-      Alert.alert("Error", "Failed to update profile. Please try again.");
+      Alert.alert("Error", error?.message || "Failed to update profile. Please try again.");
     }
   };
 
@@ -278,6 +300,22 @@ export default function AccountScreen() {
   const heightData = Array.from({ length: 151 }, (_, i) => i + 100); // 100-250 cm
   const weightData = Array.from({ length: 271 }, (_, i) => i + 30); // 30-300 kg
 
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+    try {
+      setIsDeletingAccount(true);
+      await backendDeleteAccount();
+      await logout();
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.message || "Failed to delete account. Please try again.",
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top - 15 }]}>
       <ConfirmationAlert
@@ -285,7 +323,7 @@ export default function AccountScreen() {
         visible={isDeleteModal}
         onConfirm={() => {
           setIsDeleteModal(false);
-          console.log("delete");
+          handleDeleteAccount();
         }}
         onCancel={() => setIsDeleteModal(false)}
       />
@@ -1031,3 +1069,4 @@ const styles = StyleSheet.create({
     padding: 20,
   },
 });
+

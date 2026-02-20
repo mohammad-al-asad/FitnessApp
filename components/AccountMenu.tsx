@@ -70,6 +70,7 @@ const AccountMenu = ({ setIsDeleteModal }: any) => {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
+    paddingBottom:40
   },
   card: {
     borderRadius: 12,

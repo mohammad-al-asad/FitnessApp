@@ -1,7 +1,9 @@
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
+import { backendSubmitReport } from "@/services/backend-auth";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +21,7 @@ const ReportIssueScreen = () => {
   const [description, setDescription] = useState("");
   const [name, setName] = useState("John Smith"); // Mock initial value
   const [email, setEmail] = useState("jackson.graham@example.com");
+  const [submitting, setSubmitting] = useState(false);
 
   const issueTypes = [
     { id: "app", label: t("appNotWorking"), icon: "cellphone" },
@@ -28,6 +31,46 @@ const ReportIssueScreen = () => {
     { id: "sub", label: t("subscriptionIssue"), icon: "crown-outline" },
     { id: "others", label: t("others"), icon: "dots-horizontal" },
   ];
+
+  const issueTypeMap: Record<string, string> = {
+    app: "App",
+    payment: "Payment",
+    chat: "Chat",
+    barcode: "Barcode",
+    sub: "Subscription",
+    others: "Others",
+  };
+
+  const handleSubmit = async () => {
+    const desc = description.trim();
+    const userEmail = email.trim();
+    const userName = name.trim();
+
+    if (!desc) {
+      Alert.alert("Error", "Please describe your issue.");
+      return;
+    }
+
+    if (!userEmail) {
+      Alert.alert("Error", "Please provide contact email.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await backendSubmitReport({
+        issueType: issueTypeMap[selectedType] || "Others",
+        description: desc,
+        contactInfo: userName ? `${userName} <${userEmail}>` : userEmail,
+      });
+      setDescription("");
+      Alert.alert("Success", "Report submitted successfully.");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to submit report.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView
@@ -183,8 +226,12 @@ const ReportIssueScreen = () => {
         {/* Submit Button */}
         <TouchableOpacity
           style={[styles.submitButton, { backgroundColor: "#4CAF50" }]}
+          onPress={handleSubmit}
+          disabled={submitting}
         >
-          <Text style={styles.submitText}>{t("submitReport")}</Text>
+          <Text style={styles.submitText}>
+            {submitting ? String(t("pleaseWait")) : String(t("submitReport"))}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

@@ -1,7 +1,7 @@
-// QuestionnaireScreen — multi-step onboarding flow for collecting user profile data (age, weight, goals, etc.) to personalize nutrition and fitness recommendations.
+// QuestionnaireScreen â€” multi-step onboarding flow for collecting user profile data (age, weight, goals, etc.) to personalize nutrition and fitness recommendations.
 
 import WheelPicker from '@/components/WheelPicker';
-import { auth } from '@/config/firebaseConfig';
+import { useAuth } from '@/hooks/auth-context';
 import { useLanguage, useSafeColors } from '@/hooks/language-context';
 import { getQuestionnaireSettings, useNutrition } from "@/hooks/nutrition-store";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,11 +32,12 @@ interface QuestionnaireData {
 
 export default function QuestionnaireScreen() {
   const { saveSettings } = useNutrition();
+  const { user } = useAuth();
 
   // Clear any old global flag (legacy) so we always key by userId going forward
   useEffect(() => {
     AsyncStorage.removeItem('hasCompletedQuestionnaire').then(() => {
-      console.log('🧼 Cleared questionnaire flag manually');
+      console.log('ðŸ§¼ Cleared questionnaire flag manually');
     });
   }, []);
 
@@ -129,9 +130,9 @@ export default function QuestionnaireScreen() {
     if (!validateStep(currentStep)) return;
 
     try {
-      const userId = auth?.currentUser?.uid;
+      const userId = user?.uid;
 if (!userId) {
-  console.warn("⚠️ No authenticated user found — skipping questionnaire save.");
+  console.warn("âš ï¸ No authenticated user found â€” skipping questionnaire save.");
   return;
 }
 
@@ -176,44 +177,26 @@ if (!userId) {
       // save questionnaire + computed goals
  
  
-// ✅ Save questionnaire data
+// âœ… Save questionnaire data
 await AsyncStorage.setItem(`questionnaireData_${userId}`, JSON.stringify(enrichedData));
-console.log("💾 Saved questionnaire data for user:", userId);
+console.log("ðŸ’¾ Saved questionnaire data for user:", userId);
 
 
-// ✅ Mirror questionnaire into user profile (for Account page)
+// âœ… Mirror questionnaire into user profile (for Account page)
 await AsyncStorage.setItem(`fitco_user_profile_${userId}`, JSON.stringify(enrichedData));
-console.log("👤 Synced profile data:", enrichedData);
+console.log("ðŸ‘¤ Synced profile data:", enrichedData);
 
 
 
-// ✅ Build settings right away and store in AsyncStorage (no hooks)
+// âœ… Build settings right away and store in AsyncStorage (no hooks)
 const questionnaireSettings = await getQuestionnaireSettings(userId);
 if (questionnaireSettings) {
   await AsyncStorage.setItem(`fitco_settings_${userId}`, JSON.stringify(questionnaireSettings));
   await saveSettings(questionnaireSettings);
-  console.log("🔥 Applied questionnaire settings:", questionnaireSettings);
+  console.log("ðŸ”¥ Applied questionnaire settings:", questionnaireSettings);
 }
-
-
-
-
-
-
-      // optional: touch Firebase profile (safe try/catch)
-      try {
-        const { getAuth, updateProfile } = await import('firebase/auth');
-        const fa = getAuth();
-        if (fa.currentUser) {
-          await updateProfile(fa.currentUser, {
-            displayName: fa.currentUser.displayName || 'FitcoUser',
-          });
-        }
-      } catch (err) {
-        console.log('Firebase update skipped:', err);
-      }
-    } catch (err) {
-      console.error('❌ Failed to save questionnaire data:', err);
+} catch (err) {
+      console.error('âŒ Failed to save questionnaire data:', err);
     } finally {
       // give store a moment to read AsyncStorage, then go home
       setTimeout(() => {
@@ -228,9 +211,9 @@ if (questionnaireSettings) {
   };
 
   // data for pickers
-  const ageData = Array.from({ length: 108 }, (_, i) => i + 13);   // 13–120
-  const heightData = Array.from({ length: 151 }, (_, i) => i + 100); // 100–250 cm
-  const weightData = Array.from({ length: 271 }, (_, i) => i + 30);  // 30–300 kg
+  const ageData = Array.from({ length: 108 }, (_, i) => i + 13);   // 13â€“120
+  const heightData = Array.from({ length: 151 }, (_, i) => i + 100); // 100â€“250 cm
+  const weightData = Array.from({ length: 271 }, (_, i) => i + 30);  // 30â€“300 kg
 
   const renderStep = () => {
     switch (currentStep) {
@@ -275,7 +258,7 @@ if (questionnaireSettings) {
                 data={heightData}
                 selectedValue={data.height}
                 onValueChange={(value: number) => updateData('height', value)}
-                suffix={isRTL ? 'سم' : ' cm'}
+                suffix={isRTL ? 'Ø³Ù…' : ' cm'}
                 testID="height-picker"
               />
               {errors.height && <Text style={[styles.errorText, { color: colors.error }]}>{errors.height}</Text>}
@@ -300,7 +283,7 @@ if (questionnaireSettings) {
                 data={weightData}
                 selectedValue={data.weight}
                 onValueChange={(value: number) => updateData('weight', value)}
-                suffix={isRTL ? 'كجم' : ' kg'}
+                suffix={isRTL ? 'ÙƒØ¬Ù…' : ' kg'}
                 testID="weight-picker"
               />
               {errors.weight && <Text style={[styles.errorText, { color: colors.error }]}>{errors.weight}</Text>}
