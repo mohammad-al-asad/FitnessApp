@@ -4,11 +4,12 @@
 import FloatingFitBot from "@/components/FloatingFitBot";
 import MacroCircle, { CalorieCircle } from "@/components/MacroCircle";
 import { MacroColors } from "@/constants/colors";
+import { useAuth } from "@/hooks/auth-context";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { useNutrition } from "@/hooks/nutrition-store";
 import { useRouter } from "expo-router";
 import { Award, Flame, Target, TrendingUp, Zap } from "lucide-react-native";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 
 import { responsiveWidth } from "@/utilities/ScalingUtils";
 import {
@@ -46,6 +47,7 @@ export default function HomeScreen() {
   );
 
   // --- Hooks / contexts ---
+  const { showFirstSignInSubscriptionPromptIfPending } = useAuth();
   const { settings, getTodayLog, getProgressData, getLogByDate } =
     useNutrition();
   const { t, isRTL } = useLanguage();
@@ -55,6 +57,10 @@ export default function HomeScreen() {
   const [selectedDay, setSelectedDay] = React.useState(
     new Date().toISOString().split("T")[0],
   );
+
+  useEffect(() => {
+    void showFirstSignInSubscriptionPromptIfPending();
+  }, [showFirstSignInSubscriptionPromptIfPending]);
 
   // --- Safe guards / fallbacks to kill NaNs and undefineds ---
   const safeSettings = {

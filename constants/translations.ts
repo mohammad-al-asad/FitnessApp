@@ -254,6 +254,12 @@ export const translations = {
     originalPriceLabel: "Original Price",
     total: "Total",
     subscribeNow: "Subscribe Now",
+    firstSignInSubscriptionTitle: "Unlock Unlimited Chat",
+    firstSignInSubscriptionBody:
+      "Subscribe now to unlock unlimited chat messages and get the full Fitco experience.",
+    firstSignInSubscriptionCta: "Subscribe",
+    firstSignInSubscriptionLater: "Maybe Later",
+    firstSignInSubscriptionStartingFrom: "Starting from",
     perMonthly: "/ Monthly",
     perYearly: "/ Yearly",
 
@@ -274,6 +280,12 @@ export const translations = {
     name: "Name",
     email: "Email",
     submitReport: "Submit Report",
+    chatDailyLimitLabel: "Daily Chat Limit",
+    chatMessagesLeftToday: "left today",
+    chatUnlimitedLabel: "Unlimited chat",
+    chatLimitReachedNotice:
+      "Daily free chat limit reached. Subscribe for unlimited messages.",
+    chatLimitReachedInput: "Daily limit reached. Subscribe to continue.",
 
     // Goals & Nutrition
     dailyGoals: "Daily Goals",
@@ -488,7 +500,7 @@ export const translations = {
     protein: "بروتين",
     carbs: "كربوهيدرات",
     fats: "دهون",
-    fat: "دهن",
+    fat: "دهون",
     weeklySummary: "ملخّص الأسبوع",
     avgCalories: "متوسط السعرات",
     goalsHit: "الأهداف المُحققة",
@@ -628,6 +640,12 @@ export const translations = {
     originalPriceLabel: "السعر الأصلي",
     total: "المجموع",
     subscribeNow: "اشترك الآن",
+    firstSignInSubscriptionTitle: "افتح محادثة بلا حدود",
+    firstSignInSubscriptionBody:
+      "اشترك الآن لفتح رسائل المحادثة غير المحدودة والحصول على تجربة فتكو الكاملة.",
+    firstSignInSubscriptionCta: "اشترك",
+    firstSignInSubscriptionLater: "لاحقاً",
+    firstSignInSubscriptionStartingFrom: "يبدأ من",
     perMonthly: "/ شهرياً",
     perYearly: "/ سنوياً",
 
@@ -654,6 +672,12 @@ export const translations = {
     name: "الاسم",
     email: "البريد الإلكتروني",
     submitReport: "إرسال البلاغ",
+    chatDailyLimitLabel: "حد الدردشة اليومي",
+    chatMessagesLeftToday: "متبقي اليوم",
+    chatUnlimitedLabel: "دردشة غير محدودة",
+    chatLimitReachedNotice:
+      "تم الوصول إلى الحد اليومي للدردشة المجانية. اشترك للحصول على رسائل غير محدودة.",
+    chatLimitReachedInput: "تم الوصول للحد اليومي. اشترك للمتابعة.",
 
     // Goals & Nutrition
     dailyGoals: "الاهداف اليومية",

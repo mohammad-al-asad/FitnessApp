@@ -5,8 +5,7 @@ import WheelPicker from "@/components/WheelPicker";
 import Colors from "@/constants/colors";
 import {
   backendDeleteAccount,
-  backendUpdateMyHealth,
-  backendUpdateMyProfile,
+  backendUpdateMyCompleteProfile,
 } from "@/services/backend-auth";
 import { useAuth } from "@/hooks/auth-context";
 import { useLanguage } from "@/hooks/language-context";
@@ -226,21 +225,17 @@ export default function AccountScreen() {
 
   const handleProfileSave = async () => {
     try {
-      // 1) Save to backend APIs
-      await Promise.all([
-        backendUpdateMyProfile({
-          age: profileData.age,
-          height: profileData.height,
-          currentWeight: profileData.weight,
-          gender: profileData.gender,
-          activityLevel: profileData.activityLevel,
-          goal: profileData.goal,
-        }),
-        backendUpdateMyHealth({
-          medicalConditions: profileData.medicalConditions || "",
-          foodAllergies: profileData.allergies || "",
-        }),
-      ]);
+      // 1) Save to backend (merged complete-profile API)
+      await backendUpdateMyCompleteProfile({
+        age: profileData.age,
+        height: profileData.height,
+        currentWeight: profileData.weight,
+        gender: profileData.gender,
+        medicalConditions: profileData.medicalConditions || "",
+        foodAllergies: profileData.allergies || "",
+        activityLevel: profileData.activityLevel,
+        goal: profileData.goal,
+      });
 
       // 2) Keep local profile in sync for immediate UI updates
       await updateProfile(profileData);
@@ -302,10 +297,11 @@ export default function AccountScreen() {
 
   const handleDeleteAccount = async () => {
     if (isDeletingAccount) return;
+    let deleted = false;
     try {
       setIsDeletingAccount(true);
       await backendDeleteAccount();
-      await logout();
+      deleted = true;
     } catch (error: any) {
       Alert.alert(
         "Error",
@@ -313,6 +309,10 @@ export default function AccountScreen() {
       );
     } finally {
       setIsDeletingAccount(false);
+    }
+
+    if (deleted) {
+      await logout();
     }
   };
 

@@ -146,7 +146,6 @@ export default function LogFoodScreen() {
     { key: "breakfast", label: String(t("breakfast")), icon: Sunrise },
     { key: "lunch", label: String(t("lunch")), icon: Sun },
     { key: "dinner", label: String(t("dinner")), icon: Moon },
-    { key: "snacks", label: String(t("snacks")), icon: Apple },
   ];
 
   useEffect(() => {

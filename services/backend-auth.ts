@@ -50,11 +50,68 @@ export type UpdateMyHealthPayload = {
   foodAllergies: string;
 };
 
+export type UpdateMyCompleteProfilePayload = UpdateMyProfilePayload &
+  UpdateMyHealthPayload;
+
+export type ProfileSelection = {
+  key: string;
+  label: string;
+  description: string;
+};
+
+export type UpdateMyCompleteProfileResponse = {
+  message: string;
+  activityLevelSelection?: ProfileSelection;
+  goalSelection?: ProfileSelection;
+  user?: BackendUser;
+};
+
 export type ChatHistoryItem = {
   _id?: string;
   prompt: string;
   response: string;
   createdAt?: string;
+};
+
+export type ChatLimitStatus = {
+  subscriptionStatus: string;
+  isUnlimited: boolean;
+  dailyFreeLimit: number;
+  messagesUsedToday: number;
+  messagesLeftToday: number;
+};
+
+export type SubscriptionPlan = {
+  planType: string;
+  interval: string;
+  label: string;
+  price: number;
+  priceCents: number;
+  currency: string;
+};
+
+export type CreateSubscriptionPayload = {
+  planType: string;
+  couponCode?: string;
+};
+
+export type SubscriptionQuote = {
+  planType: string;
+  basePrice: number;
+  basePriceCents: number;
+  finalPrice: number;
+  finalPriceCents: number;
+  discountAmount: number;
+  discountAmountCents: number;
+  discountPercentage: number;
+  currency: string;
+  couponCode?: string;
+};
+
+export type CreateSubscriptionResponse = {
+  checkoutSessionId: string;
+  checkoutUrl: string;
+  quote?: SubscriptionQuote;
 };
 
 function normalizeBaseUrl(raw?: string): string {
@@ -382,6 +439,28 @@ export async function backendGetChatHistory(): Promise<ChatHistoryItem[]> {
   return [];
 }
 
+export async function backendGetChatLimitStatus(): Promise<ChatLimitStatus> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/chat/limit", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const root = json?.data ?? json;
+
+  return {
+    subscriptionStatus: String(root?.subscriptionStatus ?? "free"),
+    isUnlimited: Boolean(root?.isUnlimited),
+    dailyFreeLimit: Number(root?.dailyFreeLimit ?? 0),
+    messagesUsedToday: Number(root?.messagesUsedToday ?? 0),
+    messagesLeftToday: Number(root?.messagesLeftToday ?? 0),
+  };
+}
+
 export async function backendUpdateMyProfile(
   payload: UpdateMyProfilePayload,
 ): Promise<void> {
@@ -410,4 +489,141 @@ export async function backendUpdateMyHealth(
     },
     body: JSON.stringify(payload),
   });
+}
+
+export async function backendUpdateMyCompleteProfile(
+  payload: UpdateMyCompleteProfilePayload,
+): Promise<UpdateMyCompleteProfileResponse> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/users/me/complete-profile", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const root = json?.data ?? json;
+  const rawUser = root?.user;
+  const normalizedUser = rawUser ? toBackendUser(rawUser) : undefined;
+
+  if (normalizedUser) {
+    await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(normalizedUser));
+  }
+
+  return {
+    message: String(root?.message ?? ""),
+    activityLevelSelection: root?.activityLevelSelection
+      ? {
+          key: String(root.activityLevelSelection?.key ?? ""),
+          label: String(root.activityLevelSelection?.label ?? ""),
+          description: String(root.activityLevelSelection?.description ?? ""),
+        }
+      : undefined,
+    goalSelection: root?.goalSelection
+      ? {
+          key: String(root.goalSelection?.key ?? ""),
+          label: String(root.goalSelection?.label ?? ""),
+          description: String(root.goalSelection?.description ?? ""),
+        }
+      : undefined,
+    user: normalizedUser,
+  };
+}
+
+export async function backendGetSubscriptionPlans(): Promise<
+  SubscriptionPlan[]
+> {
+  const { token } = await readStoredSession();
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const json = await request("/api/v1/subscriptions/plans", {
+    method: "GET",
+    headers,
+  });
+
+  const root = json?.data ?? json;
+  const rawPlans = Array.isArray(root)
+    ? root
+    : Array.isArray(root?.plans)
+      ? root.plans
+      : [];
+
+  return rawPlans.map((plan: any) => ({
+    planType: String(plan?.planType ?? plan?.type ?? ""),
+    interval: String(plan?.interval ?? ""),
+    label: String(plan?.label ?? ""),
+    price: Number(plan?.price ?? 0),
+    priceCents: Number(plan?.priceCents ?? 0),
+    currency: String(plan?.currency ?? "usd").toLowerCase(),
+  }));
+}
+
+export async function backendCreateSubscription(
+  payload: CreateSubscriptionPayload,
+): Promise<CreateSubscriptionResponse> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/subscriptions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const root = json?.data ?? json;
+
+  return {
+    checkoutSessionId: String(root?.checkoutSessionId ?? ""),
+    checkoutUrl: String(root?.checkoutUrl ?? ""),
+    quote: root?.quote
+      ? {
+          planType: String(root.quote?.planType ?? ""),
+          basePrice: Number(root.quote?.basePrice ?? 0),
+          basePriceCents: Number(root.quote?.basePriceCents ?? 0),
+          finalPrice: Number(root.quote?.finalPrice ?? 0),
+          finalPriceCents: Number(root.quote?.finalPriceCents ?? 0),
+          discountAmount: Number(root.quote?.discountAmount ?? 0),
+          discountAmountCents: Number(root.quote?.discountAmountCents ?? 0),
+          discountPercentage: Number(root.quote?.discountPercentage ?? 0),
+          currency: String(root.quote?.currency ?? "usd"),
+          couponCode: root.quote?.couponCode
+            ? String(root.quote.couponCode)
+            : undefined,
+        }
+      : undefined,
+  };
+}
+
+export async function backendGetSubscriptionQuote(
+  payload: CreateSubscriptionPayload,
+): Promise<SubscriptionQuote> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/subscriptions/quote", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const root = json?.data ?? json;
+
+  return {
+    planType: String(root?.planType ?? ""),
+    basePrice: Number(root?.basePrice ?? 0),
+    basePriceCents: Number(root?.basePriceCents ?? 0),
+    finalPrice: Number(root?.finalPrice ?? 0),
+    finalPriceCents: Number(root?.finalPriceCents ?? 0),
+    discountAmount: Number(root?.discountAmount ?? 0),
+    discountAmountCents: Number(root?.discountAmountCents ?? 0),
+    discountPercentage: Number(root?.discountPercentage ?? 0),
+    currency: String(root?.currency ?? "usd"),
+    couponCode: root?.couponCode ? String(root.couponCode) : undefined,
+  };
 }

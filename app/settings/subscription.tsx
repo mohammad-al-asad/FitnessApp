@@ -1,8 +1,22 @@
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
 import {
-  ScrollView,
+  backendCreateSubscription,
+  backendGetSubscriptionPlans,
+  backendGetSubscriptionQuote,
+  type SubscriptionQuote,
+  type SubscriptionPlan,
+} from "@/services/backend-auth";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  openBrowserAsync,
+  WebBrowserPresentationStyle,
+} from "expo-web-browser";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -15,168 +29,323 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const UpgradePlanScreen = () => {
   const { t, isRTL } = useLanguage();
   const colors = useSafeColors();
-  const [selectedPeriod, setSelectedPeriod] = useState<"monthly" | "yearly">(
-    "monthly"
-  );
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState("monthly");
+  const [isLoadingPlans, setIsLoadingPlans] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [activeQuote, setActiveQuote] = useState<SubscriptionQuote | null>(null);
   const [couponCode, setCouponCode] = useState("");
 
-  const mockPlans = {
-    monthly: {
-      title: t("subscription"),
-      subtitle: t("premiumSubtitle"),
-      price: "$9.99",
-      period: t("perMonthly"),
-      features: [
-        t("featureBarcode"),
-        t("featureChat"),
-        t("featureSupport"),
-        t("featureEarlyAccess"),
-      ],
-      originalPrice: "$19.99",
-      totalPrice: "$9.99",
-    },
-    yearly: {
-      title: t("subscription"),
-      subtitle: t("premiumSubtitle"),
-      price: "$99.99",
-      period: t("perYearly"),
-      features: [
-        t("featureBarcode"),
-        t("featureChat"),
-        t("featureSupport"),
-        t("featureEarlyAccess"),
-      ],
-      originalPrice: "$120.00",
-      totalPrice: "$99.99",
-    },
+  const features = useMemo(
+    () => [
+      t("featureBarcode"),
+      t("featureChat"),
+      t("featureSupport"),
+      t("featureEarlyAccess"),
+    ],
+    [t],
+  );
+
+  const selectedPlan =
+    plans.find((plan) => plan.planType === selectedPeriod) ?? plans[0];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPlans = async () => {
+      try {
+        setIsLoadingPlans(true);
+        setPlansError(null);
+        const data = await backendGetSubscriptionPlans();
+        if (!isMounted) return;
+        setPlans(data);
+      } catch (error: any) {
+        if (!isMounted) return;
+        setPlansError(
+          error?.message || (t("somethingWentWrong") as string) || "Error",
+        );
+      } finally {
+        if (!isMounted) return;
+        setIsLoadingPlans(false);
+      }
+    };
+
+    loadPlans();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [t]);
+
+  useEffect(() => {
+    if (!plans.some((plan) => plan.planType === selectedPeriod)) {
+      setSelectedPeriod(plans[0]?.planType || "monthly");
+    }
+  }, [plans, selectedPeriod]);
+
+  useEffect(() => {
+    setActiveQuote(null);
+  }, [selectedPeriod]);
+
+  const formatCurrency = (amount: number, currencyCode: string) => {
+    const currency = (currencyCode || "usd").toUpperCase();
+    const safeAmount = Number.isFinite(amount) ? amount : 0;
+
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency,
+      }).format(safeAmount);
+    } catch {
+      return `$${safeAmount.toFixed(2)}`;
+    }
   };
 
-  const selectedPlan = mockPlans[selectedPeriod];
+  const getPeriodLabel = (plan: SubscriptionPlan) => {
+    if (plan.interval === "month") return t("perMonthly");
+    if (plan.interval === "year") return t("perYearly");
+    return ` / ${plan.interval}`;
+  };
+
+  const shownCurrency = activeQuote?.currency || selectedPlan?.currency || "usd";
+  const shownPrice = activeQuote?.finalPrice ?? selectedPlan?.price ?? 0;
+  const shownBasePrice = activeQuote?.basePrice ?? selectedPlan?.price ?? 0;
+  const hasDiscount =
+    !!activeQuote &&
+    activeQuote.discountAmount > 0 &&
+    activeQuote.finalPrice < activeQuote.basePrice;
+
+  const handleApplyCoupon = async () => {
+    if (!selectedPlan || isApplyingCoupon) return;
+    const trimmed = couponCode.trim();
+    if (!trimmed) {
+      Alert.alert(String(t("error")), "Please enter coupon code.");
+      return;
+    }
+
+    try {
+      setIsApplyingCoupon(true);
+      const quote = await backendGetSubscriptionQuote({
+        planType: selectedPlan.planType,
+        couponCode: trimmed,
+      });
+      setActiveQuote(quote);
+    } catch (error: any) {
+      setActiveQuote(null);
+      Alert.alert(
+        String(t("error")),
+        error?.message || String(t("somethingWentWrong")),
+      );
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!selectedPlan || isCreatingCheckout) return;
+
+    try {
+      setIsCreatingCheckout(true);
+
+      const payload = {
+        planType: selectedPlan.planType,
+        ...(couponCode.trim() ? { couponCode: couponCode.trim() } : {}),
+      };
+
+      const result = await backendCreateSubscription(payload);
+      if (!result.checkoutUrl) {
+        throw new Error("Missing checkout URL");
+      }
+
+      if (Platform.OS === "web") {
+        window.open(result.checkoutUrl, "_blank");
+      } else {
+        await openBrowserAsync(result.checkoutUrl, {
+          presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+        });
+      }
+    } catch (error: any) {
+      Alert.alert(
+        String(t("error")),
+        error?.message || String(t("somethingWentWrong")),
+      );
+    } finally {
+      setIsCreatingCheckout(false);
+    }
+  };
+
+  if (!selectedPlan && !isLoadingPlans) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <StatusBar barStyle="light-content" />
+        <View style={styles.emptyStateContainer}>
+          <Text style={[styles.emptyStateText, { color: colors.placeholder }]}>
+            {t("somethingWentWrong")}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.scrollContent}
+      >
         <Text style={[styles.headerSubtitle, { color: colors.placeholder }]}>
           {t("choosePlanSubtitle")}
         </Text>
 
-        {/* Toggle */}
         <View
           style={[styles.toggleContainer, { backgroundColor: colors.surface }]}
         >
-          {["monthly", "yearly"].map((p) => (
+          {plans.map((plan) => (
             <TouchableOpacity
-              key={p}
+              key={plan.planType}
               style={[
                 styles.toggleButton,
-                selectedPeriod === p && {
+                selectedPeriod === plan.planType && {
                   backgroundColor: colors.primary,
                 },
               ]}
-              onPress={() => setSelectedPeriod(p as any)}
+              onPress={() => setSelectedPeriod(plan.planType)}
             >
               <Text
                 style={[
                   styles.toggleText,
                   {
-                    color: selectedPeriod === p ? "#000" : "#fff",
+                    color: selectedPeriod === plan.planType ? "#000" : "#fff",
                   },
                 ]}
               >
-                {t(p as any)}
+                { t(plan.planType as any) || plan.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* 🔥 GLOW WRAPPER */}
-        <View style={styles.glowWrapper}>
-          {/* Glow layer */}
-          <View
-            style={[
-              styles.glowLayer,
-              { shadowColor: colors.primary, backgroundColor: colors.primary },
-            ]}
+        {isLoadingPlans && (
+          <ActivityIndicator
+            size="small"
+            color={colors.primary}
+            style={styles.loadingIndicator}
           />
+        )}
 
-          {/* Card */}
-          <View
-            style={[
-              styles.planCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.primary,
-              },
-            ]}
-          >
-            <Text
+        {plansError && (
+          <Text style={[styles.errorText, { color: colors.placeholder }]}>
+            {plansError}
+          </Text>
+        )}
+
+        {!!selectedPlan && (
+          <View style={styles.glowWrapper}>
+            <View
               style={[
-                styles.planTitle,
-                { color: colors.text, textAlign: isRTL ? "right" : "left" },
-              ]}
-            >
-              {selectedPlan.title}
-            </Text>
-            <Text
-              style={[
-                styles.planSubtitle,
+                styles.glowLayer,
                 {
-                  color: colors.placeholder,
-                  textAlign: isRTL ? "right" : "left",
+                  shadowColor: colors.primary,
+                  backgroundColor: colors.primary,
                 },
               ]}
-            >
-              {selectedPlan.subtitle}
-            </Text>
+            />
 
             <View
               style={[
-                styles.priceContainer,
-                { flexDirection: isRTL ? "row-reverse" : "row" },
+                styles.planCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.primary,
+                },
               ]}
             >
-              <Text style={[styles.price, { color: colors.text }]}>
-                {selectedPlan.price}
-              </Text>
-              <Text style={[styles.period, { color: colors.placeholder }]}>
-                {selectedPlan.period}
-              </Text>
-            </View>
-
-            {selectedPlan.features.map((f, i) => (
-              <View
-                key={i}
+              <Text
                 style={[
-                  styles.featureItem,
+                  styles.planTitle,
+                  { color: colors.text, textAlign: isRTL ? "right" : "left" },
+                ]}
+              >
+                {t("subscription")}
+              </Text>
+              <Text
+                style={[
+                  styles.planSubtitle,
+                  {
+                    color: colors.placeholder,
+                    textAlign: isRTL ? "right" : "left",
+                  },
+                ]}
+              >
+                {t("premiumSubtitle")}
+              </Text>
+
+              <View
+                style={[
+                  styles.priceContainer,
                   { flexDirection: isRTL ? "row-reverse" : "row" },
                 ]}
               >
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text
+                <View
                   style={[
-                    styles.featureText,
-                    {
-                      color: colors.text,
-                      marginLeft: isRTL ? 0 : 12,
-                      marginRight: isRTL ? 12 : 0,
-                    },
+                    styles.priceLine,
+                    { flexDirection: isRTL ? "row-reverse" : "row" },
                   ]}
                 >
-                  {f}
+                  {hasDiscount && (
+                    <Text
+                      style={[styles.originalPrice, { color: colors.placeholder }]}
+                    >
+                      {formatCurrency(shownBasePrice, shownCurrency)}
+                    </Text>
+                  )}
+                  <Text style={[styles.price, { color: colors.text }]}>
+                    {formatCurrency(shownPrice, shownCurrency)}
+                  </Text>
+                </View>
+                <Text style={[styles.period, { color: colors.placeholder }]}>
+                  {getPeriodLabel(selectedPlan)}
                 </Text>
               </View>
-            ))}
-          </View>
-        </View>
 
-        {/* Coupon */}
+              {features.map((f, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.featureItem,
+                    { flexDirection: isRTL ? "row-reverse" : "row" },
+                  ]}
+                >
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.featureText,
+                      {
+                        color: colors.text,
+                        marginLeft: isRTL ? 0 : 12,
+                        marginRight: isRTL ? 12 : 0,
+                      },
+                    ]}
+                  >
+                    {f}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         <Text
           style={[
             styles.sectionTitle,
@@ -207,19 +376,26 @@ const UpgradePlanScreen = () => {
             onChangeText={setCouponCode}
           />
           <TouchableOpacity
+            disabled={!selectedPlan || isApplyingCoupon}
             style={[styles.applyButton, { backgroundColor: colors.primary }]}
+            onPress={handleApplyCoupon}
           >
-            <Text style={styles.buttonTextWhite}>{t("apply")}</Text>
+            <Text style={styles.buttonTextWhite}>
+              {isApplyingCoupon ? t("pleaseWait") : t("apply")}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Subscribe */}
         <TouchableOpacity
+          disabled={!selectedPlan || isCreatingCheckout || isLoadingPlans}
           style={[styles.subscribeButton, { backgroundColor: colors.primary }]}
+          onPress={handleSubscribe}
         >
-          <Text style={styles.buttonTextWhite}>{t("subscribeNow")}</Text>
+          <Text style={styles.buttonTextWhite}>
+            {isCreatingCheckout ? t("pleaseWait") : t("subscribeNow")}
+          </Text>
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -227,6 +403,12 @@ const UpgradePlanScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyStateText: { fontSize: 14 },
 
   headerSubtitle: {
     fontSize: 14,
@@ -249,6 +431,8 @@ const styles = StyleSheet.create({
   },
 
   toggleText: { fontWeight: "600" },
+  loadingIndicator: { marginBottom: 12 },
+  errorText: { textAlign: "center", marginBottom: 10, fontSize: 13 },
 
   glowWrapper: {
     position: "relative",
@@ -279,6 +463,8 @@ const styles = StyleSheet.create({
   planSubtitle: { fontSize: 15, marginBottom: 20 },
 
   priceContainer: { alignItems: "baseline", marginBottom: 20 },
+  priceLine: { alignItems: "baseline", gap: 8 },
+  originalPrice: { fontSize: 18, textDecorationLine: "line-through" },
   price: { fontSize: 36, fontWeight: "bold" },
   period: { fontSize: 16, marginLeft: 4 },
 

@@ -4,6 +4,7 @@ import WheelPicker from '@/components/WheelPicker';
 import { useAuth } from '@/hooks/auth-context';
 import { useLanguage, useSafeColors } from '@/hooks/language-context';
 import { getQuestionnaireSettings, useNutrition } from "@/hooks/nutrition-store";
+import { backendUpdateMyCompleteProfile } from "@/services/backend-auth";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Activity, Calendar, ChevronRight, Target, User } from 'lucide-react-native';
@@ -32,7 +33,7 @@ interface QuestionnaireData {
 
 export default function QuestionnaireScreen() {
   const { saveSettings } = useNutrition();
-  const { user } = useAuth();
+  const { user, markFirstSignInSubscriptionPromptPending } = useAuth();
 
   // Clear any old global flag (legacy) so we always key by userId going forward
   useEffect(() => {
@@ -195,6 +196,17 @@ if (questionnaireSettings) {
   await saveSettings(questionnaireSettings);
   console.log("ðŸ”¥ Applied questionnaire settings:", questionnaireSettings);
 }
+await backendUpdateMyCompleteProfile({
+  age,
+  height,
+  currentWeight: weight,
+  gender,
+  medicalConditions: data.medicalConditions || "",
+  foodAllergies: data.allergies || "",
+  activityLevel,
+  goal,
+});
+      await markFirstSignInSubscriptionPromptPending();
 } catch (err) {
       console.error('âŒ Failed to save questionnaire data:', err);
     } finally {

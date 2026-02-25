@@ -1,3 +1,4 @@
+import FirstSignInSubscriptionModal from "@/components/FirstSignInSubscriptionModal";
 import SplashScreen from "@/components/SplashScreen";
 import { AuthProvider, useAuth } from "@/hooks/auth-context";
 import { LanguageProvider, useLanguage } from "@/hooks/language-context";
@@ -10,7 +11,7 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { Asset } from "expo-asset";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
@@ -118,23 +119,54 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { user, isInitialized } = useAuth();
-  console.log(!user);
-  
+  const {
+    user,
+    isInitialized,
+    firstSignInSubscriptionPromptVisible,
+    completeFirstSignInSubscriptionPrompt,
+  } = useAuth();
+  const shouldShowSubscriptionPrompt = Boolean(
+    user && firstSignInSubscriptionPromptVisible,
+  );
+
+  console.log(user, firstSignInSubscriptionPromptVisible);
 
   if (!isInitialized) return null;
 
+  const handleDismissSubscriptionPrompt = async () => {
+    await completeFirstSignInSubscriptionPrompt();
+  };
+
+  const handleSubscribeFromPrompt = async () => {
+    await completeFirstSignInSubscriptionPrompt();
+    router.push("/settings/subscription" as any);
+  };
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {!user ? (
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      ) : (
-        <>
-          <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="logFood" options={{ presentation: "modal" }} />
-        </>
-      )}
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        {!user ? (
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        ) : (
+          <>
+            <Stack.Screen
+              name="(onboarding)"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="logFood" options={{ presentation: "modal" }} />
+          </>
+        )}
+      </Stack>
+      <FirstSignInSubscriptionModal
+        visible={shouldShowSubscriptionPrompt}
+        onDismiss={() => {
+          void handleDismissSubscriptionPrompt();
+        }}
+        onSubscribe={() => {
+          void handleSubscribeFromPrompt();
+        }}
+      />
+    </>
   );
 }
