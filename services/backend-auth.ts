@@ -66,6 +66,28 @@ export type UpdateMyCompleteProfileResponse = {
   user?: BackendUser;
 };
 
+export type DailyGoalPayload = {
+  calories: number;
+};
+
+export type DailyGoalData = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  macroRatio?: {
+    proteinPercent: number;
+    carbsPercent: number;
+    fatPercent: number;
+  };
+};
+
+export type UpdateDailyGoalResponse = {
+  message: string;
+  dailyGoal: DailyGoalData;
+  user?: BackendUser;
+};
+
 export type ChatHistoryItem = {
   _id?: string;
   prompt: string;
@@ -531,6 +553,87 @@ export async function backendUpdateMyCompleteProfile(
       : undefined,
     user: normalizedUser,
   };
+}
+
+function isEndpointMismatchError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("(404)") ||
+    lower.includes("(405)") ||
+    lower.includes("not found") ||
+    lower.includes("cannot post") ||
+    lower.includes("cannot patch")
+  );
+}
+
+function normalizeDailyGoalResponse(json: any): UpdateDailyGoalResponse {
+  const root = json?.data ?? json;
+  const rawGoal = root?.dailyGoal ?? root?.goal ?? root;
+  const rawUser = root?.user;
+  const normalizedUser = rawUser ? toBackendUser(rawUser) : undefined;
+
+  return {
+    message: String(root?.message ?? "Daily goal updated"),
+    dailyGoal: {
+      calories: Number(rawGoal?.calories ?? 0),
+      protein: Number(rawGoal?.protein ?? 0),
+      carbs: Number(rawGoal?.carbs ?? 0),
+      fat: Number(rawGoal?.fat ?? 0),
+      macroRatio: rawGoal?.macroRatio
+        ? {
+            proteinPercent: Number(rawGoal.macroRatio?.proteinPercent ?? 0),
+            carbsPercent: Number(rawGoal.macroRatio?.carbsPercent ?? 0),
+            fatPercent: Number(rawGoal.macroRatio?.fatPercent ?? 0),
+          }
+        : undefined,
+    },
+    user: normalizedUser,
+  };
+}
+
+export async function backendUpdateDailyGoal(
+  payload: DailyGoalPayload,
+): Promise<UpdateDailyGoalResponse> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const attempts: Array<{ method: "PATCH" | "POST"; path: string }> = [
+    { method: "PATCH", path: "/api/v1/users/me/daily-goal" },
+    { method: "POST", path: "/api/v1/users/me/daily-goal" },
+    { method: "PATCH", path: "/api/v1/users/me/daily-goals" },
+    { method: "POST", path: "/api/v1/users/me/daily-goals" },
+    { method: "PATCH", path: "/api/v1/users/daily-goal" },
+    { method: "POST", path: "/api/v1/users/daily-goal" },
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const attempt of attempts) {
+    try {
+      const json = await request(attempt.path, {
+        method: attempt.method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = normalizeDailyGoalResponse(json);
+      if (result.user) {
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user));
+      }
+      return result;
+    } catch (error: any) {
+      const message = String(error?.message ?? "");
+      lastError = error instanceof Error ? error : new Error(message);
+
+      if (!isEndpointMismatchError(message)) {
+        throw lastError;
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Failed to update daily goal");
 }
 
 export async function backendGetSubscriptionPlans(): Promise<

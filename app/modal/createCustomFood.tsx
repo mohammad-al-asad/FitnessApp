@@ -1,9 +1,6 @@
 import colors from "@/constants/colors";
 import { useLanguage } from "@/hooks/language-context";
-import {
-  addFoodToSheet,
-  getFoodByBarcode,
-} from "@/services/googleSheetService";
+import { createCustomFood, getFoodByBarcode } from "@/services/food-api";
 import { responsiveHeight, responsiveWidth } from "@/utilities/ScalingUtils";
 import Barcode from "@alexartisan/react-native-barcode-builder";
 import { Stack, router, useLocalSearchParams } from "expo-router";
@@ -63,16 +60,20 @@ export default function CreateCustomFoodScreen() {
         const scannedBarcode = params.barcode.toString();
         setBarcode(scannedBarcode);
 
-        const existingFood = await getFoodByBarcode(scannedBarcode);
+        try {
+          const existingFood = await getFoodByBarcode(scannedBarcode);
 
-        if (existingFood) {
-          setFoodName(existingFood.PRODUCT || "");
-          setBrandName(existingFood.BRAND || "");
-          setServingSize(existingFood["SERVING SIZE"] || "");
-          setCalories(existingFood.CALORIES?.toString() || "");
-          setProtein(existingFood.PROTEIN?.toString() || "");
-          setCarbs(existingFood.CARBS?.toString() || "");
-          setFats(existingFood.FAT?.toString() || "");
+          if (existingFood) {
+            setFoodName(existingFood.name || "");
+            setBrandName(existingFood.brand || "");
+            setServingSize(existingFood.servingSize || existingFood.serving || "");
+            setCalories(existingFood.calories?.toString() || "");
+            setProtein(existingFood.protein?.toString() || "");
+            setCarbs(existingFood.carbs?.toString() || "");
+            setFats(existingFood.fats?.toString() || "");
+          }
+        } catch (error) {
+          console.warn("Barcode lookup failed:", error);
         }
       }
     };
@@ -88,7 +89,7 @@ export default function CreateCustomFoodScreen() {
       );
       return;
     }
-    if (!servingSize || !servingSize.match(/^\d+(?:g|ml)?$/)) {
+    if (!servingSize.trim()) {
       Alert.alert(
         t("invalidServingSize") as string,
         t("pleaseEnterValidServingSize") as string,
@@ -98,21 +99,24 @@ export default function CreateCustomFoodScreen() {
 
     setLoading(true);
     try {
-      await addFoodToSheet({
-        brand: brandName, // goes into BRAND column
-        product: foodName, // goes into PRODUCT column
-        serving: servingSize, // goes into SERVING SIZE column
-        calories,
-        protein,
-        carbs,
-        fat: fats,
-        barcode: barcode,
+      await createCustomFood({
+        barcode: barcode.trim() || undefined,
+        foodName: foodName.trim(),
+        brandName: brandName.trim() || undefined,
+        servingSize: servingSize.trim(),
+        calories: Number(calories) || 0,
+        protein: Number(protein) || 0,
+        carbs: Number(carbs) || 0,
+        fat: Number(fats) || 0,
       });
 
       Alert.alert(t("success") as string, t("foodAddedToDatabase") as string);
       router.back();
-    } catch (error) {
-      Alert.alert(t("error") as string, t("failedToSaveFood") as string);
+    } catch (error: any) {
+      Alert.alert(
+        t("error") as string,
+        error?.message ? String(error.message) : (t("failedToSaveFood") as string),
+      );
     } finally {
       setLoading(false);
     }

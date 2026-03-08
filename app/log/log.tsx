@@ -1,10 +1,11 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Plus, X } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -13,121 +14,203 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
-import { searchFood } from "@/services/food-api";
-import { getFoodsFromSheetCached } from "@/services/googleSheetService";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { FoodApiItem, getLogFoodsPage } from "@/services/food-api";
 
-// ---- Types ----
-type FoodRow = {
-  brand: string;
-  name: string;
-  serving: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  barcode?: string;
-};
+const PAGE_LIMIT = 25;
+const SEARCH_DEBOUNCE_MS = 350;
+
+function foodKey(food: FoodApiItem): string {
+  return (
+    food.id ||
+    `${food.name}|${food.brand}|${food.serving}|${food.barcode || ""}`
+  );
+}
 
 export default function LogFoodScreen() {
   const params = useLocalSearchParams();
-  const selectedDate = Array.isArray(params.date) ? params.date[0] : (params.date as string | undefined);
-  const scannedBarcode = Array.isArray(params.barcode) ? params.barcode[0] : (params.barcode as string | undefined);
+  const selectedDate = Array.isArray(params.date)
+    ? params.date[0]
+    : (params.date as string | undefined);
+  const scannedBarcode = Array.isArray(params.barcode)
+    ? params.barcode[0]
+    : (params.barcode as string | undefined);
+
   const { t, isRTL } = useLanguage();
   const colors = useSafeColors();
   const insets = useSafeAreaInsets();
 
-  const [foods, setFoods] = useState<FoodRow[]>([]);
-  const [filteredFoods, setFilteredFoods] = useState<FoodRow[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [foods, setFoods] = useState<FoodApiItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState(scannedBarcode || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(
+    (scannedBarcode || "").trim(),
+  );
 
-  // ------- handle scanned barcode -------
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const requestIdRef = useRef(0);
+
   useEffect(() => {
-    if (scannedBarcode && foods.length > 0) {
-      const matchingFoods = foods.filter(food =>
-        food.barcode === scannedBarcode ||
-        food.name.toLowerCase().includes(scannedBarcode.toLowerCase()) ||
-        food.brand.toLowerCase().includes(scannedBarcode.toLowerCase())
-      );
-      if (matchingFoods.length > 0) {
-        setFilteredFoods(matchingFoods);
+    if (scannedBarcode) {
+      setSearchQuery(scannedBarcode);
+      setDebouncedQuery(scannedBarcode.trim());
+    }
+  }, [scannedBarcode]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  const loadFoods = useCallback(
+    async ({ pageToLoad, replace }: { pageToLoad: number; replace: boolean }) => {
+      const requestId = ++requestIdRef.current;
+
+      if (replace) {
+        setLoadingInitial(true);
+        setErrorMessage(null);
       } else {
-        // If no exact match, show all foods and set search query to barcode
-        setSearchQuery(scannedBarcode);
-        setFilteredFoods(foods.slice(0, 150));
+        setLoadingMore(true);
       }
-    }
-  }, [scannedBarcode, foods]);
 
-  // ------- data load (cache → network) -------
-  useEffect(() => {
-    const fetchFoods = async () => {
       try {
-        setLoading(true);
-        const cached = await AsyncStorage.getItem("fitco_food_cache");
-        if (cached) {
-          const parsed: FoodRow[] = JSON.parse(cached);
-          setFoods(parsed);
-          setFilteredFoods(parsed.slice(0, 100));
-        }
+        const response = await getLogFoodsPage({
+          page: pageToLoad,
+          limit: PAGE_LIMIT,
+          search: debouncedQuery || undefined,
+        });
 
-        const freshData = await getFoodsFromSheetCached();
-        const formatted: FoodRow[] = (freshData ?? []).map((row: any) => ({
-          brand: row["BRAND"] || "",
-          name: row["PRODUCT"] || "Unnamed",
-          serving: row["SERVING SIZE"] || "100g",
-          calories: Number(row["CALORIES"]) || 0,
-          protein: Number(row["PROTEIN"]) || 0,
-          carbs: Number(row["CARBS"]) || 0,
-          fats: Number(row["FAT"]) || 0,
-          barcode: row["BARCODE ID"] || "",
-        }));
+        if (requestId !== requestIdRef.current) return;
 
-        if (formatted.length) {
-          setFoods(formatted);
-          setFilteredFoods((prev) => (prev.length ? prev : formatted.slice(0, 100)));
-          await AsyncStorage.setItem("fitco_food_cache", JSON.stringify(formatted));
+        setFoods((prev) => {
+          if (replace) return response.items;
+
+          const merged = [...prev];
+          const seen = new Set(prev.map(foodKey));
+
+          response.items.forEach((item) => {
+            const key = foodKey(item);
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(item);
+            }
+          });
+
+          return merged;
+        });
+
+        setPage(response.page);
+        setHasNextPage(response.hasNextPage);
+      } catch (error: any) {
+        if (requestId !== requestIdRef.current) return;
+
+        console.error("Error loading foods:", error);
+        setErrorMessage(error?.message ? String(error.message) : "Failed to load foods.");
+
+        if (replace) {
+          setFoods([]);
+          setHasNextPage(false);
         }
-      } catch (err) {
-        console.error("Error fetching foods:", err);
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) {
+          setLoadingInitial(false);
+          setLoadingMore(false);
+          setRefreshing(false);
+        }
       }
-    };
+    },
+    [debouncedQuery],
+  );
 
-    fetchFoods();
-  }, []);
+  useEffect(() => {
+    setPage(1);
+    setHasNextPage(true);
+    loadFoods({ pageToLoad: 1, replace: true });
+  }, [debouncedQuery, loadFoods]);
 
-  // ------- search -------
-  const onSearch = async (text: string) => {
-    setSearchQuery(text);
-    const q = text.trim();
-    if (!q) {
-      setFilteredFoods(foods.slice(0, 150));
-      return;
-    }
+  const handleLoadMore = () => {
+    if (loadingInitial || loadingMore || !hasNextPage) return;
+    loadFoods({ pageToLoad: page + 1, replace: false });
+  };
 
-    try {
-      const results = await searchFood(q);
-      const normalized: FoodRow[] = (results ?? []).map((f: any) => ({
-        brand: f.brand || "",
-        name: f.name || "Unnamed",
-        serving: f.serving || f.servingSize || "100g",
-        calories: Number(f.calories) || 0,
-        protein: Number(f.protein) || 0,
-        carbs: Number(f.carbs) || 0,
-        fats: Number(f.fats) || 0,
-      }));
-      setFilteredFoods(normalized.slice(0, 200));
-    } catch (err) {
-      console.error("Search error:", err);
-    }
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setPage(1);
+    setHasNextPage(true);
+    loadFoods({ pageToLoad: 1, replace: true });
   };
 
   const title = useMemo(() => t("whatsOnMenu") || "What's on the menu today?", [t]);
 
-  if (loading) {
+  const renderFoodItem = ({ item }: { item: FoodApiItem }) => (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.surface },
+      ]}
+    >
+      <View style={{ flex: 1 }}>
+        <Text
+          style={[styles.foodName, { color: colors.text, textAlign: isRTL ? "right" : "left" }]}
+          numberOfLines={1}
+        >
+          {item.name}
+        </Text>
+
+        <View style={styles.row}>
+          {!!item.brand && (
+            <Text style={[styles.brand, { color: colors.placeholder }]} numberOfLines={1}>
+              {item.brand}
+            </Text>
+          )}
+          <Text style={[styles.dot, { color: colors.placeholder }]}>|</Text>
+          <Text style={[styles.serving, { color: colors.placeholder }]} numberOfLines={1}>
+            {item.serving}
+          </Text>
+        </View>
+
+        <View style={styles.macroRow}>
+          <Text style={[styles.cal, { color: colors.primary }]}>
+            {item.calories} {t("kcal")}
+          </Text>
+          <Text style={[styles.macro, { color: colors.placeholder }]}>
+            {t("p")} {item.protein} {t("g")}
+          </Text>
+          <Text style={[styles.macro, { color: colors.placeholder }]}>
+            {t("c")} {item.carbs} {t("g")}
+          </Text>
+          <Text style={[styles.macro, { color: colors.placeholder }]}>
+            {t("f")} {item.fats} {t("g")}
+          </Text>
+        </View>
+      </View>
+
+      <Pressable
+        style={[styles.addBtn, { borderColor: colors.primary }]}
+        onPress={() =>
+          router.push({
+            pathname: "/logFood",
+            params: {
+              foodData: JSON.stringify(item),
+              date: selectedDate ?? new Date().toISOString().split("T")[0],
+            },
+          })
+        }
+        android_ripple={{ color: colors.primary }}
+      >
+        <Plus size={18} color={colors.primary} />
+      </Pressable>
+    </View>
+  );
+
+  if (loadingInitial && foods.length === 0) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -136,121 +219,82 @@ export default function LogFoodScreen() {
     );
   }
 
- return (
-  <>
-    <Stack.Screen options={{ headerShown: false }} />
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
 
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: colors.background, paddingTop: insets.top },
-        isRTL && { direction: "rtl" },
-      ]}
-    >
-      {/* Custom Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable style={styles.closeButton} onPress={() => router.back()} hitSlop={10}>
-          <X size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('logFood')}</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      {/* Title */}
-      <Text
+      <View
         style={[
-          styles.title,
-          { color: colors.text },
-          isRTL && styles.rtlText,
+          styles.container,
+          { backgroundColor: colors.background, paddingTop: insets.top },
+          isRTL && { direction: "rtl" },
         ]}
       >
-        {title}
-      </Text>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <Pressable style={styles.closeButton} onPress={() => router.back()} hitSlop={10}>
+            <X size={24} color={colors.text} />
+          </Pressable>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{t("logFood")}</Text>
+          <View style={{ width: 24 }} />
+        </View>
 
-      {/* Search */}
-      <View style={[styles.search, { backgroundColor: colors.surface }]}>
-        <TextInput
-          style={[
-            styles.searchInput,
-            { color: colors.text },
-            { textAlign: isRTL ? 'right' : 'left' }
-          ]}
-          placeholder={(t("searchForDeliciousFuel") as string) || "Search for your delicious fuel!"}
-          placeholderTextColor={colors.placeholder}
-          value={searchQuery}
-          onChangeText={onSearch}
-          returnKeyType="search"
+        <Text style={[styles.title, { color: colors.text }, isRTL && styles.rtlText]}>
+          {title}
+        </Text>
+
+        <View style={[styles.search, { backgroundColor: colors.surface }]}>
+          <TextInput
+            style={[
+              styles.searchInput,
+              { color: colors.text },
+              { textAlign: isRTL ? "right" : "left" },
+            ]}
+            placeholder={
+              (t("searchForDeliciousFuel") as string) ||
+              "Search for your delicious fuel!"
+            }
+            placeholderTextColor={colors.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+        </View>
+
+        <FlatList
+          data={foods}
+          style={styles.list}
+          contentContainerStyle={{
+            paddingBottom: 28,
+            flexGrow: foods.length ? 0 : 1,
+          }}
+          keyExtractor={(item, index) => `${foodKey(item)}-${index}`}
+          renderItem={renderFoodItem}
+          keyboardShouldPersistTaps="handled"
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.35}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <Text style={[styles.empty, { color: colors.placeholder }, isRTL && styles.rtlText]}>
+              {errorMessage || "No foods found."}
+            </Text>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null
+          }
         />
       </View>
-
-      {/* List */}
-      <ScrollView
-        style={styles.list}
-        contentContainerStyle={{ paddingBottom: 28 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {filteredFoods.length ? (
-          filteredFoods.map((food, idx) => (
-            <View
-              key={`${food.name}-${idx}`}
-              style={[
-                styles.card,
-                { backgroundColor: colors.surface, borderColor: colors.surface },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.foodName, { color: colors.text, textAlign: isRTL ? 'left' : 'left' }]} numberOfLines={1}>
-                  {food.name}
-                </Text>
-
-                <View style={styles.row}>
-                  {!!food.brand && (
-                    <Text style={[styles.brand, { color: colors.placeholder }]} numberOfLines={1}>
-                      {food.brand}
-                    </Text>
-                  )}
-                  <Text style={[styles.dot, { color: colors.placeholder }]}>•</Text>
-                  <Text style={[styles.serving, { color: colors.placeholder }]} numberOfLines={1}>
-                    {food.serving}
-                  </Text>
-                </View>
-
-                <View style={styles.macroRow}>
-                  <Text style={[styles.cal, { color: colors.primary }]}>{food.calories} {t('kcal')}</Text>
-                  <Text style={[styles.macro, { color: colors.placeholder }]}>{t('p')} {food.protein} {t('g')}</Text>
-                  <Text style={[styles.macro, { color: colors.placeholder }]}>{t('c')} {food.carbs} {t('g')}</Text>
-                  <Text style={[styles.macro, { color: colors.placeholder }]}>{t('f')} {food.fats} {t('g')}</Text>
-                </View>
-              </View>
-
-              <Pressable
-                style={[styles.addBtn, { borderColor: colors.primary }]}
-               onPress={() =>
-  router.push({
-    pathname: "/logFood",
-    params: {
-      foodData: JSON.stringify(food),
-      date: selectedDate ?? new Date().toISOString().split("T")[0],
-    },
-  })
-}
-
-
-                android_ripple={{ color: colors.primary }}
-              >
-                <Plus size={18} color={colors.primary} />
-              </Pressable>
-            </View>
-          ))
-        ) : (
-          <Text style={[styles.empty, { color: colors.placeholder }, isRTL && styles.rtlText]}>
-            {"No foods found."}
-          </Text>
-        )}
-           </ScrollView>
-    </View>
-  </>
-);
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -275,14 +319,13 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "600" },
 
   title: {
-  fontSize: 20,
-  fontWeight: "700",
-  textAlign: "center",
-  marginBottom: 14,
-  marginTop: 18, // ⬅️ increase this a bit (you can tweak 18→20)
-  letterSpacing: -0.3,
-},
-
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 14,
+    marginTop: 18,
+    letterSpacing: -0.3,
+  },
 
   search: {
     flexDirection: "row",
@@ -318,8 +361,8 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 4,
   },
-  brand: { fontSize: 12, fontWeight: "500" },
-  serving: { fontSize: 12 },
+  brand: { fontSize: 12, fontWeight: "500", flexShrink: 1 },
+  serving: { fontSize: 12, flexShrink: 1 },
   dot: { fontSize: 12, opacity: 0.6 },
 
   macroRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap" },
@@ -337,7 +380,7 @@ const styles = StyleSheet.create({
   },
 
   empty: { textAlign: "center", marginTop: 40, fontSize: 16 },
+  footerLoader: { paddingVertical: 16 },
 
   rtlText: { textAlign: "left" },
-  rtlInput: { textAlign: "left" },
 });

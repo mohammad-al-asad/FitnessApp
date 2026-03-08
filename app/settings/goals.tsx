@@ -2,9 +2,10 @@
 import Colors from '@/constants/colors';
 import { useLanguage } from '@/hooks/language-context';
 import { useNutrition } from '@/hooks/nutrition-store';
+import { backendUpdateDailyGoal } from '@/services/backend-auth';
 import { Save, Target } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type UserSettings = any;
@@ -14,7 +15,14 @@ export default function GoalsScreen() {
   const { t, isRTL } = useLanguage();
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
   const [hasChanges, setHasChanges] = useState(false);
-const insets = useSafeAreaInsets();
+  const [isSaving, setIsSaving] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (!hasChanges) {
+      setLocalSettings(settings);
+    }
+  }, [settings, hasChanges]);
 
   const calculateMacroGoals = (calories: number) => {
     // Standard macro distribution: 30% protein, 40% carbs, 30% fats
@@ -60,11 +68,35 @@ const insets = useSafeAreaInsets();
   };
 
   const handleSave = async () => {
+    const calories = Number(localSettings.calorieGoal || 0);
+    if (!Number.isFinite(calories) || calories <= 0) {
+      Alert.alert(t('error') as string, t('enterCalorieGoal') as string);
+      return;
+    }
+
     try {
-      await saveSettings(localSettings);
+      setIsSaving(true);
+
+      const response = await backendUpdateDailyGoal({ calories });
+      const nextSettings = {
+        ...localSettings,
+        calorieGoal: Number(response.dailyGoal.calories || calories),
+        proteinGoal: Number(response.dailyGoal.protein || 0),
+        carbsGoal: Number(response.dailyGoal.carbs || 0),
+        fatsGoal: Number(response.dailyGoal.fat || 0),
+      };
+
+      await saveSettings(nextSettings);
+      setLocalSettings(nextSettings);
       setHasChanges(false);
-    } catch {
-      // Handle error silently
+      Alert.alert(t('success') as string, response.message || 'Daily goal updated');
+    } catch (error: any) {
+      Alert.alert(
+        t('error') as string,
+        error?.message ? String(error.message) : 'Failed to update goals',
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -127,10 +159,15 @@ const insets = useSafeAreaInsets();
         {hasChanges && (
           <View style={styles.saveContainer}>
             <TouchableOpacity
-              style={styles.saveButton}
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
               onPress={handleSave}
+              disabled={isSaving}
             >
-              <Save size={20} color={Colors.background} />
+              {isSaving ? (
+                <ActivityIndicator size="small" color={Colors.background} />
+              ) : (
+                <Save size={20} color={Colors.background} />
+              )}
               <Text style={styles.saveButtonText}>{t('saveChanges')}</Text>
             </TouchableOpacity>
           </View>
@@ -235,6 +272,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
   saveButtonText: {
     fontSize: 16,

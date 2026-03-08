@@ -7,12 +7,30 @@ import { MacroColors } from "@/constants/colors";
 import { useAuth } from "@/hooks/auth-context";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { useNutrition } from "@/hooks/nutrition-store";
+import {
+  FoodLogsHomeResponse,
+  FoodLogsWeeklySummaryResponse,
+  getFoodLogsHome,
+  getFoodLogsWeeklySummary,
+} from "@/services/food-api";
 import { useRouter } from "expo-router";
-import { Award, Flame, Target, TrendingUp, Zap } from "lucide-react-native";
-import React, { useEffect, useMemo } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import {
+  Award,
+  Coffee,
+  Flame,
+  Moon,
+  Plus,
+  Sun,
+  Target,
+  TrendingUp,
+  Zap,
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { responsiveWidth } from "@/utilities/ScalingUtils";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +38,29 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getWeekStartDate(dateString: string): string {
+  const [year, month, day] = dateString.split("-").map((part) => Number(part));
+  const date = new Date(year, (month || 1) - 1, day || 1);
+  const offset = date.getDay();
+  date.setDate(date.getDate() - offset);
+  return formatLocalDate(date);
+}
+
+function getWeekdayLabel(dateString: string): string {
+  const [year, month, day] = dateString.split("-").map((part) => Number(part));
+  const date = new Date(year, (month || 1) - 1, day || 1);
+  if (Number.isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString(undefined, { weekday: "short" });
+}
+
 export default function HomeScreen() {
   // useEffect(() => {
   //   AsyncStorage.setItem("fitco_language", "ar");
@@ -54,20 +95,71 @@ export default function HomeScreen() {
   const colors = useSafeColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [selectedDay, setSelectedDay] = React.useState(
+  const [selectedDay] = useState(
     new Date().toISOString().split("T")[0],
   );
+  const [homeData, setHomeData] = useState<FoodLogsHomeResponse | null>(null);
+  const [weeklyData, setWeeklyData] =
+    useState<FoodLogsWeeklySummaryResponse | null>(null);
+  const [homeLoading, setHomeLoading] = useState(false);
+  const [homeError, setHomeError] = useState<string | null>(null);
 
   useEffect(() => {
     void showFirstSignInSubscriptionPromptIfPending();
   }, [showFirstSignInSubscriptionPromptIfPending]);
 
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const loadHomeData = async () => {
+        setHomeLoading(true);
+        setHomeError(null);
+
+        const weekStartDate = getWeekStartDate(selectedDay);
+        const [homeResult, weeklyResult] = await Promise.allSettled([
+          getFoodLogsHome(selectedDay),
+          getFoodLogsWeeklySummary(weekStartDate),
+        ]);
+
+        if (!isActive) return;
+
+        if (homeResult.status === "fulfilled") {
+          setHomeData(homeResult.value);
+        } else {
+          console.error("Failed to fetch home food logs:", homeResult.reason);
+          setHomeError(
+            homeResult.reason?.message
+              ? String(homeResult.reason.message)
+              : "Failed to load daily meals.",
+          );
+          setHomeData(null);
+        }
+
+        if (weeklyResult.status === "fulfilled") {
+          setWeeklyData(weeklyResult.value);
+        } else {
+          console.error("Failed to fetch weekly summary:", weeklyResult.reason);
+          setWeeklyData(null);
+        }
+
+        setHomeLoading(false);
+      };
+
+      void loadHomeData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [selectedDay]),
+  );
+
   // --- Safe guards / fallbacks to kill NaNs and undefineds ---
   const safeSettings = {
-    calorieGoal: settings?.calorieGoal ?? 0,
-    proteinGoal: settings?.proteinGoal ?? 0,
-    carbsGoal: settings?.carbsGoal ?? 0,
-    fatsGoal: settings?.fatsGoal ?? 0,
+    calorieGoal: homeData?.goals?.calories ?? settings?.calorieGoal ?? 0,
+    proteinGoal: homeData?.goals?.protein ?? settings?.proteinGoal ?? 0,
+    carbsGoal: homeData?.goals?.carbs ?? settings?.carbsGoal ?? 0,
+    fatsGoal: homeData?.goals?.fat ?? settings?.fatsGoal ?? 0,
   };
 
   const rawTodayLog = getLogByDate
@@ -77,11 +169,33 @@ export default function HomeScreen() {
       : null;
 
   const todayLog = {
-    totalCalories: rawTodayLog?.totalCalories ?? 0,
-    totalProtein: rawTodayLog?.totalProtein ?? 0,
-    totalCarbs: rawTodayLog?.totalCarbs ?? 0,
-    totalFats: rawTodayLog?.totalFats ?? 0,
+    totalCalories: homeData?.totals?.calories ?? rawTodayLog?.totalCalories ?? 0,
+    totalProtein: homeData?.totals?.protein ?? rawTodayLog?.totalProtein ?? 0,
+    totalCarbs: homeData?.totals?.carbs ?? rawTodayLog?.totalCarbs ?? 0,
+    totalFats: homeData?.totals?.fat ?? rawTodayLog?.totalFats ?? 0,
   };
+
+  const meals = homeData?.meals ?? { breakfast: [], lunch: [], dinner: [] };
+  const mealRows = [
+    {
+      key: "breakfast",
+      label: String(t("breakfast")),
+      icon: <Coffee size={18} color={colors.primary} />,
+      items: meals.breakfast,
+    },
+    {
+      key: "lunch",
+      label: String(t("lunch")),
+      icon: <Sun size={18} color={colors.primary} />,
+      items: meals.lunch,
+    },
+    {
+      key: "dinner",
+      label: String(t("dinner")),
+      icon: <Moon size={18} color={colors.primary} />,
+      items: meals.dinner,
+    },
+  ];
 
   const pd = getProgressData ? getProgressData() : null;
   const progressData = {
@@ -93,15 +207,17 @@ export default function HomeScreen() {
 
   // --- Derived values (safe) ---
   const weeklyAverage = useMemo(() => {
+    if (weeklyData) return Math.round(weeklyData.avgCalories);
     if (!progressData.weeklyData.length) return 0;
     const total = progressData.weeklyData.reduce(
       (s: number, d: any) => s + (d?.calories ?? 0),
       0,
     );
     return Math.round(total / 7);
-  }, [progressData.weeklyData]);
+  }, [weeklyData, progressData.weeklyData]);
 
   const goalsHitThisWeek = useMemo(() => {
+    if (weeklyData) return Number(weeklyData.goalHits) || 0;
     if (!progressData.weeklyData.length || !safeSettings.calorieGoal) return 0;
     // Consider "hit" if within ±10% of goal
     const low = safeSettings.calorieGoal * 0.9;
@@ -110,9 +226,13 @@ export default function HomeScreen() {
       const c = d?.calories ?? 0;
       return c >= low && c <= high;
     }).length;
-  }, [progressData.weeklyData, safeSettings.calorieGoal]);
+  }, [weeklyData, progressData.weeklyData, safeSettings.calorieGoal]);
 
   const bestDayThisWeek = useMemo(() => {
+    if (weeklyData?.bestDay?.date) {
+      return getWeekdayLabel(weeklyData.bestDay.date);
+    }
+
     if (!progressData.weeklyData.length) return "today";
     let best = progressData.weeklyData[0];
     for (const d of progressData.weeklyData) {
@@ -120,7 +240,33 @@ export default function HomeScreen() {
     }
     // You can localize this if you want; keeping simple.
     return "today";
-  }, [progressData.weeklyData]);
+  }, [weeklyData, progressData.weeklyData]);
+
+  const weeklyDaysCompleted =
+    weeklyData?.daysCompleted != null
+      ? Number(weeklyData.daysCompleted)
+      : goalsHitThisWeek;
+  const weeklyProgressDays =
+    weeklyData?.progressDays != null
+      ? Number(weeklyData.progressDays)
+      : weeklyDaysCompleted;
+  const progressDenominator = Math.max(
+    1,
+    Number.isFinite(weeklyProgressDays) ? weeklyProgressDays : 7,
+  );
+  const progressCompleted = Math.max(
+    0,
+    Math.min(
+      Number.isFinite(weeklyDaysCompleted) ? weeklyDaysCompleted : 0,
+      progressDenominator,
+    ),
+  );
+  const weeklyProgressPercent = Math.min(
+    100,
+    (progressCompleted / progressDenominator) * 100,
+  );
+  const weeklyCompletedCount = Math.round(progressCompleted);
+  const weeklyTotalCount = Math.max(1, Math.round(progressDenominator));
 
   // Avoid divide-by-zero for percent text
   const percentOfGoal =
@@ -143,11 +289,6 @@ export default function HomeScreen() {
       </View>
     );
   }
-
-  const caloriesRemaining = Math.max(
-    0,
-    (safeSettings.calorieGoal ?? 0) - (todayLog.totalCalories ?? 0),
-  );
 
   if (!t) return null;
 
@@ -239,6 +380,110 @@ export default function HomeScreen() {
               />
             </View>
           </View>
+        </View>
+
+        <View style={[styles.mealsCard, { backgroundColor: colors.surface }]}>
+          <View style={[styles.mealsHeader, isRTL && styles.rtlRow]}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                isRTL && styles.rtlText,
+                { color: colors.text },
+              ]}
+            >
+              {t("todaysMeals")}
+            </Text>
+            <Text
+              style={[
+                styles.totalMealsCalories,
+                isRTL && styles.rtlText,
+                { color: colors.placeholder },
+              ]}
+            >
+              {Math.round(todayLog.totalCalories)} {t("calTotal")}
+            </Text>
+          </View>
+
+          {homeLoading ? (
+            <View style={styles.mealLoading}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : (
+            mealRows.map((meal, index) => {
+              const mealCalories = meal.items.reduce(
+                (sum, item) => sum + Number(item?.calories ?? 0),
+                0,
+              );
+              const hasFood = meal.items.length > 0;
+
+              return (
+                <TouchableOpacity
+                  key={meal.key}
+                  style={[
+                    styles.mealRow,
+                    { borderBottomColor: colors.border },
+                    index === mealRows.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                  onPress={() =>
+                    router.push({ pathname: "/log/log", params: { date: selectedDay } })
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.mealRowLeft, isRTL && styles.rtlRow]}>
+                    <View
+                      style={[
+                        styles.mealIcon,
+                        { backgroundColor: colors.primary + "20" },
+                      ]}
+                    >
+                      {meal.icon}
+                    </View>
+                    <View style={styles.mealInfo}>
+                      <Text
+                        style={[
+                          styles.mealTitle,
+                          isRTL && styles.rtlText,
+                          { color: colors.text },
+                        ]}
+                      >
+                        {meal.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.mealSubtitle,
+                          isRTL && styles.rtlText,
+                          { color: colors.placeholder },
+                        ]}
+                      >
+                        {hasFood
+                          ? `${Math.round(mealCalories)} ${t("calories")} • ${meal.items.length} ${
+                              meal.items.length > 1 ? t("items") : t("item")
+                            }`
+                          : String(t("tapToAddFood"))}
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.addMealButton,
+                      { borderColor: colors.border, backgroundColor: colors.background },
+                    ]}
+                  >
+                    <Plus
+                      size={16}
+                      color={hasFood ? colors.placeholder : colors.primary}
+                    />
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+
+          {!!homeError && (
+            <Text style={[styles.mealError, { color: colors.placeholder }]}>
+              {homeError}
+            </Text>
+          )}
         </View>
 
         <View
@@ -340,7 +585,7 @@ export default function HomeScreen() {
                   { color: colors.text },
                 ]}
               >
-                {t(bestDayThisWeek as any) || t("today")}
+                {bestDayThisWeek === "today" ? t("today") : bestDayThisWeek}
               </Text>
             </View>
           </View>
@@ -364,7 +609,7 @@ export default function HomeScreen() {
                 style={[
                   styles.progressFill,
                   {
-                    width: `${Math.min(100, (goalsHitThisWeek / 7) * 100)}%`,
+                    width: `${weeklyProgressPercent}%`,
                     backgroundColor: colors.primary,
                   },
                 ]}
@@ -377,7 +622,7 @@ export default function HomeScreen() {
                 { color: colors.placeholder },
               ]}
             >
-              {goalsHitThisWeek} {t("outOfDaysCompleted")}
+              {weeklyCompletedCount}/{weeklyTotalCount} {t("daysCompleted")}
             </Text>
           </View>
         </View>
@@ -564,6 +809,72 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 30,
     gap: responsiveWidth(1),
+  },
+
+  mealsCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 16,
+    padding: 20,
+  },
+  mealsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  totalMealsCalories: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  mealLoading: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mealRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  mealRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  mealIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mealInfo: {
+    marginStart: 10,
+    flex: 1,
+  },
+  mealTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  mealSubtitle: {
+    fontSize: 12,
+  },
+  addMealButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginStart: 8,
+  },
+  mealError: {
+    marginTop: 10,
+    fontSize: 12,
   },
 
   weeklySummaryCard: {

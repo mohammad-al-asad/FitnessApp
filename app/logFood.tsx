@@ -2,20 +2,13 @@
 import colors from "@/constants/colors";
 import { useLanguage } from "@/hooks/language-context";
 import { useNutrition } from "@/hooks/nutrition-store";
-import { getFoodByBarcode } from "@/services/googleSheetService";
+import { createFoodLog, getFoodByBarcode } from "@/services/food-api";
 import type { FoodItem } from "@/types/nutrition";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import {
-  Apple,
-  Check,
-  ChevronDown,
-  Moon,
-  Sun,
-  Sunrise,
-  X,
-} from "lucide-react-native";
+import { Check, ChevronDown, Moon, Sun, Sunrise, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
   Animated,
   Modal,
   ScrollView,
@@ -96,10 +89,28 @@ function getServingGrams(food: FoodItem): number {
   return computeServing(rawServing).grams || 100;
 }
 
+function getServingUnit(selectedUnitName: string, servingRaw: string): string {
+  const source = `${selectedUnitName || ""} ${servingRaw || ""}`.toLowerCase();
+  if (source.includes("ml")) return "ml";
+  if (source.includes("cup")) return "cup";
+  if (source.includes("slice")) return "slice";
+  if (source.includes("tbsp") || source.includes("tablespoon")) return "tbsp";
+  if (source.includes("tsp") || source.includes("teaspoon")) return "tsp";
+  if (source.match(/\b(l|liter|litre)\b/)) return "l";
+  if (source.match(/\b(g|gram|grams)\b/)) return "g";
+  return "g";
+}
+
 type MeasurementUnit = {
   name: string;
   grams: number;
   isDefault?: boolean;
+};
+
+type LogFoodItem = FoodItem & {
+  id?: string;
+  _id?: string;
+  foodId?: string;
 };
 
 type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
@@ -122,7 +133,7 @@ export default function LogFoodScreen() {
     ? params.barcode[0]
     : params.barcode;
 
-  const [food, setFood] = useState<FoodItem | null>(null);
+  const [food, setFood] = useState<LogFoodItem | null>(null);
   const [servingAmount, setServingAmount] = useState("1");
   const [selectedUnit, setSelectedUnit] = useState<MeasurementUnit | null>(
     null,
@@ -214,15 +225,17 @@ export default function LogFoodScreen() {
           const existingFood = await getFoodByBarcode(barcode);
 
           if (existingFood) {
-            // Convert SheetFood to FoodItem format
-            const foodItem: FoodItem = {
-              name: existingFood.PRODUCT || "Unknown Food",
-              brand: existingFood.BRAND,
-              servingSize: existingFood["SERVING SIZE"],
-              calories: existingFood.CALORIES || 0,
-              protein: existingFood.PROTEIN || 0,
-              carbs: existingFood.CARBS || 0,
-              fats: existingFood.FAT || 0,
+            const foodItem: LogFoodItem = {
+              name: existingFood.name || "Unknown Food",
+              brand: existingFood.brand || "",
+              servingSize:
+                existingFood.servingSize || existingFood.serving || "100g",
+              calories: Number(existingFood.calories) || 0,
+              protein: Number(existingFood.protein) || 0,
+              carbs: Number(existingFood.carbs) || 0,
+              fats: Number(existingFood.fats) || 0,
+              id: existingFood.id,
+              foodId: existingFood.id,
             };
 
             setFood(foodItem);
@@ -348,17 +361,30 @@ export default function LogFoodScreen() {
     }
 
     try {
+      const foodId = String(food.id ?? food._id ?? food.foodId ?? "").trim();
+      if (!foodId) {
+        throw new Error("Missing foodId for this food.");
+      }
+
+      const servingSizeValue = Number(selectedUnit.grams) || 0;
+      if (servingSizeValue <= 0) {
+        throw new Error("Invalid serving size.");
+      }
+
+      await createFoodLog({
+        foodId,
+        meal: selectedMeal,
+        servings: amount,
+        servingSize: servingSizeValue,
+        servingUnit: getServingUnit(selectedUnit.name, getRawServing(food)),
+      });
+
       const gramsEaten = selectedUnit.grams * amount;
 
       const servingGrams = getServingGrams(food);
       const actualQuantity = gramsEaten / servingGrams;
 
-      await addFoodToLog(
-        food,
-        actualQuantity,
-        params.date as string,
-        selectedMeal,
-      );
+      await addFoodToLog(food, actualQuantity, date as string, selectedMeal);
 
       setShowSuccess(true);
 
@@ -381,6 +407,10 @@ export default function LogFoodScreen() {
       });
     } catch (error) {
       console.error("Error logging food:", error);
+      Alert.alert(
+        t("error") as string,
+        error instanceof Error ? error.message : String(t("failedToSaveFood")),
+      );
     }
   };
 
@@ -820,8 +850,6 @@ export default function LogFoodScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
-        <View style={{ height: 120 }} />
       </ScrollView>
 
       {showSuccess && (
