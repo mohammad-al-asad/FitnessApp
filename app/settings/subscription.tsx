@@ -191,6 +191,17 @@ const UpgradePlanScreen = () => {
     );
   }
 
+  if (isLoadingPlans) {
+    return (
+      <SafeAreaView
+        style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background }]}
+      >
+        <StatusBar barStyle="light-content" />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -231,14 +242,6 @@ const UpgradePlanScreen = () => {
             </TouchableOpacity>
           ))}
         </View>
-
-        {isLoadingPlans && (
-          <ActivityIndicator
-            size="small"
-            color={colors.primary}
-            style={styles.loadingIndicator}
-          />
-        )}
 
         {plansError && (
           <Text style={[styles.errorText, { color: colors.placeholder }]}>
@@ -402,6 +405,10 @@ const UpgradePlanScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
   scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
   emptyStateContainer: {
     flex: 1,
@@ -431,7 +438,6 @@ const styles = StyleSheet.create({
   },
 
   toggleText: { fontWeight: "600" },
-  loadingIndicator: { marginBottom: 12 },
   errorText: { textAlign: "center", marginBottom: 10, fontSize: 13 },
 
   glowWrapper: {

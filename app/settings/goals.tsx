@@ -118,7 +118,7 @@ export default function GoalsScreen() {
               value={localSettings.calorieGoal === 0 ? '' : localSettings.calorieGoal.toString()}
               onChangeText={handleCalorieGoalChange}
               keyboardType="numeric"
-              placeholder={t('enterCalorieGoal')}
+              placeholder={t('enterCalorieGoal') as any}
               placeholderTextColor={Colors.placeholder}
             />
             <Text style={[styles.inputHint, isRTL && styles.rtlText]}>
@@ -199,7 +199,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: Colors.text,
-    marginBottom: 16,
   },
   inputGroup: {
     marginBottom: 16,

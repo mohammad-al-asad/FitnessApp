@@ -20,7 +20,17 @@ const getDefaultSettings = (profile?: any): UserSettings => ({
   language: "en",
 });
 
-const getTodayString = () => new Date().toISOString().split("T")[0];
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+const parseLocalDateKey = (dateKey: string) => {
+  const [year, month, day] = dateKey.split("-").map((v) => Number(v));
+  return new Date(year, (month || 1) - 1, day || 1);
+};
+const getTodayString = () => formatLocalDate(new Date());
 
 function getAutoMacros(calorieGoal: number) {
   const proteinCalories = calorieGoal * 0.3;
@@ -286,23 +296,24 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
   );
 
   const getProgressData = useCallback((): ProgressData => {
-    const dates = Object.keys(dailyLogs).sort();
+    const dates = Object.keys(dailyLogs)
+      .filter((d) => !!dailyLogs[d]?.foods?.length)
+      .sort();
     let currentStreak = 0;
     let longestStreak = 0;
-    let tempStreak = 0;
     let checkDate = new Date();
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = formatLocalDate(new Date());
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    const yesterdayStr = formatLocalDate(yesterday);
 
     if (!dailyLogs[todayStr]?.foods?.length) {
-      checkDate = new Date(yesterdayStr);
+      checkDate = yesterday;
     }
 
     while (true) {
-      const dateStr = checkDate.toISOString().split("T")[0];
+      const dateStr = formatLocalDate(checkDate);
       if (dailyLogs[dateStr]?.foods?.length) {
         currentStreak++;
         checkDate.setDate(checkDate.getDate() - 1);
@@ -311,12 +322,25 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
       }
     }
 
-    for (const date of dates) {
-      if (dailyLogs[date]?.foods?.length) {
-        tempStreak++;
-        longestStreak = Math.max(longestStreak, tempStreak);
-      } else {
-        tempStreak = 0;
+    for (let i = 0; i < dates.length; i++) {
+      let streakLength = 1;
+      let previousDate = parseLocalDateKey(dates[i]);
+
+      for (let j = i + 1; j < dates.length; j++) {
+        const nextDate = parseLocalDateKey(dates[j]);
+        const expectedNext = new Date(previousDate);
+        expectedNext.setDate(expectedNext.getDate() + 1);
+
+        if (formatLocalDate(nextDate) === formatLocalDate(expectedNext)) {
+          streakLength++;
+          previousDate = nextDate;
+        } else {
+          break;
+        }
+      }
+
+      if (streakLength > longestStreak) {
+        longestStreak = streakLength;
       }
     }
 
@@ -324,7 +348,7 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
     const weeklyData = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date(today);
       d.setDate(today.getDate() - (6 - i));
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = formatLocalDate(d);
       const log = dailyLogs[dateStr];
       return {
         date: dateStr,

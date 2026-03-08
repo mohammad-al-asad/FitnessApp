@@ -14,7 +14,7 @@ export default function LogLayout() {
     >
       <Stack.Screen
         name="log"
-        options={{ title: t("logFood") as string }}
+        options={{ title: t("logFood") as string, headerShown: false }}
       />
     </Stack>
   );

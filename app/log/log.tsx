@@ -1,6 +1,12 @@
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Plus, X } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -70,7 +76,13 @@ export default function LogFoodScreen() {
   }, [searchQuery]);
 
   const loadFoods = useCallback(
-    async ({ pageToLoad, replace }: { pageToLoad: number; replace: boolean }) => {
+    async ({
+      pageToLoad,
+      replace,
+    }: {
+      pageToLoad: number;
+      replace: boolean;
+    }) => {
       const requestId = ++requestIdRef.current;
 
       if (replace) {
@@ -112,7 +124,9 @@ export default function LogFoodScreen() {
         if (requestId !== requestIdRef.current) return;
 
         console.error("Error loading foods:", error);
-        setErrorMessage(error?.message ? String(error.message) : "Failed to load foods.");
+        setErrorMessage(
+          error?.message ? String(error.message) : "Failed to load foods.",
+        );
 
         if (replace) {
           setFoods([]);
@@ -147,7 +161,10 @@ export default function LogFoodScreen() {
     loadFoods({ pageToLoad: 1, replace: true });
   };
 
-  const title = useMemo(() => t("whatsOnMenu") || "What's on the menu today?", [t]);
+  const title = useMemo(
+    () => t("whatsOnMenu") || "What's on the menu today?",
+    [t],
+  );
 
   const renderFoodItem = ({ item }: { item: FoodApiItem }) => (
     <View
@@ -158,7 +175,10 @@ export default function LogFoodScreen() {
     >
       <View style={{ flex: 1 }}>
         <Text
-          style={[styles.foodName, { color: colors.text, textAlign: isRTL ? "right" : "left" }]}
+          style={[
+            styles.foodName,
+            { color: colors.text, textAlign: isRTL ? "left" : "right" },
+          ]}
           numberOfLines={1}
         >
           {item.name}
@@ -166,12 +186,18 @@ export default function LogFoodScreen() {
 
         <View style={styles.row}>
           {!!item.brand && (
-            <Text style={[styles.brand, { color: colors.placeholder }]} numberOfLines={1}>
+            <Text
+              style={[styles.brand, { color: colors.placeholder }]}
+              numberOfLines={1}
+            >
               {item.brand}
             </Text>
           )}
           <Text style={[styles.dot, { color: colors.placeholder }]}>|</Text>
-          <Text style={[styles.serving, { color: colors.placeholder }]} numberOfLines={1}>
+          <Text
+            style={[styles.serving, { color: colors.placeholder }]}
+            numberOfLines={1}
+          >
             {item.serving}
           </Text>
         </View>
@@ -214,86 +240,98 @@ export default function LogFoodScreen() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.text, marginTop: 12 }}>{t("loading")}</Text>
+        <Text style={{ color: colors.text, marginTop: 12 }}>
+          {t("loading")}
+        </Text>
       </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-          isRTL && { direction: "rtl" },
-        ]}
-      >
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Pressable style={styles.closeButton} onPress={() => router.back()} hitSlop={10}>
-            <X size={24} color={colors.text} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>{t("logFood")}</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        <Text style={[styles.title, { color: colors.text }, isRTL && styles.rtlText]}>
-          {title}
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top },
+        isRTL && { direction: "rtl" },
+      ]}
+    >
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <Pressable
+          style={styles.closeButton}
+          onPress={() => router.back()}
+          hitSlop={10}
+        >
+          <X size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {t("logFood")}
         </Text>
+        <View style={{ width: 24 }} />
+      </View>
 
-        <View style={[styles.search, { backgroundColor: colors.surface }]}>
-          <TextInput
-            style={[
-              styles.searchInput,
-              { color: colors.text },
-              { textAlign: isRTL ? "right" : "left" },
-            ]}
-            placeholder={
-              (t("searchForDeliciousFuel") as string) ||
-              "Search for your delicious fuel!"
-            }
-            placeholderTextColor={colors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-        </View>
+      <Text
+        style={[styles.title, { color: colors.text }, isRTL && styles.rtlText]}
+      >
+        {title}
+      </Text>
 
-        <FlatList
-          data={foods}
-          style={styles.list}
-          contentContainerStyle={{
-            paddingBottom: 28,
-            flexGrow: foods.length ? 0 : 1,
-          }}
-          keyExtractor={(item, index) => `${foodKey(item)}-${index}`}
-          renderItem={renderFoodItem}
-          keyboardShouldPersistTaps="handled"
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.35}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.primary}
-            />
+      <View style={[styles.search, { backgroundColor: colors.surface }]}>
+        <TextInput
+          style={[
+            styles.searchInput,
+            { color: colors.text },
+            { textAlign: isRTL ? "right" : "left" },
+          ]}
+          placeholder={
+            (t("searchForDeliciousFuel") as string) ||
+            "Search for your delicious fuel!"
           }
-          ListEmptyComponent={
-            <Text style={[styles.empty, { color: colors.placeholder }, isRTL && styles.rtlText]}>
-              {errorMessage || "No foods found."}
-            </Text>
-          }
-          ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : null
-          }
+          placeholderTextColor={colors.placeholder}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
         />
       </View>
-    </>
+
+      <FlatList
+        data={foods}
+        style={styles.list}
+        contentContainerStyle={{
+          paddingBottom: 28,
+          flexGrow: foods.length ? 0 : 1,
+        }}
+        keyExtractor={(item, index) => `${foodKey(item)}-${index}`}
+        renderItem={renderFoodItem}
+        keyboardShouldPersistTaps="handled"
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.35}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
+        ListEmptyComponent={
+          <Text
+            style={[
+              styles.empty,
+              { color: colors.placeholder },
+              isRTL && styles.rtlText,
+            ]}
+          >
+            {errorMessage || "No foods found."}
+          </Text>
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : null
+        }
+      />
+    </View>
   );
 }
 

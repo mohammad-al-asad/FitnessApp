@@ -11,6 +11,7 @@ import { RefreshCw, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Keyboard,
   Platform,
   StyleSheet,
@@ -19,13 +20,31 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const DAILY_SCAN_LIMIT = 2;
+const BARCODE_SCAN_USAGE_KEY = "fitco_barcode_scan_usage";
+
+type BarcodeScanUsage = {
+  date: string;
+  count: number;
+};
+
+const getTodayKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export default function ScanBarcode() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(true);
+  const [dailyLimitReached, setDailyLimitReached] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -48,8 +67,36 @@ export default function ScanBarcode() {
 
   useFocusEffect(
     useCallback(() => {
-      setScannedCode(null);
-      setIsScanning(true);
+      let isMounted = true;
+
+      const syncDailyLimit = async () => {
+        setScannedCode(null);
+
+        try {
+          const rawUsage = await AsyncStorage.getItem(BARCODE_SCAN_USAGE_KEY);
+          const parsedUsage: BarcodeScanUsage | null = rawUsage
+            ? JSON.parse(rawUsage)
+            : null;
+          const today = getTodayKey();
+          const currentCount =
+            parsedUsage && parsedUsage.date === today ? parsedUsage.count : 0;
+          const reached = currentCount >= DAILY_SCAN_LIMIT;
+
+          if (!isMounted) return;
+          setDailyLimitReached(reached);
+          setIsScanning(!reached);
+        } catch {
+          if (!isMounted) return;
+          setDailyLimitReached(false);
+          setIsScanning(true);
+        }
+      };
+
+      void syncDailyLimit();
+
+      return () => {
+        isMounted = false;
+      };
     }, []),
   );
 
@@ -68,24 +115,74 @@ export default function ScanBarcode() {
     };
   }, []);
 
-  const handleBarCodeScanned = ({ data }: BarcodeScanningResult) => {
-    if (!isScanning) return;
+  const showLimitAlert = () => {
+    Alert.alert(
+      t("dailyLimitReachedTitle") as string,
+      t("dailyScanLimitSubscription") as string,
+    );
+  };
 
-    console.log("Barcode scanned:", data);
-    setScannedCode(data);
-    setIsScanning(false);
+  const navigateWithBarcode = async (barcode: string) => {
+    const cleanedBarcode = barcode.trim();
+    if (!cleanedBarcode) return;
 
-    // Check source parameter to determine navigation
-    const source = params.source as string;
-    if (source === "createCustom") {
-      router.navigate(`/modal/createCustomFood?barcode=${data}`);
-    } else {
-      // Default to food log for barcode scanning from tabs
-      router.navigate(`/logFood?barcode=${data}`);
+    try {
+      const rawUsage = await AsyncStorage.getItem(BARCODE_SCAN_USAGE_KEY);
+      const parsedUsage: BarcodeScanUsage | null = rawUsage
+        ? JSON.parse(rawUsage)
+        : null;
+      const today = getTodayKey();
+      const usage: BarcodeScanUsage =
+        parsedUsage && parsedUsage.date === today
+          ? parsedUsage
+          : { date: today, count: 0 };
+
+      if (usage.count >= DAILY_SCAN_LIMIT) {
+        setDailyLimitReached(true);
+        setIsScanning(false);
+        showLimitAlert();
+        return;
+      }
+
+      usage.count += 1;
+      await AsyncStorage.setItem(BARCODE_SCAN_USAGE_KEY, JSON.stringify(usage));
+
+      setScannedCode(cleanedBarcode);
+      setIsScanning(false);
+      setDailyLimitReached(usage.count >= DAILY_SCAN_LIMIT);
+
+      const source = params.source as string;
+      if (source === "createCustom") {
+        router.navigate(`/modal/createCustomFood?barcode=${cleanedBarcode}`);
+      } else {
+        router.navigate(`/logFood?barcode=${cleanedBarcode}`);
+      }
+    } catch {
+      setScannedCode(cleanedBarcode);
+      setIsScanning(false);
+
+      const source = params.source as string;
+      if (source === "createCustom") {
+        router.navigate(`/modal/createCustomFood?barcode=${cleanedBarcode}`);
+      } else {
+        router.navigate(`/logFood?barcode=${cleanedBarcode}`);
+      }
     }
   };
 
+  const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
+    if (!isScanning) return;
+
+    setIsScanning(false);
+    console.log("Barcode scanned:", data);
+    await navigateWithBarcode(data);
+  };
+
   const handleScanAgain = () => {
+    if (dailyLimitReached) {
+      showLimitAlert();
+      return;
+    }
     setScannedCode(null);
     setIsScanning(true);
   };
@@ -193,20 +290,25 @@ export default function ScanBarcode() {
           </View>
 
           <View style={styles.instructionContainer}>
-            <Text style={styles.instructionText}>
-              {isScanning ? t("alignBarcodeWithinFrame") : t("barcodeDetected")}
+            <Text
+              style={[
+                styles.instructionText,
+                dailyLimitReached && styles.limitInstructionText,
+              ]}
+            >
+              {dailyLimitReached
+                ? (t("dailyScanLimitSubscription") as string)
+                : isScanning
+                  ? t("alignBarcodeWithinFrame")
+                  : t("barcodeDetected")}
             </Text>
           </View>
         </View>
       </CameraView>
 
-      {scannedCode && (
-        <View
-          style={[styles.resultOverlay, { paddingBottom: insets.bottom + 20 }]}
-        >
-          <View
-            style={[styles.resultCard, { backgroundColor: colors.surface }]}
-          >
+      {scannedCode && !dailyLimitReached && (
+        <View style={[styles.resultOverlay, { bottom: insets.bottom + 100 }]}>
+          <View style={[styles.resultCard, { backgroundColor: colors.surface }]}>
             <Text style={[styles.resultTitle, { color: colors.text }]}>
               {t("scannedBarcode")}
             </Text>
@@ -227,7 +329,7 @@ export default function ScanBarcode() {
         </View>
       )}
 
-      {/* ⭐ MANUAL BARCODE INPUT BOX (add this) ⭐ */}
+      {/* ? MANUAL BARCODE INPUT BOX (add this) ? */}
       <View
         style={{
           position: "absolute",
@@ -270,12 +372,11 @@ export default function ScanBarcode() {
         <TouchableOpacity
           onPress={() => {
             if (!scannedCode) return;
-            const source = params.source as string;
-            if (source === "createCustom") {
-              router.navigate(`/modal/createCustomFood?barcode=${scannedCode}`);
-            } else {
-              router.navigate(`/logFood?barcode=${scannedCode}`);
+            if (dailyLimitReached) {
+              showLimitAlert();
+              return;
             }
+            void navigateWithBarcode(scannedCode);
           }}
           style={{
             backgroundColor: colors.primary,
@@ -287,7 +388,7 @@ export default function ScanBarcode() {
           <Text style={{ color: "#fff", fontWeight: "600" }}>{t("use")}</Text>
         </TouchableOpacity>
       </View>
-      {/* ⭐ END MANUAL INPUT BOX ⭐ */}
+      {/* ? END MANUAL INPUT BOX ? */}
     </View>
   );
 }
@@ -365,32 +466,43 @@ const styles = StyleSheet.create({
   },
   instructionContainer: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 130 : 100,
+    top: Platform.OS === "ios" ? 130 : 110,
     left: 0,
     right: 0,
     alignItems: "center",
+    paddingHorizontal: 20,
   },
   instructionText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#FFFFFF",
     backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
     overflow: "hidden",
+    textAlign: "center",
+    width: "100%",
+    maxWidth: 360,
+  },
+  limitInstructionText: {
+    backgroundColor: "rgba(180, 35, 35, 0.9)",
   },
   resultOverlay: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 20,
+    alignItems: "center",
   },
   resultCard: {
+    width: "100%",
+    maxWidth: 420,
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#404040",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
@@ -403,16 +515,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   resultCode: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
     marginBottom: 20,
     textAlign: "center",
+    width: "100%",
   },
   scanAgainButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
+    width: "100%",
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
     gap: 8,

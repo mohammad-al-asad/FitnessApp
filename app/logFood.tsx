@@ -849,6 +849,7 @@ export default function LogFoodScreen() {
               {MEAL_OPTIONS.find((m) => m.key === selectedMeal)?.label}
             </Text>
           </TouchableOpacity>
+          <View style={{ height: 16,backgroundColor:"tranparent" }} />
         </View>
       </ScrollView>
 
@@ -1118,7 +1119,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   footer: {
-    paddingHorizontal: 20,
     paddingTop: 16,
     backgroundColor: colors.background,
     shadowColor: "#000",

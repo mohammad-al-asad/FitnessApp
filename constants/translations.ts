@@ -290,6 +290,7 @@ export const translations = {
     // Goals & Nutrition
     dailyGoals: "Daily Goals",
     calorieGoal: "Calorie Goal",
+    enterCalorieGoal: "Enter calorie goal",
     macroGoalsCalculated: "Macro goals will be calculated automatically",
     macroDistribution: "Macro Distribution",
     macroDistributionDesc:
@@ -324,6 +325,9 @@ export const translations = {
     scanAgain: "Scan Again",
     enterBarcodeManually: "Enter barcode manually",
     use: "Use",
+    dailyLimitReachedTitle: "Daily limit reached",
+    dailyScanLimitSubscription:
+      "Daily scan limit reached (2/2). Subscribe to scan more.",
 
     // Log Food Page
     whatsOnMenu: "What's on the menu today?",
@@ -682,6 +686,7 @@ export const translations = {
     // Goals & Nutrition
     dailyGoals: "الاهداف اليومية",
     calorieGoal: "هدف السعرات",
+    enterCalorieGoal: "أدخل هدف السعرات",
     macroGoalsCalculated: "اهداف الماكروز ستتحدد تلقائيا",
     macroDistribution: "توزيع الماكروز",
     macroDistributionDesc: "يتم حساب اهداف الماكروز تلقائيا حسب توزيع متوازن:",
@@ -715,6 +720,9 @@ export const translations = {
     scanAgain: "المسح مرة أخرى",
     enterBarcodeManually: "أدخل الباركود يدويا",
     use: "يستخدم",
+    dailyLimitReachedTitle: "تم الوصول إلى الحد اليومي",
+    dailyScanLimitSubscription:
+      "تم الوصول إلى حد المسح اليومي (2/2). اشترك للمسح الأكثر.",
 
     // Log Food Page
     whatsOnMenu: "وش بتاكل اليوم؟",

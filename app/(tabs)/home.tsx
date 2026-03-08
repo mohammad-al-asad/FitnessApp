@@ -26,7 +26,7 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { responsiveWidth } from "@/utilities/ScalingUtils";
 import {
@@ -60,6 +60,8 @@ function getWeekdayLabel(dateString: string): string {
   if (Number.isNaN(date.getTime())) return dateString;
   return date.toLocaleDateString(undefined, { weekday: "short" });
 }
+
+const HOME_REFRESH_INTERVAL_MS = 60 * 1000;
 
 export default function HomeScreen() {
   // useEffect(() => {
@@ -103,6 +105,7 @@ export default function HomeScreen() {
     useState<FoodLogsWeeklySummaryResponse | null>(null);
   const [homeLoading, setHomeLoading] = useState(false);
   const [homeError, setHomeError] = useState<string | null>(null);
+  const lastFetchedRef = useRef<{ date: string; time: number } | null>(null);
 
   useEffect(() => {
     void showFirstSignInSubscriptionPromptIfPending();
@@ -113,7 +116,18 @@ export default function HomeScreen() {
       let isActive = true;
 
       const loadHomeData = async () => {
-        setHomeLoading(true);
+        const now = Date.now();
+        const lastFetch = lastFetchedRef.current;
+        const isFreshForSameDate =
+          !!lastFetch &&
+          lastFetch.date === selectedDay &&
+          now - lastFetch.time < HOME_REFRESH_INTERVAL_MS;
+
+        if (isFreshForSameDate && homeData && weeklyData) return;
+
+        if (!homeData || !weeklyData) {
+          setHomeLoading(true);
+        }
         setHomeError(null);
 
         const weekStartDate = getWeekStartDate(selectedDay);
@@ -143,6 +157,9 @@ export default function HomeScreen() {
           setWeeklyData(null);
         }
 
+        if (homeResult.status === "fulfilled" || weeklyResult.status === "fulfilled") {
+          lastFetchedRef.current = { date: selectedDay, time: now };
+        }
         setHomeLoading(false);
       };
 
@@ -151,7 +168,7 @@ export default function HomeScreen() {
       return () => {
         isActive = false;
       };
-    }, [selectedDay]),
+    }, [selectedDay, homeData, weeklyData]),
   );
 
   // --- Safe guards / fallbacks to kill NaNs and undefineds ---

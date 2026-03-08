@@ -1,9 +1,11 @@
 // MacroCircle & CalorieCircle — circular progress components visualizing macro and calorie intake vs daily goals.
 
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface MacroCircleProps {
   label: string;
@@ -32,14 +34,27 @@ export default function MacroCircle({
   const { isRTL, t } = useLanguage();
 
   const overLimit = current > goal;
-  const percentage = Math.min((current / goal) * 100, 100);
+  const progress = goal > 0 ? Math.min(Math.max(current / goal, 0), 1) : 0;
+  const percentage = progress * 100;
   const strokeWidth = 6;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const strokeDasharray = circumference;
-  const strokeDashoffset =
-    circumference - (percentage / 100) * circumference;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const animatedStrokeDashoffset = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [circumference, 0],
+  });
   const backgroundStroke = colors.border;
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 700,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnim]);
 
   return (
     <View
@@ -75,7 +90,7 @@ export default function MacroCircle({
           fill="transparent"
         />
 
-        <Circle
+        <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -83,7 +98,7 @@ export default function MacroCircle({
           strokeWidth={strokeWidth}
           fill="transparent"
           strokeDasharray={strokeDasharray}
-          strokeDashoffset={strokeDashoffset}
+          strokeDashoffset={animatedStrokeDashoffset as unknown as number}
           strokeLinecap="round"
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
@@ -125,16 +140,29 @@ export function CalorieCircle({
   const colors = useSafeColors();
   const { isRTL, t } = useLanguage();
   const overLimit = current > goal;
-  const percentage = Math.min((current / goal) * 100, 100);
+  const progress = goal > 0 ? Math.min(Math.max(current / goal, 0), 1) : 0;
+  const percentage = progress * 100;
   const strokeWidth = 8;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const strokeDasharray = circumference;
-  const strokeDashoffset =
-    circumference - (percentage / 100) * circumference;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const animatedStrokeDashoffset = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [circumference, 0],
+  });
 
   const circleColor = colors.primary;
   const backgroundStroke = colors.border;
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnim]);
 
   return (
     <View
@@ -164,7 +192,7 @@ export function CalorieCircle({
           strokeWidth={strokeWidth}
           fill="transparent"
         />
-        <Circle
+        <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -172,7 +200,7 @@ export function CalorieCircle({
           strokeWidth={strokeWidth}
           fill="transparent"
           strokeDasharray={strokeDasharray}
-          strokeDashoffset={strokeDashoffset}
+          strokeDashoffset={animatedStrokeDashoffset as unknown as number}
           strokeLinecap="round"
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />

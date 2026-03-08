@@ -15,6 +15,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   PanResponder,
@@ -86,6 +87,7 @@ export default function FloatingFitBot({
   bottom = 100,
   right = 20,
 }: FloatingFitBotProps) {
+  const BUTTON_SIZE = 56;
   const [showModal, setShowModal] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [scaleAnim] = useState(new Animated.Value(1));
@@ -102,6 +104,7 @@ export default function FloatingFitBot({
   const [isLoadingLimit, setIsLoadingLimit] = useState(false);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [chatLimit, setChatLimit] = useState<ChatLimitStatus | null>(null);
+  const [androidKeyboardOffset, setAndroidKeyboardOffset] = useState(0);
   const { isRTL, t } = useLanguage();
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -110,11 +113,14 @@ export default function FloatingFitBot({
 
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const initialX = isRTL ? -right : screenWidth - right - BUTTON_SIZE;
+  const initialY =
+    screenHeight - bottom - BUTTON_SIZE - (Platform.OS === 'ios' ? insets.bottom : 0);
 
   const pan = useRef(
     new Animated.ValueXY({
-      x: screenWidth - right - 56,
-      y: screenHeight - bottom - 56 - (Platform.OS === 'ios' ? insets.bottom : 0),
+      x: initialX,
+      y: initialY,
     })
   ).current;
   const [isDragging, setIsDragging] = useState(false);
@@ -141,6 +147,23 @@ export default function FloatingFitBot({
     if (!isVisible) return;
     void loadChatLimit();
   }, [isVisible, loadChatLimit]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
+      setAndroidKeyboardOffset(event.endCoordinates.height);
+      scrollToBottom();
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setAndroidKeyboardOffset(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollToBottom]);
 
   const isChatLimitReached =
     !!chatLimit && !chatLimit.isUnlimited && chatLimit.messagesLeftToday <= 0;
@@ -245,12 +268,11 @@ export default function FloatingFitBot({
       onPanResponderRelease: () => {
         pan.flattenOffset();
 
-        const buttonSize = 56;
-        const minX = 0;
-        const maxX = screenWidth - buttonSize;
+        const minX = isRTL ? -(screenWidth - BUTTON_SIZE) : 0;
+        const maxX = isRTL ? 0 : screenWidth - BUTTON_SIZE;
         const minY = insets.top;
         const maxY =
-          screenHeight - buttonSize - (Platform.OS === 'ios' ? insets.bottom : 0);
+          screenHeight - BUTTON_SIZE - (Platform.OS === 'ios' ? insets.bottom : 0);
 
         const currentX = (pan.x as any)._value;
         const currentY = (pan.y as any)._value;
@@ -267,6 +289,10 @@ export default function FloatingFitBot({
     })
   ).current;
 
+  useEffect(() => {
+    pan.setValue({ x: initialX, y: initialY });
+  }, [initialX, initialY, pan]);
+
   const handleClose = () => setIsVisible(false);
 
   useEffect(() => {
@@ -280,8 +306,14 @@ export default function FloatingFitBot({
           return;
         }
 
+        const sortedHistory = [...history].sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return aTime - bTime;
+        });
+
         const mapped: Message[] = [];
-        history.forEach((item, idx) => {
+        sortedHistory.forEach((item, idx) => {
           const ts = item.createdAt ? new Date(item.createdAt) : new Date();
           mapped.push({
             id: `h-user-${item._id || idx}`,
@@ -472,8 +504,9 @@ export default function FloatingFitBot({
 
           <KeyboardAvoidingView
             style={styles.contentContainer}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            enabled={Platform.OS === 'ios'}
+            keyboardVerticalOffset={0}
           >
             <ScrollView
               ref={scrollViewRef}
@@ -536,7 +569,12 @@ export default function FloatingFitBot({
               )}
             </ScrollView>
 
-            <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 10 }]}>
+            <View
+              style={[
+                styles.inputContainer,
+                Platform.OS === 'android' && { marginBottom: androidKeyboardOffset },
+              ]}
+            >
               <View className="inputWrapper" style={styles.inputWrapper}>
                 <TextInput
                   style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
@@ -734,7 +772,7 @@ const styles = StyleSheet.create({
   botText: { color: 'white' },
   inputContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingVertical: 12,
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.2)',

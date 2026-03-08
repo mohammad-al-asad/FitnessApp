@@ -145,18 +145,10 @@ function RootNavigator() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
-        {!user ? (
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        ) : (
-          <>
-            <Stack.Screen
-              name="(onboarding)"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="logFood" options={{ presentation: "modal" }} />
-          </>
-        )}
+        {!user && <Stack.Screen name="(auth)" options={{ headerShown: false }} />}
+        {user && <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />}
+        {user && <Stack.Screen name="(tabs)" options={{ headerShown: false }} />}
+        {user && <Stack.Screen name="logFood" options={{ presentation: "modal" }} />}
       </Stack>
       <FirstSignInSubscriptionModal
         visible={shouldShowSubscriptionPrompt}

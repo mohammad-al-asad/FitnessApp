@@ -305,8 +305,19 @@ export async function readStoredSession(): Promise<{
     AsyncStorage.getItem(REFRESH_TOKEN_STORAGE_KEY),
   ]);
 
+  let parsedUser: BackendUser | null = null;
+  if (storedUser) {
+    try {
+      parsedUser = JSON.parse(storedUser) as BackendUser;
+    } catch (error) {
+      console.warn("[Auth] Stored user JSON was invalid. Clearing cached user.", error);
+      await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      parsedUser = null;
+    }
+  }
+
   return {
-    user: storedUser ? (JSON.parse(storedUser) as BackendUser) : null,
+    user: parsedUser,
     token,
     refreshToken,
   };
