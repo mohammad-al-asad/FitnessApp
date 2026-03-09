@@ -256,7 +256,7 @@ export const translations = {
     subscribeNow: "Subscribe Now",
     firstSignInSubscriptionTitle: "Unlock Unlimited Chat",
     firstSignInSubscriptionBody:
-      "Subscribe now to unlock unlimited chat messages and get the full Fitco experience.",
+      "Subscribe now to unlock unlimited chat messages, unlimited barcode scans, and get the full Fitco experience.",
     firstSignInSubscriptionCta: "Subscribe",
     firstSignInSubscriptionLater: "Maybe Later",
     firstSignInSubscriptionStartingFrom: "Starting from",
@@ -646,7 +646,7 @@ export const translations = {
     subscribeNow: "اشترك الآن",
     firstSignInSubscriptionTitle: "افتح محادثة بلا حدود",
     firstSignInSubscriptionBody:
-      "اشترك الآن لفتح رسائل المحادثة غير المحدودة والحصول على تجربة فتكو الكاملة.",
+      "اشترك الآن لفتح رسائل المحادثة غير المحدودة ومسح الباركود بدون حدود والحصول على تجربة فتكو الكاملة.",
     firstSignInSubscriptionCta: "اشترك",
     firstSignInSubscriptionLater: "لاحقاً",
     firstSignInSubscriptionStartingFrom: "يبدأ من",
@@ -806,3 +806,4 @@ export type TranslationKey = {
     ? K
     : never;
 }[keyof typeof translations.en];
+

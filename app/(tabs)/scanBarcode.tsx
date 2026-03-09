@@ -1,5 +1,7 @@
 import { useLanguage } from "@/hooks/language-context";
 import { responsiveHeight } from "@/utilities/ScalingUtils";
+import { backendGetMySubscriptionStatus } from "@/services/backend-auth";
+import FirstSignInSubscriptionModal from "@/components/FirstSignInSubscriptionModal";
 import {
   BarcodeScanningResult,
   CameraView,
@@ -11,7 +13,6 @@ import { RefreshCw, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   Platform,
   StyleSheet,
@@ -45,6 +46,8 @@ export default function ScanBarcode() {
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(true);
   const [dailyLimitReached, setDailyLimitReached] = useState<boolean>(false);
+  const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -73,6 +76,17 @@ export default function ScanBarcode() {
         setScannedCode(null);
 
         try {
+          const status = await backendGetMySubscriptionStatus();
+          if (!isMounted) return;
+          const subscribed = Boolean(status?.subscribed);
+          setIsSubscribed(subscribed);
+
+          if (subscribed) {
+            setDailyLimitReached(false);
+            setIsScanning(true);
+            return;
+          }
+
           const rawUsage = await AsyncStorage.getItem(BARCODE_SCAN_USAGE_KEY);
           const parsedUsage: BarcodeScanUsage | null = rawUsage
             ? JSON.parse(rawUsage)
@@ -116,17 +130,31 @@ export default function ScanBarcode() {
   }, []);
 
   const showLimitAlert = () => {
-    Alert.alert(
-      t("dailyLimitReachedTitle") as string,
-      t("dailyScanLimitSubscription") as string,
-    );
+    setShowSubscriptionModal(true);
   };
 
   const navigateWithBarcode = async (barcode: string) => {
     const cleanedBarcode = barcode.trim();
     if (!cleanedBarcode) return;
 
+    const source = params.source as string;
+    const navigate = () => {
+      if (source === "createCustom") {
+        router.navigate(`/modal/createCustomFood?barcode=${cleanedBarcode}`);
+      } else {
+        router.navigate(`/logFood?barcode=${cleanedBarcode}`);
+      }
+    };
+
     try {
+      if (isSubscribed) {
+        setScannedCode(cleanedBarcode);
+        setIsScanning(false);
+        setDailyLimitReached(false);
+        navigate();
+        return;
+      }
+
       const rawUsage = await AsyncStorage.getItem(BARCODE_SCAN_USAGE_KEY);
       const parsedUsage: BarcodeScanUsage | null = rawUsage
         ? JSON.parse(rawUsage)
@@ -150,23 +178,11 @@ export default function ScanBarcode() {
       setScannedCode(cleanedBarcode);
       setIsScanning(false);
       setDailyLimitReached(usage.count >= DAILY_SCAN_LIMIT);
-
-      const source = params.source as string;
-      if (source === "createCustom") {
-        router.navigate(`/modal/createCustomFood?barcode=${cleanedBarcode}`);
-      } else {
-        router.navigate(`/logFood?barcode=${cleanedBarcode}`);
-      }
+      navigate();
     } catch {
       setScannedCode(cleanedBarcode);
       setIsScanning(false);
-
-      const source = params.source as string;
-      if (source === "createCustom") {
-        router.navigate(`/modal/createCustomFood?barcode=${cleanedBarcode}`);
-      } else {
-        router.navigate(`/logFood?barcode=${cleanedBarcode}`);
-      }
+      navigate();
     }
   };
 
@@ -179,7 +195,7 @@ export default function ScanBarcode() {
   };
 
   const handleScanAgain = () => {
-    if (dailyLimitReached) {
+    if (!isSubscribed && dailyLimitReached) {
       showLimitAlert();
       return;
     }
@@ -389,6 +405,14 @@ export default function ScanBarcode() {
         </TouchableOpacity>
       </View>
       {/* ? END MANUAL INPUT BOX ? */}
+      <FirstSignInSubscriptionModal
+        visible={showSubscriptionModal}
+        onDismiss={() => setShowSubscriptionModal(false)}
+        onSubscribe={() => {
+          setShowSubscriptionModal(false);
+          router.push("/settings/subscription" as any);
+        }}
+      />
     </View>
   );
 }

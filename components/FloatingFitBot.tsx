@@ -1,4 +1,5 @@
 import { useLanguage } from '@/hooks/language-context';
+import FirstSignInSubscriptionModal from '@/components/FirstSignInSubscriptionModal';
 import {
   backendGetChatLimitStatus,
   backendGetChatHistory,
@@ -104,6 +105,7 @@ export default function FloatingFitBot({
   const [isLoadingLimit, setIsLoadingLimit] = useState(false);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [chatLimit, setChatLimit] = useState<ChatLimitStatus | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [androidKeyboardOffset, setAndroidKeyboardOffset] = useState(0);
   const { isRTL, t } = useLanguage();
 
@@ -167,6 +169,7 @@ export default function FloatingFitBot({
 
   const isChatLimitReached =
     !!chatLimit && !chatLimit.isUnlimited && chatLimit.messagesLeftToday <= 0;
+  const prevChatLimitReachedRef = useRef(false);
 
   const chatLimitUsagePercent =
     chatLimit && !chatLimit.isUnlimited && chatLimit.dailyFreeLimit > 0
@@ -178,6 +181,13 @@ export default function FloatingFitBot({
           ),
         )
       : 0;
+
+  useEffect(() => {
+    if (isVisible && isChatLimitReached && !prevChatLimitReachedRef.current) {
+      setShowSubscriptionModal(true);
+    }
+    prevChatLimitReachedRef.current = isChatLimitReached;
+  }, [isChatLimitReached, isVisible]);
 
   useEffect(() => {
     const typingMsg = messages.find((m) => m.isTyping && !m.isUser);
@@ -374,6 +384,9 @@ export default function FloatingFitBot({
       } catch (error: any) {
         const raw = String(error?.message ?? "").toLowerCase();
         const isLimitError = raw.includes("limit");
+        if (isLimitError) {
+          setShowSubscriptionModal(true);
+        }
         const fallback: Message = {
           id: String(Date.now() + 1),
           text: isLimitError
@@ -630,6 +643,14 @@ export default function FloatingFitBot({
         onScanBarcode={() => {
           setShowModal(false);
           router.push('/(modals)/scanBarcode' as any);
+        }}
+      />
+      <FirstSignInSubscriptionModal
+        visible={showSubscriptionModal}
+        onDismiss={() => setShowSubscriptionModal(false)}
+        onSubscribe={() => {
+          setShowSubscriptionModal(false);
+          router.push('/settings/subscription' as any);
         }}
       />
     </>

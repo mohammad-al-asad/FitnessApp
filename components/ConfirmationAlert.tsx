@@ -1,4 +1,5 @@
 import { useLanguage } from "@/hooks/language-context";
+import { BlurView } from "expo-blur";
 import React from "react";
 import {
   Dimensions,
@@ -21,8 +22,8 @@ const ConfirmationAlert = ({
   onConfirm,
   onCancel,
 }: ConfirmationAlertProps) => {
-  const {t} = useLanguage();
-  
+  const { t } = useLanguage();
+
   return (
     <Modal
       visible={visible}
@@ -31,8 +32,10 @@ const ConfirmationAlert = ({
       onRequestClose={onCancel}
     >
       <View style={styles.overlay}>
+        <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={styles.dimLayer} />
         <View style={styles.alertContainer}>
-          <Text style={styles.message}>{t(message as any) }</Text>
+          <Text style={styles.message}>{t(message as any)}</Text>
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity
@@ -62,9 +65,12 @@ const alertWidth = Math.min(width * 0.85, 320);
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(85, 85, 85, 0.518)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  dimLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(85, 85, 85, 0.35)",
   },
   alertContainer: {
     width: alertWidth,
@@ -95,7 +101,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingVertical: moderateScale(8),
-    width:scale(200),
+    width: scale(200),
     paddingHorizontal: scale(20),
     borderRadius: 8,
     marginHorizontal: 6,
