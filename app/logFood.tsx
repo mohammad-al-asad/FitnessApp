@@ -8,6 +8,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Check, ChevronDown, Moon, Sun, Sunrise, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Modal,
@@ -147,6 +148,7 @@ export default function LogFoodScreen() {
   const checkmarkOpacity = new Animated.Value(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showServingModal, setShowServingModal] = useState(false);
+  const [isLogging, setIsLogging] = useState(false);
   const { t, isRTL } = useLanguage();
 
   const MEAL_OPTIONS: {
@@ -355,10 +357,14 @@ export default function LogFoodScreen() {
   );
 
   const handleLogFood = async () => {
+    if (isLogging) return;
+
     const amount = parseFloat(servingAmount);
     if (isNaN(amount) || amount <= 0) {
       return;
     }
+
+    setIsLogging(true);
 
     try {
       const foodId = String(food.id ?? food._id ?? food.foodId ?? "").trim();
@@ -411,6 +417,8 @@ export default function LogFoodScreen() {
         t("error") as string,
         error instanceof Error ? error.message : String(t("failedToSaveFood")),
       );
+    } finally {
+      setIsLogging(false);
     }
   };
 
@@ -840,14 +848,19 @@ export default function LogFoodScreen() {
           ]}
         >
           <TouchableOpacity
-            style={styles.logButton}
+            style={[styles.logButton, isLogging && styles.logButtonDisabled]}
             onPress={handleLogFood}
             activeOpacity={0.85}
+            disabled={isLogging}
           >
-            <Text style={styles.logButtonText}>
-              {t("addTo")}{" "}
-              {MEAL_OPTIONS.find((m) => m.key === selectedMeal)?.label}
-            </Text>
+            {isLogging ? (
+              <ActivityIndicator color="#121212" />
+            ) : (
+              <Text style={styles.logButtonText}>
+                {t("addTo")}{" "}
+                {MEAL_OPTIONS.find((m) => m.key === selectedMeal)?.label}
+              </Text>
+            )}
           </TouchableOpacity>
           <View style={{ height: 16,backgroundColor:"tranparent" }} />
         </View>
@@ -1138,6 +1151,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  logButtonDisabled: {
+    opacity: 0.8,
   },
   logButtonText: {
     fontSize: 15,
