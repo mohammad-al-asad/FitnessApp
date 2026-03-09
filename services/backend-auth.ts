@@ -50,8 +50,9 @@ export type UpdateMyHealthPayload = {
   foodAllergies: string;
 };
 
-export type UpdateMyCompleteProfilePayload = UpdateMyProfilePayload &
-  UpdateMyHealthPayload;
+export type UpdateMyCompleteProfilePayload = Partial<
+  UpdateMyProfilePayload & UpdateMyHealthPayload
+>;
 
 export type ProfileSelection = {
   key: string;
@@ -128,6 +129,27 @@ export type SubscriptionQuote = {
   discountPercentage: number;
   currency: string;
   couponCode?: string;
+};
+
+export type ActiveSubscription = {
+  id: string;
+  stripeSubscriptionId: string;
+  createdAt: string;
+  expiryDate: string;
+  planType: string;
+  price: number;
+  startedAt: string;
+  status: string;
+  stripeCheckoutSessionId: string;
+  stripeCustomerId: string;
+  updatedAt: string;
+  user: string;
+};
+
+export type MySubscriptionStatus = {
+  subscribed: boolean;
+  subscriptionStatus: string;
+  activeSubscription: ActiveSubscription | null;
 };
 
 export type CreateSubscriptionResponse = {
@@ -739,5 +761,43 @@ export async function backendGetSubscriptionQuote(
     discountPercentage: Number(root?.discountPercentage ?? 0),
     currency: String(root?.currency ?? "usd"),
     couponCode: root?.couponCode ? String(root.couponCode) : undefined,
+  };
+}
+
+export async function backendGetMySubscriptionStatus(): Promise<MySubscriptionStatus> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/subscriptions/me/status", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const root = json?.data ?? json;
+  const active = root?.activeSubscription;
+
+  return {
+    subscribed: Boolean(root?.subscribed),
+    subscriptionStatus: String(
+      root?.subscriptionStatus ?? (root?.subscribed ? "premium" : "free"),
+    ),
+    activeSubscription: active
+      ? {
+          id: String(active?._id ?? active?.id ?? ""),
+          stripeSubscriptionId: String(active?.stripeSubscriptionId ?? ""),
+          createdAt: String(active?.createdAt ?? ""),
+          expiryDate: String(active?.expiryDate ?? ""),
+          planType: String(active?.planType ?? ""),
+          price: Number(active?.price ?? 0),
+          startedAt: String(active?.startedAt ?? ""),
+          status: String(active?.status ?? ""),
+          stripeCheckoutSessionId: String(active?.stripeCheckoutSessionId ?? ""),
+          stripeCustomerId: String(active?.stripeCustomerId ?? ""),
+          updatedAt: String(active?.updatedAt ?? ""),
+          user: String(active?.user ?? ""),
+        }
+      : null,
   };
 }

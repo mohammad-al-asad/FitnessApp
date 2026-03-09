@@ -170,6 +170,7 @@ export default function LogFoodScreen() {
     <View
       style={[
         styles.card,
+        { flexDirection: isRTL ? "row-reverse" : "row" },
         { backgroundColor: colors.surface, borderColor: colors.surface },
       ]}
     >
@@ -177,49 +178,104 @@ export default function LogFoodScreen() {
         <Text
           style={[
             styles.foodName,
-            { color: colors.text, textAlign: isRTL ? "left" : "right" },
+            {
+              color: colors.text,
+              textAlign: "left",
+            },
           ]}
           numberOfLines={1}
         >
           {item.name}
         </Text>
 
-        <View style={styles.row}>
+        <View
+          style={[
+            styles.row,
+            {
+              flexDirection: isRTL ? "row-reverse" : "row",
+              justifyContent: isRTL ? "flex-end" : "flex-start",
+            },
+          ]}
+        >
           {!!item.brand && (
             <Text
-              style={[styles.brand, { color: colors.placeholder }]}
+              style={[
+                styles.brand,
+                { color: colors.placeholder, textAlign: isRTL ? "right" : "left" },
+              ]}
               numberOfLines={1}
             >
               {item.brand}
             </Text>
           )}
-          <Text style={[styles.dot, { color: colors.placeholder }]}>|</Text>
+          {!!item.brand && (
+            <Text style={[styles.dot, { color: colors.placeholder }]}>|</Text>
+          )}
           <Text
-            style={[styles.serving, { color: colors.placeholder }]}
+            style={[
+              styles.serving,
+              { color: colors.placeholder, textAlign: isRTL ? "right" : "left" },
+            ]}
             numberOfLines={1}
           >
             {item.serving}
           </Text>
         </View>
 
-        <View style={styles.macroRow}>
-          <Text style={[styles.cal, { color: colors.primary }]}>
+        <View
+          style={[
+            styles.macroRow,
+            {
+              flexDirection: isRTL ? "row-reverse" : "row",
+              justifyContent: isRTL ? "flex-end" : "flex-start",
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.cal,
+              { color: colors.primary },
+              isRTL ? { paddingLeft: 10, paddingRight: 0 } : { paddingRight: 10, paddingLeft: 0 },
+            ]}
+          >
             {item.calories} {t("kcal")}
           </Text>
-          <Text style={[styles.macro, { color: colors.placeholder }]}>
+          <Text
+            style={[
+              styles.macro,
+              { color: colors.placeholder },
+              isRTL ? { paddingLeft: 10, paddingRight: 0 } : { paddingRight: 10, paddingLeft: 0 },
+            ]}
+          >
             {t("p")} {item.protein} {t("g")}
           </Text>
-          <Text style={[styles.macro, { color: colors.placeholder }]}>
+          <Text
+            style={[
+              styles.macro,
+              { color: colors.placeholder },
+              isRTL ? { paddingLeft: 10, paddingRight: 0 } : { paddingRight: 10, paddingLeft: 0 },
+            ]}
+          >
             {t("c")} {item.carbs} {t("g")}
           </Text>
-          <Text style={[styles.macro, { color: colors.placeholder }]}>
+          <Text
+            style={[
+              styles.macro,
+              { color: colors.placeholder },
+              isRTL ? { paddingLeft: 10, paddingRight: 0 } : { paddingRight: 10, paddingLeft: 0 },
+            ]}
+          >
             {t("f")} {item.fats} {t("g")}
           </Text>
         </View>
       </View>
 
       <Pressable
-        style={[styles.addBtn, { borderColor: colors.primary }]}
+        style={[
+          styles.addBtn,
+          { borderColor: colors.primary },
+          isRTL ? { marginRight: 8, marginLeft: 0 } : { marginLeft: 8, marginRight: 0 },
+        ]}
         onPress={() =>
           router.push({
             pathname: "/logFood",

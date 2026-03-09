@@ -151,6 +151,7 @@ export default function AccountScreen() {
 
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSavingQuickUpdate, setIsSavingQuickUpdate] = useState(false);
   const [showPicker, setShowPicker] = useState<string | null>(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const insets = useSafeAreaInsets();
@@ -186,6 +187,10 @@ export default function AccountScreen() {
   }, [profile]);
 
   useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
+  useEffect(() => {
     (async () => {
       try {
         await AsyncStorage.setItem("testKey", "hello-ios");
@@ -215,11 +220,72 @@ export default function AccountScreen() {
   };
 
   const handleSave = async () => {
+    if (isSavingQuickUpdate) return;
+
+    const nextWeight = Number(localSettings?.weight ?? 0);
+    if (!Number.isFinite(nextWeight) || nextWeight <= 0) {
+      Alert.alert("Error", "Please enter a valid weight.");
+      return;
+    }
+
     try {
-      await saveSettings(localSettings);
+      setIsSavingQuickUpdate(true);
+
+      await backendUpdateMyCompleteProfile({
+        currentWeight: nextWeight,
+      });
+
+      const mergedProfile = {
+        ...profileData,
+        weight: nextWeight,
+      };
+      setProfileData(mergedProfile);
+      await updateProfile({ weight: nextWeight });
+
+      const { weight, height, age, gender, activityLevel, goal } = mergedProfile;
+      let bmr =
+        gender === "male"
+          ? 10 * weight + 6.25 * height - 5 * age + 5
+          : 10 * weight + 6.25 * height - 5 * age - 161;
+
+      const activityFactors: Record<string, number> = {
+        sedentary: 1.2,
+        lightly_active: 1.375,
+        moderately_active: 1.55,
+        very_active: 1.725,
+        extremely_active: 1.9,
+      };
+
+      bmr *= activityFactors[activityLevel] || 1.55;
+
+      if (goal === "lose_weight") bmr -= 400;
+      else if (goal === "gain_weight" || goal === "build_muscle") bmr += 400;
+
+      const calorieGoal = Math.round(bmr);
+      const proteinGoal = Math.round(weight * 2);
+      const fatsGoal = Math.round((0.25 * calorieGoal) / 9);
+      const carbsGoal = Math.round(
+        (calorieGoal - (proteinGoal * 4 + fatsGoal * 9)) / 4,
+      );
+
+      await saveSettings({
+        ...localSettings,
+        weight,
+        calorieGoal,
+        proteinGoal,
+        fatsGoal,
+        carbsGoal,
+      });
+
       setHasChanges(false);
-    } catch {
-      // Handle error silently
+      Alert.alert("Success", "Profile updated and synced!");
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error?.message || "Failed to update profile. Please try again.",
+      );
+    } finally {
+      setIsSavingQuickUpdate(false);
     }
   };
 
@@ -427,9 +493,15 @@ export default function AccountScreen() {
         {/* Save Buttons */}
         {hasChanges && (
           <View style={styles.saveContainer}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <TouchableOpacity
+              style={[styles.saveButton, isSavingQuickUpdate && { opacity: 0.7 }]}
+              onPress={handleSave}
+              disabled={isSavingQuickUpdate}
+            >
               <Save size={20} color={Colors.background} />
-              <Text style={styles.saveButtonText}>{t("saveChanges")}</Text>
+              <Text style={styles.saveButtonText}>
+                {isSavingQuickUpdate ? String(t("pleaseWait")) : t("saveChanges")}
+              </Text>
             </TouchableOpacity>
           </View>
         )}

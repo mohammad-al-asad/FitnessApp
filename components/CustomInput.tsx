@@ -31,7 +31,7 @@ const CustomInput = ({
           style={[
             styles.label,
             {
-              textAlign: isRTL ? "left" : "right",
+              textAlign: "left",
             },
           ]}
         >

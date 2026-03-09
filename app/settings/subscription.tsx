@@ -1,14 +1,17 @@
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import {
   backendCreateSubscription,
+  backendGetMySubscriptionStatus,
   backendGetSubscriptionPlans,
   backendGetSubscriptionQuote,
   type SubscriptionQuote,
+  type MySubscriptionStatus,
   type SubscriptionPlan,
 } from "@/services/backend-auth";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AppState,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -37,6 +40,11 @@ const UpgradePlanScreen = () => {
   const [couponCode, setCouponCode] = useState("");
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] =
+    useState<MySubscriptionStatus | null>(null);
+  const [isLoadingSubscriptionStatus, setIsLoadingSubscriptionStatus] =
+    useState(true);
+  const [subscriptionStatusError, setSubscriptionStatusError] = useState<string | null>(null);
 
   const features = useMemo(
     () => [
@@ -51,33 +59,77 @@ const UpgradePlanScreen = () => {
   const selectedPlan =
     plans.find((plan) => plan.planType === selectedPeriod) ?? plans[0];
 
+  const loadSubscriptionStatus = useCallback(async () => {
+    try {
+      setIsLoadingSubscriptionStatus(true);
+      setSubscriptionStatusError(null);
+      const status = await backendGetMySubscriptionStatus();
+      setSubscriptionStatus(status);
+    } catch (error: any) {
+      setSubscriptionStatusError(
+        error?.message || (t("somethingWentWrong") as string) || "Error",
+      );
+    } finally {
+      setIsLoadingSubscriptionStatus(false);
+    }
+  }, [t]);
+
   useEffect(() => {
     let isMounted = true;
 
-    const loadPlans = async () => {
-      try {
-        setIsLoadingPlans(true);
-        setPlansError(null);
-        const data = await backendGetSubscriptionPlans();
-        if (!isMounted) return;
-        setPlans(data);
-      } catch (error: any) {
-        if (!isMounted) return;
+    const loadData = async () => {
+      setIsLoadingPlans(true);
+      setIsLoadingSubscriptionStatus(true);
+      setPlansError(null);
+      setSubscriptionStatusError(null);
+
+      const [plansResult, statusResult] = await Promise.allSettled([
+        backendGetSubscriptionPlans(),
+        backendGetMySubscriptionStatus(),
+      ]);
+
+      if (!isMounted) return;
+
+      if (plansResult.status === "fulfilled") {
+        setPlans(plansResult.value);
+      } else {
         setPlansError(
-          error?.message || (t("somethingWentWrong") as string) || "Error",
+          (plansResult.reason as any)?.message ||
+            (t("somethingWentWrong") as string) ||
+            "Error",
         );
-      } finally {
-        if (!isMounted) return;
-        setIsLoadingPlans(false);
       }
+
+      if (statusResult.status === "fulfilled") {
+        setSubscriptionStatus(statusResult.value);
+      } else {
+        setSubscriptionStatusError(
+          (statusResult.reason as any)?.message ||
+            (t("somethingWentWrong") as string) ||
+            "Error",
+        );
+      }
+
+      setIsLoadingPlans(false);
+      setIsLoadingSubscriptionStatus(false);
     };
 
-    loadPlans();
+    loadData();
 
     return () => {
       isMounted = false;
     };
-  }, [t]);
+  }, [loadSubscriptionStatus, t]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void loadSubscriptionStatus();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [loadSubscriptionStatus]);
 
   useEffect(() => {
     if (!plans.some((plan) => plan.planType === selectedPeriod)) {
@@ -112,13 +164,28 @@ const UpgradePlanScreen = () => {
   const shownCurrency = activeQuote?.currency || selectedPlan?.currency || "usd";
   const shownPrice = activeQuote?.finalPrice ?? selectedPlan?.price ?? 0;
   const shownBasePrice = activeQuote?.basePrice ?? selectedPlan?.price ?? 0;
+  const isSubscribed = Boolean(subscriptionStatus?.subscribed);
+  const activeSubscription = subscriptionStatus?.activeSubscription;
+  const isActionsDisabled =
+    !selectedPlan || isCreatingCheckout || isLoadingPlans || isLoadingSubscriptionStatus || isSubscribed;
   const hasDiscount =
     !!activeQuote &&
     activeQuote.discountAmount > 0 &&
     activeQuote.finalPrice < activeQuote.basePrice;
 
+  const formatDate = (value?: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }).format(date);
+  };
+
   const handleApplyCoupon = async () => {
-    if (!selectedPlan || isApplyingCoupon) return;
+    if (!selectedPlan || isApplyingCoupon || isSubscribed) return;
     const trimmed = couponCode.trim();
     if (!trimmed) {
       Alert.alert(String(t("error")), "Please enter coupon code.");
@@ -144,7 +211,7 @@ const UpgradePlanScreen = () => {
   };
 
   const handleSubscribe = async () => {
-    if (!selectedPlan || isCreatingCheckout) return;
+    if (!selectedPlan || isCreatingCheckout || isSubscribed) return;
 
     try {
       setIsCreatingCheckout(true);
@@ -177,6 +244,7 @@ const UpgradePlanScreen = () => {
   const closeCheckout = () => {
     setCheckoutUrl(null);
     setIsCheckoutLoading(false);
+    void loadSubscriptionStatus();
   };
 
   if (!selectedPlan && !isLoadingPlans) {
@@ -214,9 +282,39 @@ const UpgradePlanScreen = () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.scrollContent}
       >
-        <Text style={[styles.headerSubtitle, { color: colors.placeholder }]}>
-          {t("choosePlanSubtitle")}
-        </Text>
+        {isSubscribed && (
+          <View
+            style={[
+              styles.statusCard,
+              { backgroundColor: colors.surface, borderColor: colors.primary },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusTitle,
+                { color: colors.text, textAlign: isRTL ? "right" : "left" },
+              ]}
+            >
+              You are already subscribed.
+            </Text>
+            {activeSubscription?.expiryDate ? (
+              <Text
+                style={[
+                  styles.statusSubtitle,
+                  { color: colors.placeholder, textAlign: isRTL ? "right" : "left" },
+                ]}
+              >
+                Active until {formatDate(activeSubscription.expiryDate)}
+              </Text>
+            ) : null}
+          </View>
+        )}
+
+        {subscriptionStatusError && (
+          <Text style={[styles.errorText, { color: colors.placeholder }]}>
+            {subscriptionStatusError}
+          </Text>
+        )}
 
         <View
           style={[styles.toggleContainer, { backgroundColor: colors.surface }]}
@@ -229,8 +327,10 @@ const UpgradePlanScreen = () => {
                 selectedPeriod === plan.planType && {
                   backgroundColor: colors.primary,
                 },
+                isSubscribed && styles.disabledButton,
               ]}
               onPress={() => setSelectedPeriod(plan.planType)}
+              disabled={isSubscribed}
             >
               <Text
                 style={[
@@ -382,8 +482,12 @@ const UpgradePlanScreen = () => {
             onChangeText={setCouponCode}
           />
           <TouchableOpacity
-            disabled={!selectedPlan || isApplyingCoupon}
-            style={[styles.applyButton, { backgroundColor: colors.primary }]}
+            disabled={!selectedPlan || isApplyingCoupon || isSubscribed || isLoadingSubscriptionStatus}
+            style={[
+              styles.applyButton,
+              { backgroundColor: colors.primary },
+              (isSubscribed || isLoadingSubscriptionStatus) && styles.disabledButton,
+            ]}
             onPress={handleApplyCoupon}
           >
             <Text style={styles.buttonTextWhite}>
@@ -393,12 +497,20 @@ const UpgradePlanScreen = () => {
         </View>
 
         <TouchableOpacity
-          disabled={!selectedPlan || isCreatingCheckout || isLoadingPlans}
-          style={[styles.subscribeButton, { backgroundColor: colors.primary }]}
+          disabled={isActionsDisabled}
+          style={[
+            styles.subscribeButton,
+            { backgroundColor: colors.primary },
+            isActionsDisabled && styles.disabledButton,
+          ]}
           onPress={handleSubscribe}
         >
           <Text style={styles.buttonTextWhite}>
-            {isCreatingCheckout ? t("pleaseWait") : t("subscribeNow")}
+            {isSubscribed
+              ? "Already Subscribed"
+              : isCreatingCheckout
+                ? t("pleaseWait")
+                : t("subscribeNow")}
           </Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
@@ -466,7 +578,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
+  scrollContent: { paddingHorizontal: 20 },
   emptyStateContainer: {
     flex: 1,
     justifyContent: "center",
@@ -478,6 +590,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     marginBottom: 20,
+  },
+  statusCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 16,
+  },
+  statusTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  statusSubtitle: {
+    fontSize: 13,
   },
 
   toggleContainer: {
@@ -592,6 +718,9 @@ const styles = StyleSheet.create({
     color: "#000",
     fontWeight: "bold",
     fontSize: 18,
+  },
+  disabledButton: {
+    opacity: 0.55,
   },
 });
 
