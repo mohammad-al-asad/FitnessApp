@@ -7,15 +7,12 @@ import {
   type SubscriptionPlan,
 } from "@/services/backend-auth";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  openBrowserAsync,
-  WebBrowserPresentationStyle,
-} from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StatusBar,
   StyleSheet,
@@ -25,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
 
 const UpgradePlanScreen = () => {
   const { t, isRTL } = useLanguage();
@@ -37,6 +35,8 @@ const UpgradePlanScreen = () => {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [activeQuote, setActiveQuote] = useState<SubscriptionQuote | null>(null);
   const [couponCode, setCouponCode] = useState("");
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
 
   const features = useMemo(
     () => [
@@ -162,9 +162,7 @@ const UpgradePlanScreen = () => {
       if (Platform.OS === "web") {
         window.open(result.checkoutUrl, "_blank");
       } else {
-        await openBrowserAsync(result.checkoutUrl, {
-          presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
-        });
+        setCheckoutUrl(result.checkoutUrl);
       }
     } catch (error: any) {
       Alert.alert(
@@ -174,6 +172,11 @@ const UpgradePlanScreen = () => {
     } finally {
       setIsCreatingCheckout(false);
     }
+  };
+
+  const closeCheckout = () => {
+    setCheckoutUrl(null);
+    setIsCheckoutLoading(false);
   };
 
   if (!selectedPlan && !isLoadingPlans) {
@@ -399,6 +402,60 @@ const UpgradePlanScreen = () => {
           </Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={!!checkoutUrl}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={closeCheckout}
+      >
+        <SafeAreaView
+          style={[styles.checkoutContainer, { backgroundColor: colors.background }]}
+        >
+          <View
+            style={[
+              styles.checkoutHeader,
+              { borderBottomColor: colors.surface },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.checkoutHeaderButton}
+              onPress={closeCheckout}
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.checkoutHeaderTitle, { color: colors.text }]}>
+              {t("subscription")}
+            </Text>
+            <View style={styles.checkoutHeaderButton} />
+          </View>
+
+          {checkoutUrl ? (
+            <View style={styles.checkoutWebViewWrapper}>
+              {isCheckoutLoading && (
+                <View
+                  style={[
+                    styles.checkoutLoadingOverlay,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+              )}
+              <WebView
+                source={{ uri: checkoutUrl }}
+                startInLoadingState
+                onLoadStart={() => setIsCheckoutLoading(true)}
+                onLoadEnd={() => setIsCheckoutLoading(false)}
+                onError={() => {
+                  setIsCheckoutLoading(false);
+                  Alert.alert(String(t("error")), String(t("somethingWentWrong")));
+                }}
+              />
+            </View>
+          ) : null}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -503,6 +560,32 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     marginBottom: 40,
+  },
+  checkoutContainer: { flex: 1 },
+  checkoutHeader: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    paddingHorizontal: 8,
+  },
+  checkoutHeaderButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkoutHeaderTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  checkoutWebViewWrapper: { flex: 1 },
+  checkoutLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
   },
 
   buttonTextWhite: {
