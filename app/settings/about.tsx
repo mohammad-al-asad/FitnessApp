@@ -1,21 +1,15 @@
 // Displays the About screen — provides app information, features, credits, and development details with multilingual support.
-import Colors from '@/constants/colors';
-import { useLanguage } from '@/hooks/language-context';
-import { Heart, Info, Star } from 'lucide-react-native';
+import Colors from "@/constants/colors";
+import { useLanguage } from "@/hooks/language-context";
+import { Heart, Info, Star } from "lucide-react-native";
 
-
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-
-import { Image } from "react-native";
-
-
 
 export default function AboutScreen() {
   const { t, isRTL } = useLanguage();
-const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top - 15 }]}>
@@ -24,14 +18,20 @@ const insets = useSafeAreaInsets();
         <View style={styles.section}>
           <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
             <Info size={20} color={Colors.primary} />
-            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t('appInformation')}</Text>
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+              {t("appInformation")}
+            </Text>
           </View>
 
           <View style={styles.appInfo}>
-            <Text style={[styles.appName, isRTL && styles.rtlText]}>{t('appName')}</Text>
-            <Text style={[styles.appVersion, isRTL && styles.rtlText]}>{t('version')}</Text>
+            <Text style={[styles.appName, isRTL && styles.rtlText]}>
+              {t("appName")}
+            </Text>
+            <Text style={[styles.appVersion, isRTL && styles.rtlText]}>
+              {t("version")}
+            </Text>
             <Text style={[styles.appDescription, isRTL && styles.rtlText]}>
-              {t('yourNutritionCompanion')}
+              {t("yourNutritionCompanion")}
             </Text>
           </View>
         </View>
@@ -40,79 +40,85 @@ const insets = useSafeAreaInsets();
         <View style={styles.section}>
           <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
             <Star size={20} color={Colors.primary} />
-            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t('features')}</Text>
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+              {t("features")}
+            </Text>
           </View>
 
           <View style={styles.featuresList}>
             <View style={styles.featureItem}>
               <Text style={[styles.featureText, isRTL && styles.rtlText]}>
-                {t('trackDailyCalories')}
+                {t("trackDailyCalories")}
               </Text>
             </View>
             <View style={styles.featureItem}>
               <Text style={[styles.featureText, isRTL && styles.rtlText]}>
-                {t('setPersonalizedGoals')}
+                {t("setPersonalizedGoals")}
               </Text>
             </View>
             <View style={styles.featureItem}>
               <Text style={[styles.featureText, isRTL && styles.rtlText]}>
-                {t('monitorProgress')}
+                {t("monitorProgress")}
               </Text>
             </View>
             <View style={styles.featureItem}>
               <Text style={[styles.featureText, isRTL && styles.rtlText]}>
-                {t('keepFoodJournal')}
+                {t("keepFoodJournal")}
               </Text>
             </View>
             <View style={styles.featureItem}>
               <Text style={[styles.featureText, isRTL && styles.rtlText]}>
-                {t('multiLanguageSupport')}
+                {t("multiLanguageSupport")}
               </Text>
             </View>
           </View>
         </View>
 
-       
+        {/* Connect With Us Section */}
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
+            <Info size={20} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+              {t("connectWithUs")}
+            </Text>
+          </View>
 
-
-{/* Connect With Us Section */}
-<View style={styles.section}>
-  <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
-    <Info size={20} color={Colors.primary} />
-    <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
-      {t("connectWithUs")}
-    </Text>
-  </View>
-
-  <View style={styles.socialLinks}>
-    <View style={styles.socialItem}>
-      <Image source={require("@/assets/icons/instagram.png")} style={styles.socialIcon} />
-      <Text style={styles.socialText}>fitco.ksa</Text>
-    </View>
-    <View style={styles.socialItem}>
-      <Image source={require("@/assets/icons/tiktok.png")} style={styles.socialIcon} />
-      <Text style={styles.socialText}>fitco.tiktok</Text>
-    </View>
-    <View style={styles.socialItem}>
-      <Image source={require("@/assets/icons/snapchat.png")} style={styles.socialIcon} />
-      <Text style={styles.socialText}>fitco.snap</Text>
-    </View>
-  </View>
-</View>
-
-
-
-
+          <View style={styles.socialLinks}>
+            <View style={styles.socialItem}>
+              <Image
+                source={require("@/assets/icons/instagram.png")}
+                style={styles.socialIcon}
+              />
+              <Text style={styles.socialText}>fitco.ksa</Text>
+            </View>
+            <View style={styles.socialItem}>
+              <Image
+                source={require("@/assets/icons/tiktok.png")}
+                style={styles.socialIcon}
+              />
+              <Text style={styles.socialText}>fitcoksa</Text>
+            </View>
+            <View style={styles.socialItem}>
+              <Image
+                source={require("@/assets/icons/snapchat.png")}
+                style={styles.socialIcon}
+              />
+              <Text style={styles.socialText}>fitcolife</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Credits Section */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
             <Heart size={20} color={Colors.primary} />
-            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t('madeWithLove')}</Text>
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+              {t("madeWithLove")}
+            </Text>
           </View>
 
           <Text style={[styles.creditsText, isRTL && styles.rtlText]}>
-            {t('thankYouForUsing')}
+            {t("thankYouForUsing")}
           </Text>
         </View>
 
@@ -122,7 +128,7 @@ const insets = useSafeAreaInsets();
             React Native • Expo • TypeScript
           </Text>
           <Text style={[styles.technicalText, isRTL && styles.rtlText]}>
-            {t('version')}
+            {t("version")}
           </Text>
         </View>
       </ScrollView>
@@ -143,23 +149,23 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
     gap: 8,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text,
   },
   appInfo: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 16,
   },
   appName: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: Colors.text,
     marginBottom: 8,
   },
@@ -171,7 +177,7 @@ const styles = StyleSheet.create({
   appDescription: {
     fontSize: 16,
     color: Colors.text,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   featuresList: {
@@ -194,10 +200,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
     lineHeight: 22,
-    textAlign: 'center',
+    textAlign: "center",
   },
   technicalInfo: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 24,
     marginTop: 8,
@@ -209,34 +215,29 @@ const styles = StyleSheet.create({
   },
   // RTL Styles
   rtlText: {
-    textAlign: 'left',
+    textAlign: "left",
   },
   rtlRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
 
-
-socialLinks: {
-  marginTop: 10,
-  gap: 12,
-},
-socialItem: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 10,
-},
-socialIcon: {
-  width: 22,
-  height: 22,
-  borderRadius: 6,
-},
-socialText: {
-  color: "#FFFFFF",
-  fontSize: 15,
-  fontWeight: "500",
-},
-
-
-
-
+  socialLinks: {
+    marginTop: 10,
+    gap: 12,
+  },
+  socialItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  socialIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+  },
+  socialText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "500",
+  },
 });

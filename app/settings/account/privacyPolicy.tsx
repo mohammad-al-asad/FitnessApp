@@ -1,12 +1,14 @@
 import PublicCmsHtmlScreen from "@/components/PublicCmsHtmlScreen";
+import { useLanguage } from "@/hooks/language-context";
 import React from "react";
 
 const Privacy = () => {
+  const { t } = useLanguage();
   return (
     <PublicCmsHtmlScreen
       cmsKey="privacy"
-      fallbackTitle="Privacy Policy"
-      fallbackError="Failed to load privacy policy."
+      fallbackTitle={String(t("privacyPolicy"))}
+      fallbackError={String(t("failedToLoadPrivacyPolicy"))}
     />
   );
 };

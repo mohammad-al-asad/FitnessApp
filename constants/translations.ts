@@ -189,6 +189,22 @@ export const translations = {
     failedToSaveFood: "Failed to save food. Try again.",
     profileUpdated: "Profile updated and synced!",
     failedToUpdateProfile: "Failed to update profile. Please try again.",
+    failedToDeleteAccount: "Failed to delete account. Please try again.",
+    pleaseEnterValidWeight: "Please enter a valid weight.",
+    pleaseFillAllPasswordFields: "Please fill all password fields.",
+    newPasswordMinLength: "New password must be at least 8 characters.",
+    newPasswordMustDifferFromCurrent:
+      "New password must be different from current password.",
+    passwordsDoNotMatch: "New password and confirm password do not match.",
+    passwordUpdatedSuccessfully: "Password updated successfully.",
+    failedToUpdatePassword: "Failed to update password.",
+    pleaseDescribeYourIssue: "Please describe your issue.",
+    pleaseProvideContactEmail: "Please provide contact email.",
+    reportSubmittedSuccessfully: "Report submitted successfully.",
+    failedToSubmitReport: "Failed to submit report.",
+    failedToLoadAboutContent: "Failed to load about content.",
+    failedToLoadPrivacyPolicy: "Failed to load privacy policy.",
+    failedToLoadTerms: "Failed to load terms.",
     somethingWentWrong: "Something went wrong. Please try again.",
     invalidServingSize: "Invalid serving size",
     pleaseEnterValidServingSize:
@@ -230,6 +246,11 @@ export const translations = {
     loading: "Loading...",
     quickWayToAddFoodInfo: "Quick way to add food info",
     basicInformation: "Basic Information",
+    defaultUserName: "User",
+    selectAge: "Select Age",
+    selectHeight: "Select Height",
+    selectWeight: "Select Weight",
+    selectTargetWeight: "Select Target Weight",
     cm: "cm",
     kg: "kg",
 
@@ -250,6 +271,7 @@ export const translations = {
     featureEarlyAccess: "Early Access to New Features",
     haveCoupon: "Have a Coupon?",
     enterCoupon: "Enter coupon code",
+    pleaseEnterCouponCode: "Please enter coupon code.",
     apply: "Apply",
     originalPriceLabel: "Original Price",
     total: "Total",
@@ -262,6 +284,9 @@ export const translations = {
     firstSignInSubscriptionStartingFrom: "Starting from",
     perMonthly: "/ Monthly",
     perYearly: "/ Yearly",
+    youAreAlreadySubscribed: "You are already subscribed.",
+    activeUntil: "Active until",
+    alreadySubscribed: "Already Subscribed",
 
     // report Subpage
     report: "Report",
@@ -286,6 +311,9 @@ export const translations = {
     chatLimitReachedNotice:
       "Daily free chat limit reached. Subscribe for unlimited messages.",
     chatLimitReachedInput: "Daily limit reached. Subscribe to continue.",
+    noFoodsFound: "No foods found.",
+    failedToLoadFoods: "Failed to load foods.",
+    missingCheckoutUrl: "Missing checkout URL.",
 
     // Goals & Nutrition
     dailyGoals: "Daily Goals",
@@ -298,6 +326,8 @@ export const translations = {
     proteinPercent: "Protein: 30% of calories",
     carbsPercent: "Carbohydrates: 40% of calories",
     fatsPercent: "Fats: 30% of calories",
+    dailyGoalUpdated: "Daily goal updated",
+    failedToUpdateGoals: "Failed to update goals",
 
     // Preferences Page
     language: "Language",
@@ -572,6 +602,22 @@ export const translations = {
     failedToSaveFood: "فشل حفظ الطعام. حاول مرة أخرى.",
     profileUpdated: "تم تحديث الملف الشخصي ومزامنته!",
     failedToUpdateProfile: "فشل تحديث الملف الشخصي. يُرجى المحاولة مرة أخرى.",
+    failedToDeleteAccount: "فشل حذف الحساب. يرجى المحاولة مرة أخرى.",
+    pleaseEnterValidWeight: "يرجى إدخال وزن صالح.",
+    pleaseFillAllPasswordFields: "يرجى تعبئة جميع حقول كلمة المرور.",
+    newPasswordMinLength: "يجب أن تكون كلمة المرور الجديدة 8 أحرف على الأقل.",
+    newPasswordMustDifferFromCurrent:
+      "يجب أن تكون كلمة المرور الجديدة مختلفة عن الحالية.",
+    passwordsDoNotMatch: "كلمة المرور الجديدة وتأكيدها غير متطابقين.",
+    passwordUpdatedSuccessfully: "تم تحديث كلمة المرور بنجاح.",
+    failedToUpdatePassword: "فشل تحديث كلمة المرور.",
+    pleaseDescribeYourIssue: "يرجى وصف المشكلة.",
+    pleaseProvideContactEmail: "يرجى إدخال بريد إلكتروني للتواصل.",
+    reportSubmittedSuccessfully: "تم إرسال البلاغ بنجاح.",
+    failedToSubmitReport: "فشل إرسال البلاغ.",
+    failedToLoadAboutContent: "فشل تحميل محتوى عن التطبيق.",
+    failedToLoadPrivacyPolicy: "فشل تحميل سياسة الخصوصية.",
+    failedToLoadTerms: "فشل تحميل الشروط.",
     somethingWentWrong: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
     invalidServingSize: "حجم الحصة غير صالح",
     pleaseEnterValidServingSize:
@@ -620,6 +666,11 @@ export const translations = {
     loading: "تحميل...",
     quickWayToAddFoodInfo: "طريقة سريعة لاضافة معلومات الطعام",
     basicInformation: "المعلومات الاساسية",
+    defaultUserName: "مستخدم",
+    selectAge: "اختر العمر",
+    selectHeight: "اختر الطول",
+    selectWeight: "اختر الوزن",
+    selectTargetWeight: "اختر الوزن المستهدف",
     cm: "سم",
     kg: "كجم",
 
@@ -640,6 +691,7 @@ export const translations = {
     featureEarlyAccess: "وصول مبكر للميزات الجديدة",
     haveCoupon: "لديك كود خصم؟",
     enterCoupon: "أدخل كود الخصم",
+    pleaseEnterCouponCode: "يرجى إدخال كود الخصم.",
     apply: "تطبيق",
     originalPriceLabel: "السعر الأصلي",
     total: "المجموع",
@@ -652,6 +704,9 @@ export const translations = {
     firstSignInSubscriptionStartingFrom: "يبدأ من",
     perMonthly: "/ شهرياً",
     perYearly: "/ سنوياً",
+    youAreAlreadySubscribed: "أنت مشترك بالفعل.",
+    activeUntil: "نشط حتى",
+    alreadySubscribed: "مشترك بالفعل",
 
     // Password
     currentPassword: "كلمة المرور الحالية",
@@ -682,6 +737,9 @@ export const translations = {
     chatLimitReachedNotice:
       "تم الوصول إلى الحد اليومي للدردشة المجانية. اشترك للحصول على رسائل غير محدودة.",
     chatLimitReachedInput: "تم الوصول للحد اليومي. اشترك للمتابعة.",
+    noFoodsFound: "لم يتم العثور على أطعمة.",
+    failedToLoadFoods: "فشل تحميل الأطعمة.",
+    missingCheckoutUrl: "رابط الدفع غير متوفر.",
 
     // Goals & Nutrition
     dailyGoals: "الاهداف اليومية",
@@ -693,6 +751,8 @@ export const translations = {
     proteinPercent: "بروتين: 30٪ من السعرات",
     carbsPercent: "كاربوهيدرات: 40٪ من السعرات",
     fatsPercent: "دهون: 30٪ من السعرات",
+    dailyGoalUpdated: "تم تحديث الهدف اليومي",
+    failedToUpdateGoals: "فشل تحديث الأهداف",
 
     // Preferences Page
     language: "اللغة",

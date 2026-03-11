@@ -67,7 +67,9 @@ const UpgradePlanScreen = () => {
       setSubscriptionStatus(status);
     } catch (error: any) {
       setSubscriptionStatusError(
-        error?.message || (t("somethingWentWrong") as string) || "Error",
+        error?.message ||
+          (t("somethingWentWrong") as string) ||
+          (t("error") as string),
       );
     } finally {
       setIsLoadingSubscriptionStatus(false);
@@ -96,7 +98,7 @@ const UpgradePlanScreen = () => {
         setPlansError(
           (plansResult.reason as any)?.message ||
             (t("somethingWentWrong") as string) ||
-            "Error",
+            (t("error") as string),
         );
       }
 
@@ -106,7 +108,7 @@ const UpgradePlanScreen = () => {
         setSubscriptionStatusError(
           (statusResult.reason as any)?.message ||
             (t("somethingWentWrong") as string) ||
-            "Error",
+            (t("error") as string),
         );
       }
 
@@ -188,7 +190,7 @@ const UpgradePlanScreen = () => {
     if (!selectedPlan || isApplyingCoupon || isSubscribed) return;
     const trimmed = couponCode.trim();
     if (!trimmed) {
-      Alert.alert(String(t("error")), "Please enter coupon code.");
+      Alert.alert(String(t("error")), String(t("pleaseEnterCouponCode")));
       return;
     }
 
@@ -223,7 +225,7 @@ const UpgradePlanScreen = () => {
 
       const result = await backendCreateSubscription(payload);
       if (!result.checkoutUrl) {
-        throw new Error("Missing checkout URL");
+        throw new Error(String(t("missingCheckoutUrl")));
       }
 
       if (Platform.OS === "web") {
@@ -295,7 +297,7 @@ const UpgradePlanScreen = () => {
                 { color: colors.text, textAlign: isRTL ? "right" : "left" },
               ]}
             >
-              You are already subscribed.
+              {t("youAreAlreadySubscribed")}
             </Text>
             {activeSubscription?.expiryDate ? (
               <Text
@@ -303,8 +305,8 @@ const UpgradePlanScreen = () => {
                   styles.statusSubtitle,
                   { color: colors.placeholder, textAlign: isRTL ? "right" : "left" },
                 ]}
-              >
-                Active until {formatDate(activeSubscription.expiryDate)}
+                >
+                {t("activeUntil")} {formatDate(activeSubscription.expiryDate)}
               </Text>
             ) : null}
           </View>
@@ -507,7 +509,7 @@ const UpgradePlanScreen = () => {
         >
           <Text style={styles.buttonTextWhite}>
             {isSubscribed
-              ? "Already Subscribed"
+              ? t("alreadySubscribed")
               : isCreatingCheckout
                 ? t("pleaseWait")
                 : t("subscribeNow")}

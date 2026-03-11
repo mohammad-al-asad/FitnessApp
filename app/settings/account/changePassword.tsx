@@ -1,5 +1,6 @@
 import CustomButton from "@/components/CustomButton";
 import CustomInput from "@/components/CustomInput";
+import { useLanguage } from "@/hooks/language-context";
 import { backendChangePassword } from "@/services/backend-auth";
 import React, { useState } from "react";
 import {
@@ -14,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { scale, verticalScale } from "react-native-size-matters";
 
 const ChangePasswordScreen = () => {
+  const { t } = useLanguage();
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
@@ -26,29 +28,26 @@ const ChangePasswordScreen = () => {
     const newPassword = passwords.new;
     const confirmPassword = passwords.confirm;
 
-    console.log(currentPassword, newPassword, confirmPassword);
-    
-
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert("Error", "Please fill all password fields.");
+      Alert.alert(String(t("error")), String(t("pleaseFillAllPasswordFields")));
       return;
     }
 
     if (newPassword.length < 8) {
-      Alert.alert("Error", "New password must be at least 8 characters.");
+      Alert.alert(String(t("error")), String(t("newPasswordMinLength")));
       return;
     }
 
     if (currentPassword === newPassword) {
       Alert.alert(
-        "Error",
-        "New password must be different from current password.",
+        String(t("error")),
+        String(t("newPasswordMustDifferFromCurrent")),
       );
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Error", "New password and confirm password do not match.");
+      Alert.alert(String(t("error")), String(t("passwordsDoNotMatch")));
       return;
     }
 
@@ -60,9 +59,12 @@ const ChangePasswordScreen = () => {
       });
 
       setPasswords({ current: "", new: "", confirm: "" });
-      Alert.alert("Success", "Password updated successfully.");
+      Alert.alert(String(t("success")), String(t("passwordUpdatedSuccessfully")));
     } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to update password.");
+      Alert.alert(
+        String(t("error")),
+        error?.message || String(t("failedToUpdatePassword")),
+      );
     } finally {
       setIsSubmitting(false);
     }

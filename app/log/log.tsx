@@ -125,7 +125,7 @@ export default function LogFoodScreen() {
 
         console.error("Error loading foods:", error);
         setErrorMessage(
-          error?.message ? String(error.message) : "Failed to load foods.",
+          error?.message ? String(error.message) : String(t("failedToLoadFoods")),
         );
 
         if (replace) {
@@ -140,7 +140,7 @@ export default function LogFoodScreen() {
         }
       }
     },
-    [debouncedQuery],
+    [debouncedQuery, t],
   );
 
   useEffect(() => {
@@ -161,10 +161,7 @@ export default function LogFoodScreen() {
     loadFoods({ pageToLoad: 1, replace: true });
   };
 
-  const title = useMemo(
-    () => t("whatsOnMenu") || "What's on the menu today?",
-    [t],
-  );
+  const title = useMemo(() => t("whatsOnMenu"), [t]);
 
   const renderFoodItem = ({ item }: { item: FoodApiItem }) => (
     <View
@@ -201,7 +198,10 @@ export default function LogFoodScreen() {
             <Text
               style={[
                 styles.brand,
-                { color: colors.placeholder, textAlign: isRTL ? "right" : "left" },
+                {
+                  color: colors.placeholder,
+                  textAlign: isRTL ? "right" : "left",
+                },
               ]}
               numberOfLines={1}
             >
@@ -214,7 +214,10 @@ export default function LogFoodScreen() {
           <Text
             style={[
               styles.serving,
-              { color: colors.placeholder, textAlign: isRTL ? "right" : "left" },
+              {
+                color: colors.placeholder,
+                textAlign: isRTL ? "right" : "left",
+              },
             ]}
             numberOfLines={1}
           >
@@ -226,8 +229,8 @@ export default function LogFoodScreen() {
           style={[
             styles.macroRow,
             {
-              flexDirection: isRTL ? "row-reverse" : "row",
-              justifyContent: isRTL ? "flex-end" : "flex-start",
+              flexDirection: isRTL ? "row" : "row-reverse",
+              justifyContent: isRTL ? "flex-start" : "flex-end",
             },
           ]}
         >
@@ -235,7 +238,9 @@ export default function LogFoodScreen() {
             style={[
               styles.cal,
               { color: colors.primary },
-              isRTL ? { paddingLeft: 10, paddingRight: 0 } : { paddingRight: 10, paddingLeft: 0 },
+              isRTL
+                ? { paddingLeft: 10, paddingRight: 0 }
+                : { paddingRight: 10, paddingLeft: 0 },
             ]}
           >
             {item.calories} {t("kcal")}
@@ -244,7 +249,9 @@ export default function LogFoodScreen() {
             style={[
               styles.macro,
               { color: colors.placeholder },
-              isRTL ? { paddingLeft: 10, paddingRight: 0 } : { paddingRight: 10, paddingLeft: 0 },
+              isRTL
+                ? { paddingLeft: 10, paddingRight: 0 }
+                : { paddingRight: 10, paddingLeft: 0 },
             ]}
           >
             {t("p")} {item.protein} {t("g")}
@@ -253,7 +260,9 @@ export default function LogFoodScreen() {
             style={[
               styles.macro,
               { color: colors.placeholder },
-              isRTL ? { paddingLeft: 10, paddingRight: 0 } : { paddingRight: 10, paddingLeft: 0 },
+              isRTL
+                ? { paddingLeft: 10, paddingRight: 0 }
+                : { paddingRight: 10, paddingLeft: 0 },
             ]}
           >
             {t("c")} {item.carbs} {t("g")}
@@ -262,7 +271,9 @@ export default function LogFoodScreen() {
             style={[
               styles.macro,
               { color: colors.placeholder },
-              isRTL ? { paddingLeft: 10, paddingRight: 0 } : { paddingRight: 10, paddingLeft: 0 },
+              isRTL
+                ? { paddingLeft: 10, paddingRight: 0 }
+                : { paddingRight: 10, paddingLeft: 0 },
             ]}
           >
             {t("f")} {item.fats} {t("g")}
@@ -274,7 +285,9 @@ export default function LogFoodScreen() {
         style={[
           styles.addBtn,
           { borderColor: colors.primary },
-          isRTL ? { marginRight: 8, marginLeft: 0 } : { marginLeft: 8, marginRight: 0 },
+          isRTL
+            ? { marginRight: 8, marginLeft: 0 }
+            : { marginLeft: 8, marginRight: 0 },
         ]}
         onPress={() =>
           router.push({
@@ -339,8 +352,7 @@ export default function LogFoodScreen() {
             { textAlign: isRTL ? "right" : "left" },
           ]}
           placeholder={
-            (t("searchForDeliciousFuel") as string) ||
-            "Search for your delicious fuel!"
+            t("searchForDeliciousFuel") as string
           }
           placeholderTextColor={colors.placeholder}
           value={searchQuery}
@@ -376,7 +388,7 @@ export default function LogFoodScreen() {
               isRTL && styles.rtlText,
             ]}
           >
-            {errorMessage || "No foods found."}
+            {errorMessage || String(t("noFoodsFound"))}
           </Text>
         }
         ListFooterComponent={

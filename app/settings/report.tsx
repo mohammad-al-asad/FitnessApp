@@ -19,8 +19,8 @@ const ReportIssueScreen = () => {
 
   const [selectedType, setSelectedType] = useState("app");
   const [description, setDescription] = useState("");
-  const [name, setName] = useState("John Smith"); // Mock initial value
-  const [email, setEmail] = useState("jackson.graham@example.com");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const issueTypes = [
@@ -47,12 +47,12 @@ const ReportIssueScreen = () => {
     const userName = name.trim();
 
     if (!desc) {
-      Alert.alert("Error", "Please describe your issue.");
+      Alert.alert(String(t("error")), String(t("pleaseDescribeYourIssue")));
       return;
     }
 
     if (!userEmail) {
-      Alert.alert("Error", "Please provide contact email.");
+      Alert.alert(String(t("error")), String(t("pleaseProvideContactEmail")));
       return;
     }
 
@@ -64,9 +64,12 @@ const ReportIssueScreen = () => {
         contactInfo: userName ? `${userName} <${userEmail}>` : userEmail,
       });
       setDescription("");
-      Alert.alert("Success", "Report submitted successfully.");
+      Alert.alert(String(t("success")), String(t("reportSubmittedSuccessfully")));
     } catch (error: any) {
-      Alert.alert("Error", error?.message || "Failed to submit report.");
+      Alert.alert(
+        String(t("error")),
+        error?.message || String(t("failedToSubmitReport")),
+      );
     } finally {
       setSubmitting(false);
     }

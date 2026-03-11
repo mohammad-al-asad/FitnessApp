@@ -89,11 +89,14 @@ export default function GoalsScreen() {
       await saveSettings(nextSettings);
       setLocalSettings(nextSettings);
       setHasChanges(false);
-      Alert.alert(t('success') as string, response.message || 'Daily goal updated');
+      Alert.alert(
+        t('success') as string,
+        response.message || (t('dailyGoalUpdated') as string),
+      );
     } catch (error: any) {
       Alert.alert(
         t('error') as string,
-        error?.message ? String(error.message) : 'Failed to update goals',
+        error?.message ? String(error.message) : (t('failedToUpdateGoals') as string),
       );
     } finally {
       setIsSaving(false);

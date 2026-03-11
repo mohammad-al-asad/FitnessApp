@@ -40,56 +40,56 @@ type UserSettings = any;
 const ACTIVITY_LEVELS = [
   {
     key: "sedentary",
-    label: "Sedentary",
-    description: "Little to no exercise (desk job)",
+    labelKey: "sedentary",
+    descriptionKey: "sedentaryDesc",
   },
   {
     key: "lightly_active",
-    label: "Lightly Active",
-    description: "Light exercise 1-3 days/week",
+    labelKey: "lightlyActive",
+    descriptionKey: "lightlyActiveDesc",
   },
   {
     key: "moderately_active",
-    label: "Moderately Active",
-    description: "Moderate exercise 3-5 days/week",
+    labelKey: "moderatelyActive",
+    descriptionKey: "moderatelyActiveDesc",
   },
   {
     key: "very_active",
-    label: "Very Active",
-    description: "Hard exercise 6-7 days/week",
+    labelKey: "veryActive",
+    descriptionKey: "veryActiveDesc",
   },
   {
     key: "extremely_active",
-    label: "Extremely Active",
-    description: "Very hard exercise or physical job",
+    labelKey: "extremelyActive",
+    descriptionKey: "extremelyActiveDesc",
   },
 ] as const;
 
 const GENDERS = [
-  { key: "male", label: "Male", description: "Biological male" },
-  { key: "female", label: "Female", description: "Biological female" },
+  { key: "male", labelKey: "male" },
+  { key: "female", labelKey: "female" },
 ] as const;
 
 const GOALS = [
   {
     key: "lose_weight",
-    label: "Lose Weight",
-    description: "Create a calorie deficit to lose weight",
+    labelKey: "loseWeight",
+    descriptionKey: "loseWeightDesc",
   },
   {
     key: "maintain_weight",
-    label: "Maintain Weight",
-    description: "Keep your current weight stable",
+    labelKey: "maintainWeight",
+    descriptionKey: "maintainWeightDesc",
   },
   {
     key: "gain_weight",
-    label: "Gain Weight",
-    description: "Increase calories to gain weight",
+    labelKey: "gainWeight",
+    descriptionKey: "gainWeightDesc",
   },
   {
     key: "build_muscle",
-    label: "Build Muscle",
-    description: "Focus on protein and strength training",
+    labelKey: "buildMuscle",
+    descriptionKey: "buildMuscleDesc",
   },
 ] as const;
 
@@ -224,7 +224,7 @@ export default function AccountScreen() {
 
     const nextWeight = Number(localSettings?.weight ?? 0);
     if (!Number.isFinite(nextWeight) || nextWeight <= 0) {
-      Alert.alert("Error", "Please enter a valid weight.");
+      Alert.alert(String(t("error")), String(t("pleaseEnterValidWeight")));
       return;
     }
 
@@ -278,11 +278,11 @@ export default function AccountScreen() {
       });
 
       setHasChanges(false);
-      Alert.alert("Success", "Profile updated and synced!");
+      Alert.alert(String(t("success")), String(t("profileUpdated")));
     } catch (error: any) {
       Alert.alert(
-        "Error",
-        error?.message || "Failed to update profile. Please try again.",
+        String(t("error")),
+        error?.message || String(t("failedToUpdateProfile")),
       );
     } finally {
       setIsSavingQuickUpdate(false);
@@ -349,10 +349,13 @@ export default function AccountScreen() {
       }
 
       setHasProfileChanges(false);
-      Alert.alert("Success", "Profile updated and synced!");
+      Alert.alert(String(t("success")), String(t("profileUpdated")));
     } catch (error: any) {
       console.error("Error updating profile:", error);
-      Alert.alert("Error", error?.message || "Failed to update profile. Please try again.");
+      Alert.alert(
+        String(t("error")),
+        error?.message || String(t("failedToUpdateProfile")),
+      );
     }
   };
 
@@ -370,8 +373,8 @@ export default function AccountScreen() {
       deleted = true;
     } catch (error: any) {
       Alert.alert(
-        "Error",
-        error?.message || "Failed to delete account. Please try again.",
+        String(t("error")),
+        error?.message || String(t("failedToDeleteAccount")),
       );
     } finally {
       setIsDeletingAccount(false);
@@ -409,7 +412,7 @@ export default function AccountScreen() {
                 {t("signedInAs")}
               </Text>
               <Text style={[styles.userInfoValue, isRTL && styles.rtlText]}>
-                {user.displayName || "User"}
+                {user.displayName || String(t("defaultUserName"))}
               </Text>
               <Text style={[styles.userInfoEmail, isRTL && styles.rtlText]}>
                 {user.email}
@@ -435,12 +438,12 @@ export default function AccountScreen() {
               <User size={20} color={Colors.primary} />
               <View style={styles.menuItemText}>
                 <Text style={[styles.menuItemTitle, isRTL && styles.rtlText]}>
-                  Personal Information
+                  {t("personalInformation")}
                 </Text>
                 <Text
                   style={[styles.menuItemSubtitle, isRTL && styles.rtlText]}
                 >
-                  Age, height, weight, activity level
+                  {t("ageHeightWeightActivityLevelSubtitle")}
                 </Text>
               </View>
             </View>
@@ -513,11 +516,11 @@ export default function AccountScreen() {
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowEditProfile(false)}>
-                <Text style={styles.modalCancel}>Cancel</Text>
+                <Text style={styles.modalCancel}>{t("cancel")}</Text>
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <Text style={styles.modalTitle}>{t("editProfile")}</Text>
               <TouchableOpacity onPress={() => setShowEditProfile(false)}>
-                <Text style={styles.modalDone}>Done</Text>
+                <Text style={styles.modalDone}>{t("done")}</Text>
               </TouchableOpacity>
             </View>
 
@@ -541,21 +544,21 @@ export default function AccountScreen() {
                     <Text
                       style={[styles.sectionTitle, isRTL && styles.rtlText]}
                     >
-                      Basic Information
+                      {t("basicInformation")}
                     </Text>
                   </View>
 
                   {/* Age */}
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
-                      Age
+                      {t("age")}
                     </Text>
                     <TouchableOpacity
                       style={styles.pickerButton}
                       onPress={() => setShowPicker("age")}
                     >
                       <Text style={styles.pickerButtonText}>
-                        {profileData.age} years
+                        {profileData.age} {t("years")}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -563,14 +566,14 @@ export default function AccountScreen() {
                   {/* Height */}
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
-                      Height
+                      {t("height")}
                     </Text>
                     <TouchableOpacity
                       style={styles.pickerButton}
                       onPress={() => setShowPicker("height")}
                     >
                       <Text style={styles.pickerButtonText}>
-                        {profileData.height} cm
+                        {profileData.height} {t("cm")}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -578,14 +581,14 @@ export default function AccountScreen() {
                   {/* Weight */}
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
-                      Current Weight
+                      {t("currentWeightLabel")}
                     </Text>
                     <TouchableOpacity
                       style={styles.pickerButton}
                       onPress={() => setShowPicker("weight")}
                     >
                       <Text style={styles.pickerButtonText}>
-                        {profileData.weight} kg
+                        {profileData.weight} {t("kg")}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -593,7 +596,7 @@ export default function AccountScreen() {
                   {/* Gender */}
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
-                      Gender
+                      {t("gender")}
                     </Text>
                     <View style={styles.optionsContainer}>
                       {GENDERS.map((gender) => (
@@ -615,7 +618,7 @@ export default function AccountScreen() {
                                 styles.optionTitleSelected,
                             ]}
                           >
-                            {gender.label}
+                            {t(gender.labelKey as any)}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -630,14 +633,14 @@ export default function AccountScreen() {
                     <Text
                       style={[styles.sectionTitle, isRTL && styles.rtlText]}
                     >
-                      Activity & Goals
+                      {t("activityAndGoals")}
                     </Text>
                   </View>
 
                   {/* Activity Level */}
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
-                      Activity Level
+                      {t("activityLevel")}
                     </Text>
                     <View style={styles.optionsContainer}>
                       {ACTIVITY_LEVELS.map((level) => (
@@ -659,7 +662,7 @@ export default function AccountScreen() {
                                 styles.optionTitleSelected,
                             ]}
                           >
-                            {level.label}
+                            {t(level.labelKey as any)}
                           </Text>
                           <Text
                             style={[
@@ -668,7 +671,7 @@ export default function AccountScreen() {
                                 styles.optionDescriptionSelected,
                             ]}
                           >
-                            {level.description}
+                            {t(level.descriptionKey as any)}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -678,7 +681,7 @@ export default function AccountScreen() {
                   {/* Goal */}
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
-                      Goal
+                      {t("goalLabel")}
                     </Text>
                     <View style={styles.optionsContainer}>
                       {GOALS.map((goal) => (
@@ -698,7 +701,7 @@ export default function AccountScreen() {
                                 styles.optionTitleSelected,
                             ]}
                           >
-                            {goal.label}
+                            {t(goal.labelKey as any)}
                           </Text>
                           <Text
                             style={[
@@ -707,7 +710,7 @@ export default function AccountScreen() {
                                 styles.optionDescriptionSelected,
                             ]}
                           >
-                            {goal.description}
+                            {t(goal.descriptionKey as any)}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -721,14 +724,14 @@ export default function AccountScreen() {
                       <Text
                         style={[styles.inputLabel, isRTL && styles.rtlText]}
                       >
-                        Target Weight
+                        {t("targetWeight")}
                       </Text>
                       <TouchableOpacity
                         style={styles.pickerButton}
                         onPress={() => setShowPicker("targetWeight")}
                       >
                         <Text style={styles.pickerButtonText}>
-                          {profileData.targetWeight} kg
+                          {profileData.targetWeight} {t("kg")}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -742,18 +745,18 @@ export default function AccountScreen() {
                     <Text
                       style={[styles.sectionTitle, isRTL && styles.rtlText]}
                     >
-                      Health Information
+                      {t("healthInformation")}
                     </Text>
                   </View>
 
                   {/* Medical Conditions */}
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
-                      Medical Conditions
+                      {t("medicalConditions")}
                     </Text>
                     <TextInput
                       style={[styles.textArea, isRTL && styles.rtlInput]}
-                      placeholder="Diabetes, heart conditions, etc. (optional)"
+                      placeholder={String(t("medicalConditionsPlaceholder"))}
                       placeholderTextColor={Colors.placeholder}
                       value={profileData.medicalConditions}
                       onChangeText={(value) =>
@@ -768,11 +771,11 @@ export default function AccountScreen() {
                   {/* Allergies */}
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, isRTL && styles.rtlText]}>
-                      Food Allergies
+                      {t("foodAllergies")}
                     </Text>
                     <TextInput
                       style={[styles.textArea, isRTL && styles.rtlInput]}
-                      placeholder="Nuts, dairy, gluten, etc. (optional)"
+                      placeholder={String(t("foodAllergiesPlaceholder"))}
                       placeholderTextColor={Colors.placeholder}
                       value={profileData.allergies}
                       onChangeText={(value) =>
@@ -794,7 +797,7 @@ export default function AccountScreen() {
                     >
                       <Save size={20} color={Colors.background} />
                       <Text style={styles.saveButtonText}>
-                        Save Profile Changes
+                        {t("saveProfileChanges")}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -811,16 +814,16 @@ export default function AccountScreen() {
           <View style={styles.pickerModal}>
             <View style={styles.pickerHeader}>
               <TouchableOpacity onPress={() => setShowPicker(null)}>
-                <Text style={styles.pickerCancel}>Cancel</Text>
+                <Text style={styles.pickerCancel}>{t("cancel")}</Text>
               </TouchableOpacity>
               <Text style={styles.pickerTitle}>
-                {showPicker === "age" && "Select Age"}
-                {showPicker === "height" && "Select Height"}
-                {showPicker === "weight" && "Select Weight"}
-                {showPicker === "targetWeight" && "Select Target Weight"}
+                {showPicker === "age" && t("selectAge")}
+                {showPicker === "height" && t("selectHeight")}
+                {showPicker === "weight" && t("selectWeight")}
+                {showPicker === "targetWeight" && t("selectTargetWeight")}
               </Text>
               <TouchableOpacity onPress={() => setShowPicker(null)}>
-                <Text style={styles.pickerDone}>Done</Text>
+                <Text style={styles.pickerDone}>{t("done")}</Text>
               </TouchableOpacity>
             </View>
             <WheelPicker
@@ -837,10 +840,10 @@ export default function AccountScreen() {
               onValueChange={(value) => updateProfileField(showPicker, value)}
               suffix={
                 showPicker === "age"
-                  ? " years"
+                  ? ` ${t("years")}`
                   : showPicker === "height"
-                  ? " cm"
-                  : " kg"
+                  ? ` ${t("cm")}`
+                  : ` ${t("kg")}`
               }
             />
           </View>

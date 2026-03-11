@@ -25,7 +25,7 @@ export default function AccountSettingsLayout() {
       <Stack.Screen
         name="index"
         options={{
-          title: "Account",
+          title: t("account") as string,
         }}
       />
       <Stack.Screen
