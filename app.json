@@ -41,15 +41,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e6d57240-5cb0-42ed-b5db-f48bf3064248"
+        "projectId": "4f6feeae-a8b0-46f7-a461-c7e31b66495a"
       }
-    }
-    // "extra": {
-    //   "router": {},
-    //   "eas": {
-    //     "projectId": "4f6feeae-a8b0-46f7-a461-c7e31b66495a"
-    //   }
-    // },
-    // "owner": "creedtng"
+    },
+    "owner": "creedtng"
   }
 }
