@@ -321,28 +321,31 @@ export async function readStoredSession(): Promise<{
   token: string | null;
   refreshToken: string | null;
 }> {
-  const [storedUser, token, refreshToken] = await Promise.all([
-    AsyncStorage.getItem(USER_STORAGE_KEY),
-    AsyncStorage.getItem(TOKEN_STORAGE_KEY),
-    AsyncStorage.getItem(REFRESH_TOKEN_STORAGE_KEY),
-  ]);
+  try {
+    const [storedUser, token, refreshToken] = await Promise.all([
+      AsyncStorage.getItem(USER_STORAGE_KEY),
+      AsyncStorage.getItem(TOKEN_STORAGE_KEY),
+      AsyncStorage.getItem(REFRESH_TOKEN_STORAGE_KEY),
+    ]);
 
-  let parsedUser: BackendUser | null = null;
-  if (storedUser) {
-    try {
-      parsedUser = JSON.parse(storedUser) as BackendUser;
-    } catch (error) {
-      console.warn("[Auth] Stored user JSON was invalid. Clearing cached user.", error);
-      await AsyncStorage.removeItem(USER_STORAGE_KEY);
-      parsedUser = null;
+    let parsedUser: BackendUser | null = null;
+    if (storedUser) {
+      try {
+        parsedUser = JSON.parse(storedUser) as BackendUser;
+      } catch {
+        await AsyncStorage.removeItem(USER_STORAGE_KEY);
+        parsedUser = null;
+      }
     }
-  }
 
-  return {
-    user: parsedUser,
-    token,
-    refreshToken,
-  };
+    return {
+      user: parsedUser,
+      token,
+      refreshToken,
+    };
+  } catch {
+    return { user: null, token: null, refreshToken: null };
+  }
 }
 
 export async function clearStoredSession() {
@@ -630,7 +633,7 @@ export async function backendUpdateDailyGoal(
   const { token } = await readStoredSession();
   if (!token) throw new Error("No auth token");
 
-  const attempts: Array<{ method: "PATCH" | "POST"; path: string }> = [
+  const attempts: { method: "PATCH" | "POST"; path: string }[] = [
     { method: "PATCH", path: "/api/v1/users/me/daily-goal" },
     { method: "POST", path: "/api/v1/users/me/daily-goal" },
     { method: "PATCH", path: "/api/v1/users/me/daily-goals" },

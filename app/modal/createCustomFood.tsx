@@ -66,7 +66,9 @@ export default function CreateCustomFoodScreen() {
           if (existingFood) {
             setFoodName(existingFood.name || "");
             setBrandName(existingFood.brand || "");
-            setServingSize(existingFood.servingSize || existingFood.serving || "");
+            setServingSize(
+              existingFood.servingSize || existingFood.serving || "",
+            );
             setCalories(existingFood.calories?.toString() || "");
             setProtein(existingFood.protein?.toString() || "");
             setCarbs(existingFood.carbs?.toString() || "");
@@ -115,7 +117,9 @@ export default function CreateCustomFoodScreen() {
     } catch (error: any) {
       Alert.alert(
         t("error") as string,
-        error?.message ? String(error.message) : (t("failedToSaveFood") as string),
+        error?.message
+          ? String(error.message)
+          : (t("failedToSaveFood") as string),
       );
     } finally {
       setLoading(false);
@@ -165,7 +169,11 @@ export default function CreateCustomFoodScreen() {
         <TouchableOpacity
           style={[
             styles.scannerCard,
-            { backgroundColor: colors.surface, borderColor: colors.primary },
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.primary,
+              flexDirection: isRTL ? "row-reverse" : "row",
+            },
           ]}
           activeOpacity={0.7}
           onPress={() => router.push("/scanBarcode?source=createCustom")}

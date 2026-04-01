@@ -73,15 +73,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (removable.length > 0) {
         await AsyncStorage.multiRemove(removable);
       }
-    } catch (error) {
-      console.error("Error clearing storage (safe):", error);
+    } catch {
+      // Silently fail
     }
   };
 
   useEffect(() => {
+    let isMounted = true;
     const init = async () => {
       try {
         const { user: storedUser, token } = await readStoredSession();
+
+        if (!isMounted) return;
 
         if (storedUser) {
           setUser(storedUser);
@@ -90,20 +93,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (token) {
           try {
             const freshUser = await backendMe(token);
-            setUser(freshUser);
-          } catch (err) {
-            console.warn("Session refresh failed, using stored user:", err);
+            if (isMounted) setUser(freshUser);
+          } catch {
           }
         }
-      } catch (error) {
-        console.log("Error loading persisted user:", error);
+      } catch {
       } finally {
-        setIsInitialized(true);
-        setLoading(false);
+        if (isMounted) {
+          setIsInitialized(true);
+          setLoading(false);
+        }
       }
     };
 
     init();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const signIn = async (
@@ -116,12 +122,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const signedInUser = await backendSignIn(email, password);
       setUser(signedInUser);
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(signedInUser));
       await clearFitcoData();
 
       return { success: true, user: signedInUser };
     } catch (error: any) {
-      console.error("[Auth] SignIn error:", error);
       return { success: false, error: { message: error.message } };
     }
   };
@@ -140,8 +144,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         lastName,
       });
 
-      // Ensure auth token exists after signup.
-      // Some register endpoints return user only; in that case force login.
       let session = await readStoredSession();
       if (!session.token) {
         await backendSignIn(email, password);
@@ -201,7 +203,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return { success: true, user: createdUser };
     } catch (error: any) {
-      console.error("[Auth] SignUp error:", error);
       return { success: false, error: { message: error.message } };
     }
   };
@@ -260,11 +261,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           ),
         ]);
       }
-    } catch (error) {
-      console.error(
-        "[Auth] Failed to persist first sign-in subscription prompt state:",
-        error,
-      );
+    } catch {
     } finally {
       setFirstSignInSubscriptionPromptVisible(false);
       setSubscriptionPromptUserId(null);

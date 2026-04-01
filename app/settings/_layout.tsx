@@ -1,8 +1,8 @@
 import { TranslationKey } from "@/constants/translations";
 import { useLanguage } from "@/hooks/language-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import { Pressable, Text } from "react-native";
+import { ArrowLeft, ArrowRight } from "lucide-react-native";
+import { Pressable, Text, View } from "react-native";
 
 export default function SettingsLayout() {
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function SettingsLayout() {
                   color: "#fff",
                   fontWeight: "600",
                   fontSize: 17,
-                  textAlign: "left",
+                  textAlign: "center",
                   flex: 1,
                 }}
               >
@@ -68,11 +68,15 @@ export default function SettingsLayout() {
             headerLeft: () => (
               <Pressable
                 onPress={() => router.back()}
-                style={{ marginLeft: 5 }}
               >
-                <ArrowLeft size={24} color="#fff" />
+                {isRTL ? (
+                  <ArrowRight size={24} color="#fff" />
+                ) : (
+                  <ArrowLeft size={24} color="#fff" />
+                )}
               </Pressable>
             ),
+            headerRight: () => <View style={{ width: 30 }} />,
           }}
         />
       ))}

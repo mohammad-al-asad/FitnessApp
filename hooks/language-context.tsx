@@ -57,23 +57,19 @@ export const [LanguageProvider, useLanguage] = createContextHook(() => {
     try {
       setIsLoading(true);
       const savedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
-      console.log("The saved language is ", savedLanguage);
 
       if (savedLanguage === "ar") {
         I18nManager.allowRTL(true);
         I18nManager.forceRTL(true);
         setCurrentLanguage("ar");
-        console.log("🌐 Arabic mode active, RTL forced");
       } else {
         I18nManager.allowRTL(false);
         I18nManager.forceRTL(false);
         setCurrentLanguage("en");
-        console.log("🌐 English mode active, LTR forced");
       }
 
       setIsLoading(false);
-    } catch (error) {
-      console.error("[Load Language] Error loading language:", error);
+    } catch {
       I18nManager.allowRTL(false);
       I18nManager.forceRTL(false);
       setCurrentLanguage("en");
@@ -201,13 +197,6 @@ export const [LanguageProvider, useLanguage] = createContextHook(() => {
       isRTL,
       isLoading,
     };
-
-    // Debug log to ensure colors are properly set
-    console.log("Language context colors:", {
-      background: colors.background,
-      text: colors.text,
-      primary: colors.primary,
-    });
 
     return contextValue;
   }, [currentLanguage, changeLanguage, t, isRTL, isLoading]);

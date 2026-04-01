@@ -141,7 +141,6 @@ export default function HomeScreen() {
         if (homeResult.status === "fulfilled") {
           setHomeData(homeResult.value);
         } else {
-          console.error("Failed to fetch home food logs:", homeResult.reason);
           setHomeError(
             homeResult.reason?.message
               ? String(homeResult.reason.message)
@@ -153,7 +152,6 @@ export default function HomeScreen() {
         if (weeklyResult.status === "fulfilled") {
           setWeeklyData(weeklyResult.value);
         } else {
-          console.error("Failed to fetch weekly summary:", weeklyResult.reason);
           setWeeklyData(null);
         }
 

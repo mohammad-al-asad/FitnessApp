@@ -135,7 +135,7 @@ export default function SettingsScreen() {
                   { color: colors.text },
                 ]}
               >
-                {user.displayName} {user.displayName}
+                {user.displayName}
               </Text>
               <Text
                 style={[

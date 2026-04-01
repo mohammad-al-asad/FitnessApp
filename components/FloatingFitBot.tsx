@@ -1,16 +1,15 @@
-import { useLanguage } from '@/hooks/language-context';
-import FirstSignInSubscriptionModal from '@/components/FirstSignInSubscriptionModal';
+import FirstSignInSubscriptionModal from "@/components/FirstSignInSubscriptionModal";
+import { useLanguage } from "@/hooks/language-context";
 import {
-  backendGetChatLimitStatus,
   backendGetChatHistory,
+  backendGetChatLimitStatus,
   backendSendChatMessage,
   type ChatLimitStatus,
-} from '@/services/backend-auth';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { Send, X } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import Markdown from 'react-native-markdown-display';
+} from "@/services/backend-auth";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import { Send, X } from "lucide-react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -27,9 +26,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FoodLogModal from './FoodLogModal';
+} from "react-native";
+import Markdown from "react-native-markdown-display";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FoodLogModal from "./FoodLogModal";
 
 type Message = {
   id: string;
@@ -40,8 +40,7 @@ type Message = {
   displayText?: string;
 };
 
-const WELCOME_TEXT =
-  "Hi! I'm FitBot, your AI fitness assistant! I can help with nutrition advice, workout tips, and meal planning. How can I help you today?";
+const WELCOME_ID = "welcome";
 
 const formatMathText = (input: string): string => {
   if (!input) return input;
@@ -92,15 +91,8 @@ export default function FloatingFitBot({
   const [showModal, setShowModal] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [scaleAnim] = useState(new Animated.Value(1));
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      text: WELCOME_TEXT,
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
-  const [inputText, setInputText] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingLimit, setIsLoadingLimit] = useState(false);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
@@ -113,17 +105,43 @@ export default function FloatingFitBot({
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
 
+  // 📝 Update welcome message when language changes
+  useEffect(() => {
+    if (messages.length === 1 && messages[0].id === WELCOME_ID) {
+      setMessages([
+        {
+          id: WELCOME_ID,
+          text: String(t("fitBotWelcome")),
+          isUser: false,
+          timestamp: messages[0].timestamp,
+        },
+      ]);
+    } else if (messages.length === 0 && !hasLoadedHistory) {
+      setMessages([
+        {
+          id: WELCOME_ID,
+          text: String(t("fitBotWelcome")),
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  }, [t, hasLoadedHistory]);
+
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
   const initialX = isRTL ? -right : screenWidth - right - BUTTON_SIZE;
   const initialY =
-    screenHeight - bottom - BUTTON_SIZE - (Platform.OS === 'ios' ? insets.bottom : 0);
+    screenHeight -
+    bottom -
+    BUTTON_SIZE -
+    (Platform.OS === "ios" ? insets.bottom : 0);
 
   const pan = useRef(
     new Animated.ValueXY({
       x: initialX,
       y: initialY,
-    })
+    }),
   ).current;
   const [isDragging, setIsDragging] = useState(false);
 
@@ -151,13 +169,13 @@ export default function FloatingFitBot({
   }, [isVisible, loadChatLimit]);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== "android") return;
 
-    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
       setAndroidKeyboardOffset(event.endCoordinates.height);
       scrollToBottom();
     });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
       setAndroidKeyboardOffset(0);
     });
 
@@ -207,8 +225,10 @@ export default function FloatingFitBot({
     const tick = () => {
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === typingMsg.id ? { ...m, displayText: full.slice(0, i + 1) } : m
-        )
+          m.id === typingMsg.id
+            ? { ...m, displayText: full.slice(0, i + 1) }
+            : m,
+        ),
       );
       i += 1;
 
@@ -217,8 +237,10 @@ export default function FloatingFitBot({
       } else {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === typingMsg.id ? { ...m, isTyping: false, displayText: full } : m
-          )
+            m.id === typingMsg.id
+              ? { ...m, isTyping: false, displayText: full }
+              : m,
+          ),
         );
         setTypingMessageId(null);
         scrollToBottom();
@@ -271,10 +293,9 @@ export default function FloatingFitBot({
           y: (pan.y as any)._value,
         });
       },
-      onPanResponderMove: Animated.event(
-        [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false }
-      ),
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
       onPanResponderRelease: () => {
         pan.flattenOffset();
 
@@ -282,7 +303,9 @@ export default function FloatingFitBot({
         const maxX = isRTL ? 0 : screenWidth - BUTTON_SIZE;
         const minY = insets.top;
         const maxY =
-          screenHeight - BUTTON_SIZE - (Platform.OS === 'ios' ? insets.bottom : 0);
+          screenHeight -
+          BUTTON_SIZE -
+          (Platform.OS === "ios" ? insets.bottom : 0);
 
         const currentX = (pan.x as any)._value;
         const currentY = (pan.y as any)._value;
@@ -291,12 +314,15 @@ export default function FloatingFitBot({
         const y = Math.max(minY, Math.min(maxY, currentY));
 
         if (x !== currentX || y !== currentY) {
-          Animated.spring(pan, { toValue: { x, y }, useNativeDriver: false }).start();
+          Animated.spring(pan, {
+            toValue: { x, y },
+            useNativeDriver: false,
+          }).start();
         }
 
         setTimeout(() => setIsDragging(false), 100);
       },
-    })
+    }),
   ).current;
 
   useEffect(() => {
@@ -351,7 +377,8 @@ export default function FloatingFitBot({
   }, [isVisible, hasLoadedHistory]);
 
   const sendMessage = () => {
-    if (!inputText.trim() || isLoading || isLoadingLimit || isChatLimitReached) return;
+    if (!inputText.trim() || isLoading || isLoadingLimit || isChatLimitReached)
+      return;
     const prompt = inputText.trim();
 
     const userMsg: Message = {
@@ -362,7 +389,7 @@ export default function FloatingFitBot({
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    setInputText('');
+    setInputText("");
     setIsLoading(true);
 
     (async () => {
@@ -377,7 +404,7 @@ export default function FloatingFitBot({
           isUser: false,
           timestamp: new Date(),
           isTyping: true,
-          displayText: '',
+          displayText: "",
         };
 
         setMessages((prev) => [...prev, botMsg]);
@@ -391,11 +418,11 @@ export default function FloatingFitBot({
           id: String(Date.now() + 1),
           text: isLimitError
             ? String(t("chatLimitReachedNotice"))
-            : 'There was an error reaching FitBot. Please check your connection and try again.',
+            : "There was an error reaching FitBot. Please check your connection and try again.",
           isUser: false,
           timestamp: new Date(),
           isTyping: true,
-          displayText: '',
+          displayText: "",
         };
         setMessages((prev) => [...prev, fallback]);
       } finally {
@@ -426,9 +453,7 @@ export default function FloatingFitBot({
           activeOpacity={0.85}
         >
           <Image
-            source={{
-              uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/l39tt3mt1q74w8l7x2p95',
-            }}
+            source={require("@/assets/images/fitbot.png")}
             style={styles.cuteIcon}
             resizeMode="cover"
           />
@@ -442,25 +467,26 @@ export default function FloatingFitBot({
         onRequestClose={handleClose}
       >
         <LinearGradient
-          colors={['#0f0f23', '#1a1a3e', '#2d1b69', '#1e3a8a']}
+          colors={["#0f0f23", "#1a1a3e", "#2d1b69", "#1e3a8a"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.modalContainer}
         >
-          <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}> 
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
             <View style={styles.headerContent}>
               <View style={styles.headerLeft}>
                 <View style={styles.botIcon}>
                   <Image
-                    source={{
-                      uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/l39tt3mt1q74w8l7x2p95',
-                    }}
+                    source={require("@/assets/images/fitbot.png")}
                     style={styles.cuteIconHeader}
                   />
                 </View>
                 <Text style={styles.headerTitle}>FitBot</Text>
               </View>
-              <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleClose}
+              >
                 <X size={24} color="white" />
               </TouchableOpacity>
             </View>
@@ -517,8 +543,8 @@ export default function FloatingFitBot({
 
           <KeyboardAvoidingView
             style={styles.contentContainer}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            enabled={Platform.OS === 'ios'}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            enabled={Platform.OS === "ios"}
             keyboardVerticalOffset={0}
           >
             <ScrollView
@@ -532,15 +558,14 @@ export default function FloatingFitBot({
                   key={m.id}
                   style={[
                     styles.messageContainer,
+                    { flexDirection: isRTL ? "row-reverse" : "row" },
                     m.isUser ? styles.userMessage : styles.botMessage,
                   ]}
                 >
                   {!m.isUser && (
                     <View style={styles.botAvatar}>
                       <Image
-                        source={{
-                          uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/l39tt3mt1q74w8l7x2p95',
-                        }}
+                        source={require("@/assets/images/fitbot.png")}
                         style={styles.cuteIconAvatar}
                       />
                     </View>
@@ -549,14 +574,33 @@ export default function FloatingFitBot({
                     style={[
                       styles.messageBubble,
                       m.isUser ? styles.userBubble : styles.botBubble,
+                      isRTL
+                        ? m.isUser
+                          ? {
+                              borderBottomLeftRadius: 4,
+                              borderBottomRightRadius: 20,
+                            }
+                          : {
+                              borderBottomLeftRadius: 20,
+                              borderBottomRightRadius: 4,
+                              marginRight: 6,
+                            }
+                        : {},
                     ]}
                   >
                     {m.isUser || m.isTyping ? (
                       <Text
-                        style={[styles.messageText, m.isUser ? styles.userText : styles.botText]}
+                        style={[
+                          styles.messageText,
+                          m.isUser ? styles.userText : styles.botText,
+                        ]}
                       >
-                        {m.isTyping && !m.isUser ? m.displayText ?? '' : m.text}
-                        {m.isTyping && !m.isUser ? <Text style={styles.cursor}>|</Text> : null}
+                        {m.isTyping && !m.isUser
+                          ? (m.displayText ?? "")
+                          : m.text}
+                        {m.isTyping && !m.isUser ? (
+                          <Text style={styles.cursor}>|</Text>
+                        ) : null}
                       </Text>
                     ) : (
                       <Markdown style={markdownStyles}>{m.text}</Markdown>
@@ -569,9 +613,7 @@ export default function FloatingFitBot({
                 <View style={[styles.messageContainer, styles.botMessage]}>
                   <View style={styles.botAvatar}>
                     <Image
-                      source={{
-                        uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/l39tt3mt1q74w8l7x2p95',
-                      }}
+                      source={require("@/assets/images/fitbot.png")}
                       style={styles.cuteIconAvatar}
                     />
                   </View>
@@ -585,12 +627,17 @@ export default function FloatingFitBot({
             <View
               style={[
                 styles.inputContainer,
-                Platform.OS === 'android' && { marginBottom: androidKeyboardOffset },
+                Platform.OS === "android" && {
+                  marginBottom: androidKeyboardOffset,
+                },
               ]}
             >
               <View className="inputWrapper" style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                  style={[
+                    styles.textInput,
+                    { textAlign: isRTL ? "right" : "left" },
+                  ]}
                   value={inputText}
                   onChangeText={setInputText}
                   placeholder={
@@ -608,18 +655,26 @@ export default function FloatingFitBot({
                 <TouchableOpacity
                   style={[
                     styles.sendButton,
-                    (!inputText.trim() || isLoading || isLoadingLimit || isChatLimitReached) &&
+                    (!inputText.trim() ||
+                      isLoading ||
+                      isLoadingLimit ||
+                      isChatLimitReached) &&
                       styles.sendButtonDisabled,
                   ]}
                   onPress={sendMessage}
-                  disabled={!inputText.trim() || isLoading || isLoadingLimit || isChatLimitReached}
+                  disabled={
+                    !inputText.trim() ||
+                    isLoading ||
+                    isLoadingLimit ||
+                    isChatLimitReached
+                  }
                 >
                   <Send
                     size={20}
                     color={
                       !inputText.trim() || isLoading
-                        ? 'rgba(255,255,255,0.6)'
-                        : 'white'
+                        ? "rgba(255,255,255,0.6)"
+                        : "white"
                     }
                   />
                 </TouchableOpacity>
@@ -634,15 +689,15 @@ export default function FloatingFitBot({
         onClose={() => setShowModal(false)}
         onLogFood={() => {
           setShowModal(false);
-          router.push('../log');
+          router.push("../log");
         }}
         onCreateCustom={() => {
           setShowModal(false);
-          router.push('/modal/createCustomFood');
+          router.push("/modal/createCustomFood");
         }}
         onScanBarcode={() => {
           setShowModal(false);
-          router.push('/(modals)/scanBarcode' as any);
+          router.push("/(modals)/scanBarcode" as any);
         }}
       />
       <FirstSignInSubscriptionModal
@@ -650,7 +705,7 @@ export default function FloatingFitBot({
         onDismiss={() => setShowSubscriptionModal(false)}
         onSubscribe={() => {
           setShowSubscriptionModal(false);
-          router.push('/settings/subscription' as any);
+          router.push("/settings/subscription" as any);
         }}
       />
     </>
@@ -659,152 +714,156 @@ export default function FloatingFitBot({
 
 const styles = StyleSheet.create({
   floatingButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#22c55e',
+    backgroundColor: "#22c55e",
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     zIndex: 1000,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   buttonTouchable: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   modalContainer: { flex: 1 },
   modalHeader: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    borderBottomColor: "rgba(255, 255, 255, 0.2)",
   },
   limitContainer: {
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.16)',
+    borderBottomColor: "rgba(255, 255, 255, 0.16)",
     gap: 6,
   },
   limitRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   limitTitle: {
-    color: 'rgba(255,255,255,0.95)',
+    color: "rgba(255,255,255,0.95)",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   limitCount: {
-    color: '#86efac',
+    color: "#86efac",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   limitCountReached: {
-    color: '#fdba74',
+    color: "#fdba74",
   },
   limitTrack: {
-    width: '100%',
+    width: "100%",
     height: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    overflow: 'hidden',
+    backgroundColor: "rgba(255,255,255,0.22)",
+    overflow: "hidden",
   },
   limitFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 999,
   },
   limitNotice: {
-    color: '#fdba74',
+    color: "#fdba74",
     fontSize: 12,
     lineHeight: 16,
   },
   headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  headerLeft: { flexDirection: "row", alignItems: "center" },
   botIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#22c55e",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 10,
   },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: 'white' },
+  headerTitle: { fontSize: 18, fontWeight: "600", color: "white" },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   contentContainer: { flex: 1 },
   messagesContainer: { flex: 1 },
   messagesContent: { padding: 16, paddingBottom: 8 },
-  messageContainer: { flexDirection: 'row', marginBottom: 16, alignItems: 'flex-end' },
-  userMessage: { justifyContent: 'flex-end' },
-  botMessage: { justifyContent: 'flex-start' },
+  messageContainer: {
+    flexDirection: "row",
+    marginBottom: 16,
+    alignItems: "flex-end",
+  },
+  userMessage: { justifyContent: "flex-end" },
+  botMessage: { justifyContent: "flex-start" },
   botAvatar: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#22c55e",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 8,
     marginBottom: 2,
   },
   messageBubble: {
-    maxWidth: '75%',
+    maxWidth: "75%",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
   },
   userBubble: {
-    backgroundColor: '#00d4ff',
+    backgroundColor: "#00d4ff",
     borderBottomRightRadius: 4,
   },
   botBubble: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: "rgba(255,255,255,0.3)",
   },
   messageText: { fontSize: 16, lineHeight: 22 },
-  userText: { color: 'white' },
-  botText: { color: 'white' },
+  userText: { color: "white" },
+  botText: { color: "white" },
   inputContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: "rgba(255,255,255,0.1)",
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
+    borderTopColor: "rgba(255,255,255,0.2)",
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    flexDirection: "row",
+    alignItems: "flex-end",
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: "rgba(255,255,255,0.3)",
     paddingHorizontal: 16,
     paddingVertical: 8,
     minHeight: 48,
@@ -812,7 +871,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: 'white',
+    color: "white",
     maxHeight: 100,
     paddingVertical: 8,
   },
@@ -820,13 +879,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#00d4ff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#00d4ff",
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: 8,
   },
-  sendButtonDisabled: { backgroundColor: 'rgba(255,255,255,0.3)' },
-  cursor: { color: '#00d4ff', fontWeight: 'bold' },
+  sendButtonDisabled: { backgroundColor: "rgba(255,255,255,0.3)" },
+  cursor: { color: "#00d4ff", fontWeight: "bold" },
   cuteIcon: { width: 52, height: 52, borderRadius: 24 },
   cuteIconHeader: { width: 30, height: 30, borderRadius: 14 },
   cuteIconAvatar: { width: 26, height: 26, borderRadius: 12 },
@@ -834,42 +893,42 @@ const styles = StyleSheet.create({
 
 const markdownStyles = StyleSheet.create({
   body: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
     lineHeight: 22,
     marginTop: 0,
     marginBottom: 0,
   },
   paragraph: {
-    color: 'white',
+    color: "white",
     marginTop: 0,
     marginBottom: 8,
   },
   heading1: {
-    color: 'white',
+    color: "white",
     fontSize: 22,
     marginTop: 0,
     marginBottom: 8,
   },
   heading2: {
-    color: 'white',
+    color: "white",
     fontSize: 20,
     marginTop: 0,
     marginBottom: 8,
   },
   heading3: {
-    color: 'white',
+    color: "white",
     fontSize: 18,
     marginTop: 0,
     marginBottom: 8,
   },
   strong: {
-    color: 'white',
-    fontWeight: '700',
+    color: "white",
+    fontWeight: "700",
   },
   em: {
-    color: 'white',
-    fontStyle: 'italic',
+    color: "white",
+    fontStyle: "italic",
   },
   bullet_list: {
     marginTop: 0,
@@ -880,19 +939,19 @@ const markdownStyles = StyleSheet.create({
     marginBottom: 8,
   },
   list_item: {
-    color: 'white',
+    color: "white",
     marginTop: 0,
     marginBottom: 4,
   },
   code_inline: {
-    color: '#c7f9ff',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    color: "#c7f9ff",
+    backgroundColor: "rgba(255,255,255,0.15)",
     paddingHorizontal: 4,
     borderRadius: 4,
   },
   code_block: {
-    color: '#c7f9ff',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    color: "#c7f9ff",
+    backgroundColor: "rgba(255,255,255,0.15)",
     padding: 8,
     borderRadius: 8,
   },

@@ -98,7 +98,11 @@ export const translations = {
     back: "Back",
     next: "Next >",
     nextAr: "Next",
-    completeSetup: "Complete Setup >",
+    targetWeightQuestion: "Target weight?",
+    targetWeightDescription: "What weight would you like to reach? Remember, gradual changes are more sustainable",
+    anyFoodAllergies: "Any food allergies?",
+    foodAllergiesDescription: "We'll make sure to avoid suggesting foods you can't eat (optional)",
+    completeSetup: "Complete Setup",
 
     // Home Screen
     heyThere: "Hey there!",
@@ -152,7 +156,7 @@ export const translations = {
     weeklyMacrosAverage: "Weekly Macros Average",
 
     // Day Streak Sub-page
-    dayStreak: "DAY STREAK",
+    dayStreak: "Day Streak",
     streakStarted: "Streak started",
     thisWeek: "THIS WEEK",
     moreDaysToUnlock: "more days to unlock your next milestone.",
@@ -272,14 +276,18 @@ export const translations = {
     haveCoupon: "Have a Coupon?",
     enterCoupon: "Enter coupon code",
     pleaseEnterCouponCode: "Please enter coupon code.",
-    apply: "Apply",
     originalPriceLabel: "Original Price",
     total: "Total",
     subscribeNow: "Subscribe Now",
-    firstSignInSubscriptionTitle: "Unlock Unlimited Chat",
+    firstSignInSubscriptionTitle: "Stay accountable with Fitco Premium.",
     firstSignInSubscriptionBody:
       "Subscribe now to unlock unlimited chat messages, unlimited barcode scans, and get the full Fitco experience.",
-    firstSignInSubscriptionCta: "Subscribe",
+    firstSignInSubscriptionFeatures: [
+      "Saudi food database — thousands of verified local foods",
+      "Barcode scanner — log any product instantly",
+      "Fitbot — your AI coach that knows your goals and tracks your progress",
+    ],
+    firstSignInSubscriptionCta: "Try it!",
     firstSignInSubscriptionLater: "Maybe Later",
     firstSignInSubscriptionStartingFrom: "Starting from",
     perMonthly: "/ Monthly",
@@ -311,6 +319,8 @@ export const translations = {
     chatLimitReachedNotice:
       "Daily free chat limit reached. Subscribe for unlimited messages.",
     chatLimitReachedInput: "Daily limit reached. Subscribe to continue.",
+    fitBotWelcome:
+      "Hi! I'm FitBot, your AI fitness assistant! I can help with nutrition advice, workout tips, and meal planning. How can I help you today?",
     noFoodsFound: "No foods found.",
     failedToLoadFoods: "Failed to load foods.",
     missingCheckoutUrl: "Missing checkout URL.",
@@ -380,7 +390,7 @@ export const translations = {
     brandOptional: "Brand (optional)",
     brandOptionalPlaceholder: "e.g., Almarai",
     servingSize: "Serving Size",
-    servingSizePlaceholder: "e.g., 100g or 1 cup",
+    servingSizePlaceholder: "e.g., 100g",
     nutritionFacts: "Nutrition Facts",
     perServing: "Per serving",
     caloriesLabel: "Calories",
@@ -524,7 +534,11 @@ export const translations = {
     back: "رجوع",
     next: "التالي >",
     nextAr: "التالي",
-    completeSetup: "إنهاء الإعداد >",
+    completeSetup: "إنهاء الإعداد",
+    targetWeightQuestion: "ما هو وزنك المستهدف؟",
+    targetWeightDescription: "ما هو الوزن الذي ترغب في الوصول إليه؟ تذكر أن التغييرات التدريجية أكثر استدامة.",
+    anyFoodAllergies: "هل لديك أي حساسية تجاه الطعام؟",
+    foodAllergiesDescription: "سنتأكد من تجنب اقتراح الأطعمة التي لا يمكنك تناولها (اختياري).",
 
     // Home Screen
     heyThere: "هلا فيك!",
@@ -696,10 +710,15 @@ export const translations = {
     originalPriceLabel: "السعر الأصلي",
     total: "المجموع",
     subscribeNow: "اشترك الآن",
-    firstSignInSubscriptionTitle: "افتح محادثة بلا حدود",
+    firstSignInSubscriptionTitle: "حافظ على التزامك مع فتكو",
     firstSignInSubscriptionBody:
       "اشترك الآن لفتح رسائل المحادثة غير المحدودة ومسح الباركود بدون حدود والحصول على تجربة فتكو الكاملة.",
-    firstSignInSubscriptionCta: "اشترك",
+    firstSignInSubscriptionFeatures: [
+      "فت بوت — مدربك الذكي اللي يعرف أهدافك ويتابع تقدمك",
+      "ماسح الباركود — سجل أي منتج فورا",
+      "قاعدة بيانات للأطعمة السعودية — آلاف الأطعمة المحلية الموثوقة",
+    ],
+    firstSignInSubscriptionCta: "جرب الآن!",
     firstSignInSubscriptionLater: "لاحقاً",
     firstSignInSubscriptionStartingFrom: "يبدأ من",
     perMonthly: "/ شهرياً",
@@ -737,6 +756,8 @@ export const translations = {
     chatLimitReachedNotice:
       "تم الوصول إلى الحد اليومي للدردشة المجانية. اشترك للحصول على رسائل غير محدودة.",
     chatLimitReachedInput: "تم الوصول للحد اليومي. اشترك للمتابعة.",
+    fitBotWelcome:
+      "هلا! أنا فيت بوت، مساعدك الذكي للياقة. أقدر أساعدك بنصايح تغذية، تمارين، وتخطيط وجبات. كيف أقدر أخدمك اليوم؟",
     noFoodsFound: "لم يتم العثور على أطعمة.",
     failedToLoadFoods: "فشل تحميل الأطعمة.",
     missingCheckoutUrl: "رابط الدفع غير متوفر.",
@@ -805,7 +826,7 @@ export const translations = {
     brandOptional: "الشركة (اختياري)",
     brandOptionalPlaceholder: "مثال: المراعي",
     servingSize: "حجم الحصة",
-    servingSizePlaceholder: "على سبيل المثال، مثال: 100g او كوب واحد",
+    servingSizePlaceholder: "على سبيل المثال، مثال: 100g",
     nutritionFacts: "المعلومات الغذائية",
     perServing: "لكل حصة",
     caloriesLabel: "السعرات",

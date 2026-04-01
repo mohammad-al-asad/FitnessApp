@@ -56,7 +56,7 @@ export default function ProgressScreen() {
     const date = new Date(dateStr);
     const dayIndex = date.getDay();
     const days = isRTL
-      ? ["احد", "اثنين", "ثلاثاء", "اربعاء", "خميس", "جمعة", "سبت"]
+      ? ["الاحد", "الاثنين", "الثلاثاء", "الاربعاء", "الخميس", "الجمعة", "السبت"]
       : ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
     return t(days[dayIndex] as any);
   };

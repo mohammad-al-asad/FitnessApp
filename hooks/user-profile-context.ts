@@ -69,8 +69,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     try {
       if (!user || !USER_PROFILE_KEY) return;
       const data = await AsyncStorage.getItem(USER_PROFILE_KEY);
-      console.log("🧩 Loading profile from:", USER_PROFILE_KEY);
-      console.log("📦 Raw data found:", data);
 
       // ✅ Also load questionnaire data for missing fields
       const questionnaire = await AsyncStorage.getItem(
@@ -105,53 +103,88 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
         }
 
         setProfile(parsed);
-      } else if (questionnaireData) {
-        // ✅ If no stored profile, build full computed profile from questionnaire
-        const { age, height, weight, gender, activityLevel, goal } =
-          questionnaireData;
-
-        const bmr =
-          10 * weight +
-          6.25 * height -
-          5 * age +
-          (gender === "male" ? 5 : -161);
-        const tdee =
-          bmr *
-          (ACTIVITY_MULTIPLIERS[
-            activityLevel as keyof typeof ACTIVITY_MULTIPLIERS
-          ] || 1.55);
-        const targetCalories = Math.round(
-          tdee + (GOAL_ADJUSTMENTS[goal as keyof typeof GOAL_ADJUSTMENTS] || 0),
-        );
-
-        const macros = {
-          targetProtein: Math.round((targetCalories * 0.3) / 4),
-          targetFat: Math.round((targetCalories * 0.25) / 9),
-          targetCarbs: Math.round((targetCalories * 0.45) / 4),
-        };
-
-        const builtProfile = {
-          userId: user.uid,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          ...questionnaireData,
-          bmr: Math.round(bmr),
-          tdee: Math.round(tdee),
-          targetCalories,
-          ...macros,
-        };
-
-        await AsyncStorage.setItem(
-          USER_PROFILE_KEY,
-          JSON.stringify(builtProfile),
-        );
-        setProfile(builtProfile);
-        console.log("🧱 Built profile from questionnaire:", builtProfile);
       } else {
-        setProfile(null);
+        // ✅ No local profile. Check if the authenticated 'user' object has the data (from server sync)
+        const hasServerProfile =
+          user.age && user.height && user.weight && user.gender;
+
+        if (hasServerProfile) {
+          const {
+            age,
+            height,
+            weight,
+            gender,
+            activityLevel,
+            goal,
+            goals,
+            targetWeight,
+            medicalConditions,
+            allergies,
+          } = user as any;
+
+          const activeGoal = goal || goals || "maintain_weight";
+          const activeActivity = activityLevel || "moderately_active";
+
+          const bmr = calculateBMR(age, height, weight, gender);
+          const tdee = calculateTDEE(bmr, activeActivity);
+          const targetCalories = calculateTargetCalories(tdee, activeGoal);
+          const macros = calculateMacros(targetCalories, activeGoal);
+
+          const builtProfile = {
+            userId: user.uid,
+            createdAt: user.createdAt || new Date().toISOString(),
+            updatedAt: user.updatedAt || new Date().toISOString(),
+            age,
+            height,
+            weight,
+            gender,
+            activityLevel: activeActivity,
+            goal: activeGoal,
+            targetWeight,
+            medicalConditions: medicalConditions || "",
+            allergies: allergies || "",
+            bmr: Math.round(bmr),
+            tdee: Math.round(tdee),
+            targetCalories: Math.round(targetCalories),
+            ...macros,
+          };
+
+          await AsyncStorage.setItem(
+            USER_PROFILE_KEY,
+            JSON.stringify(builtProfile),
+          );
+          setProfile(builtProfile);
+        } else if (questionnaireData) {
+          // ✅ If no server profile, try questionnaire
+          const { age, height, weight, gender, activityLevel, goal } =
+            questionnaireData;
+
+          const bmr = calculateBMR(age, height, weight, gender);
+          const tdee = calculateTDEE(bmr, activityLevel);
+          const targetCalories = calculateTargetCalories(tdee, goal);
+          const macros = calculateMacros(targetCalories, goal);
+
+          const builtProfile = {
+            userId: user.uid,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            ...questionnaireData,
+            bmr: Math.round(bmr),
+            tdee: Math.round(tdee),
+            targetCalories: Math.round(targetCalories),
+            ...macros,
+          };
+
+          await AsyncStorage.setItem(
+            USER_PROFILE_KEY,
+            JSON.stringify(builtProfile),
+          );
+          setProfile(builtProfile);
+        } else {
+          setProfile(null);
+        }
       }
-    } catch (error) {
-      console.error("Error loading user profile:", error);
+    } catch {
     } finally {
       setIsLoading(false);
     }
@@ -278,7 +311,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
         await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(updated));
         setProfile(updated);
-        console.log("✅ Profile updated:", updated);
       } catch (error) {
         console.error("Error updating profile:", error);
       }
@@ -295,14 +327,12 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
         if (stored) {
           const parsed = JSON.parse(stored);
           setProfile(parsed);
-          console.log("🔄 Refreshed profile from AsyncStorage:", parsed);
         }
-      } catch (err) {
-        console.error("Error reloading profile:", err);
+      } catch {
       }
     };
     refresh();
-  }, [USER_PROFILE_KEY]);
+  }, [user, USER_PROFILE_KEY]);
 
   // ✅ Delete profile on logout or user switch
   const deleteProfile = useCallback(async () => {

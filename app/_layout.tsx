@@ -4,7 +4,10 @@ import { AuthProvider, useAuth } from "@/hooks/auth-context";
 import { LanguageProvider, useLanguage } from "@/hooks/language-context";
 import { NutritionProvider } from "@/hooks/nutrition-store";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { UserProfileProvider } from "@/hooks/user-profile-context";
+import {
+  UserProfileProvider,
+  useUserProfile,
+} from "@/hooks/user-profile-context";
 import {
   DarkTheme,
   DefaultTheme,
@@ -15,28 +18,19 @@ import { router, Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import "react-native-reanimated";
 
 // 🔹 Inner app shell that is allowed to use useLanguage()
 function AppShell() {
   const { isRTL } = useLanguage();
   const colorScheme = useColorScheme();
-  const [showSplash, setShowSplash] = useState(false);
-
-  useEffect(() => {
-    // Just log to confirm direction on native
-    console.log("App direction:", isRTL ? "RTL" : "LTR");
-
-    setTimeout(() => {
-      setShowSplash(true);
-    }, 0);
-  }, [isRTL]);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     async function prepare() {
       try {
-        ExpoSplashScreen.preventAutoHideAsync();
+        await ExpoSplashScreen.preventAutoHideAsync();
 
         // 🖼️ Preload About page icons
         const images = [
@@ -47,51 +41,19 @@ function AppShell() {
 
         const cacheImages = images.map((img) => Asset.loadAsync(img));
         await Promise.all(cacheImages);
-
-        // 🍎 Disable heavy food database preload in development
-        // if (!__DEV__) {
-        //   try {
-        //     const foodData = await getFoodsFromSheetCached();
-        //     await AsyncStorage.setItem("cachedFoodDatabase", JSON.stringify(foodData));
-        //     console.log("✅ Food database preloaded and cached");
-        //   } catch (err) {
-        //     console.warn("⚠️ Failed to preload food database", err);
-        //   }
-        // } else {
-        //   console.log("⏩ Skipping food database preload in development");
-        // }
-
-        console.log(
-          "⏩ Skipping food database preload TEMPORARILY in production",
-        );
-
-        // Keep splash for about 4 seconds like before
       } catch (e) {
         console.warn(e);
-      } finally {
-        // leave empty for now
       }
     }
 
     prepare();
-  }, []);
+  }, [isRTL]);
 
   useEffect(() => {
     if (!showSplash) {
       ExpoSplashScreen.hideAsync();
     }
   }, [showSplash]);
-
-  if (showSplash) {
-    return (
-      <SplashScreen
-        onFinish={() => {
-          // DON'T hide native splash yet
-          setShowSplash(false);
-        }}
-      />
-    );
-  }
 
   return (
     <View style={{ flex: 1, direction: isRTL ? "rtl" : "ltr" }}>
@@ -100,6 +62,15 @@ function AppShell() {
           <UserProfileProvider>
             <NutritionProvider>
               <RootNavigator />
+              {showSplash && (
+                <View style={StyleSheet.absoluteFill}>
+                  <SplashScreen
+                    onFinish={() => {
+                      setShowSplash(false);
+                    }}
+                  />
+                </View>
+              )}
               <StatusBar style="light" />
             </NutritionProvider>
           </UserProfileProvider>
@@ -125,13 +96,23 @@ function RootNavigator() {
     firstSignInSubscriptionPromptVisible,
     completeFirstSignInSubscriptionPrompt,
   } = useAuth();
+
+  const { profile, isLoading: isProfileLoading } = useUserProfile();
+  
+  // const firstSignInSubscriptionPromptVisible = true;
+
   const shouldShowSubscriptionPrompt = Boolean(
     user && firstSignInSubscriptionPromptVisible,
   );
+  useEffect(() => {
+    if (user && isInitialized) {
+      router.replace("/(tabs)/home");
+    }
+  }, [isInitialized]);
 
-  console.log(user, firstSignInSubscriptionPromptVisible);
-
-  if (!isInitialized) return null;
+  if (!isInitialized || (user && isProfileLoading)) {
+    return null;
+  }
 
   const handleDismissSubscriptionPrompt = async () => {
     await completeFirstSignInSubscriptionPrompt();
@@ -145,10 +126,16 @@ function RootNavigator() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
-        {!user && <Stack.Screen name="(auth)" options={{ headerShown: false }} />}
-        {user && <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />}
-        {user && <Stack.Screen name="(tabs)" options={{ headerShown: false }} />}
-        {user && <Stack.Screen name="logFood" options={{ presentation: "modal" }} />}
+        {!user ? (
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        ) : !profile ? (
+          <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+        ) : (
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        )}
+        {user && (
+          <Stack.Screen name="logFood" options={{ presentation: "modal" }} />
+        )}
       </Stack>
       <FirstSignInSubscriptionModal
         visible={shouldShowSubscriptionPrompt}

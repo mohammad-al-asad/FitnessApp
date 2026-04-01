@@ -70,17 +70,13 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
       if (result.success) {
         setTimeout(async () => {
           try {
-            console.log("✅ Auth success. isLogin:", isLogin);
-
             if (isLogin) {
               router.replace("/(tabs)/home");
             } else {
               await AsyncStorage.removeItem("hasCompletedQuestionnaire");
-              console.log("🧭 New signup → redirecting to questionnaire");
               router.replace("/(onboarding)/questionnaire");
             }
-          } catch (err) {
-            console.error("Error checking questionnaire status:", err);
+          } catch {
             router.replace("/(onboarding)/questionnaire");
           }
         }, 300);

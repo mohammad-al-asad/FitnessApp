@@ -86,7 +86,7 @@ const ReportIssueScreen = () => {
             styles.sectionTitle,
             {
               color: colors.text,
-              textAlign: isRTL ? "right" : "left",
+              textAlign: isRTL ? "left" : "left",
               marginTop: 0,
             },
           ]}

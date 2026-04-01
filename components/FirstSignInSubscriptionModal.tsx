@@ -26,7 +26,7 @@ export default function FirstSignInSubscriptionModal({
   onSubscribe,
   onDismiss,
 }: FirstSignInSubscriptionModalProps) {
-  const { t } = useLanguage();
+  const { t, tArray, currentLanguage } = useLanguage();
   const colors = useSafeColors();
   const [startingPlan, setStartingPlan] = useState<SubscriptionPlan | null>(
     null,
@@ -66,32 +66,16 @@ export default function FirstSignInSubscriptionModal({
     };
   }, [visible]);
 
-  const formatCurrency = (amount: number, currencyCode: string) => {
-    const currency = (currencyCode || "usd").toUpperCase();
-    const safeAmount = Number.isFinite(amount) ? amount : 0;
-
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency,
-      }).format(safeAmount);
-    } catch {
-      return `$${safeAmount.toFixed(2)}`;
-    }
-  };
 
   const startingPriceText = useMemo(() => {
     if (!startingPlan) return null;
-    const periodLabel =
-      startingPlan.interval?.toLowerCase() === "year"
-        ? (t("perYearly") as string)
-        : (t("perMonthly") as string);
 
-    return `${t("firstSignInSubscriptionStartingFrom") as string} ${formatCurrency(
-      startingPlan.price,
-      startingPlan.currency,
-    )} ${periodLabel}`;
-  }, [startingPlan, t]);
+    const currencyLabel = startingPlan.currency?.toLowerCase() === "sar" ? (currentLanguage === "ar" ? "ريال" : "sr") : startingPlan.currency;
+    const intervalLabel = startingPlan.interval?.toLowerCase() === "year" ? (currentLanguage === "ar" ? "سنة" : "year") : (currentLanguage === "ar" ? "شهر" : "month");
+    const onlyLabel = currentLanguage === "ar" ? "فقط" : "only";
+
+    return `${t("firstSignInSubscriptionStartingFrom") as string} ${onlyLabel} ${startingPlan.price}${currencyLabel}/${intervalLabel}`;
+  }, [startingPlan, t, currentLanguage]);
 
   return (
     <Modal
@@ -133,14 +117,21 @@ export default function FirstSignInSubscriptionModal({
               {t("firstSignInSubscriptionTitle") as string}
             </Text>
 
-            <Text
-              style={[
-                styles.body,
-                { color: colors.placeholder, textAlign: "center" },
-              ]}
-            >
-              {t("firstSignInSubscriptionBody") as string}
-            </Text>
+            <View style={styles.featureList}>
+              {tArray("firstSignInSubscriptionFeatures").map((feature, index) => (
+                <View key={index} style={styles.featureItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={18}
+                    color={colors.primary}
+                    style={styles.featureIcon}
+                  />
+                  <Text style={[styles.featureText, { color: colors.text }]}>
+                    {feature}
+                  </Text>
+                </View>
+              ))}
+            </View>
             {isLoadingPlan ? (
               <ActivityIndicator
                 size="small"
@@ -236,10 +227,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 10,
   },
-  body: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 18,
+  featureList: {
+    width: "100%",
+    marginVertical: 15,
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+    paddingHorizontal: 5,
+  },
+  featureIcon: {
+    marginTop: 2,
+    marginRight: 10,
+  },
+  featureText: {
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
   },
   priceLoading: {
     marginTop: 6,

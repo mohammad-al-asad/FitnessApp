@@ -103,6 +103,7 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
         getQuestionnaireSettings(userId),
       ]);
 
+
       let parsedSettings = storedSettings
         ? JSON.parse(storedSettings)
         : getDefaultSettings(profile);
@@ -123,6 +124,8 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
       }
 
       setSettings(parsedSettings);
+      
+      // Persist the merged settings back
       await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(parsedSettings));
 
       if (storedLogs) {
@@ -147,7 +150,6 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
         setDailyLogs({});
       }
     } catch (e) {
-      console.error("Error loading nutrition data:", e);
     } finally {
       setIsLoading(false);
     }
@@ -187,7 +189,7 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
     if (changed) {
       saveSettings(updatedSettings);
     }
-  }, [profile]);
+  }, [profile, saveSettings, settings]);
 
   const saveDailyLogs = useCallback(
     async (logs: Record<string, DailyLog>) => {
@@ -306,7 +308,6 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
     const todayStr = formatLocalDate(new Date());
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = formatLocalDate(yesterday);
 
     if (!dailyLogs[todayStr]?.foods?.length) {
       checkDate = yesterday;

@@ -240,7 +240,7 @@ await backendUpdateMyCompleteProfile({
               </Text>
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={[styles.inputGroup]}>
               <Text style={[styles.label, { color: colors.text }]}>{t('age')}</Text>
               <WheelPicker
                 data={ageData}
@@ -270,7 +270,7 @@ await backendUpdateMyCompleteProfile({
                 data={heightData}
                 selectedValue={data.height}
                 onValueChange={(value: number) => updateData('height', value)}
-                suffix={isRTL ? 'Ø³Ù…' : ' cm'}
+                suffix={` ${t('cm')}`}
                 testID="height-picker"
               />
               {errors.height && <Text style={[styles.errorText, { color: colors.error }]}>{errors.height}</Text>}
@@ -295,7 +295,7 @@ await backendUpdateMyCompleteProfile({
                 data={weightData}
                 selectedValue={data.weight}
                 onValueChange={(value: number) => updateData('weight', value)}
-                suffix={isRTL ? 'ÙƒØ¬Ù…' : ' kg'}
+                suffix={` ${t('kg')}`}
                 testID="weight-picker"
               />
               {errors.weight && <Text style={[styles.errorText, { color: colors.error }]}>{errors.weight}</Text>}
@@ -429,9 +429,9 @@ await backendUpdateMyCompleteProfile({
             <View style={styles.stepContainer}>
               <View style={styles.stepHeader}>
                 <Target size={32} color={colors.accent} />
-                <Text style={[styles.stepTitle, { color: colors.text }]}>Target weight?</Text>
+                <Text style={[styles.stepTitle, { color: colors.text }]}>{t('targetWeightQuestion')}</Text>
                 <Text style={[styles.stepDescription, { color: colors.text }]}>
-                  What weight would you like to reach? Remember, gradual changes are more sustainable
+                  {t('targetWeightDescription')}
                 </Text>
               </View>
 
@@ -441,7 +441,7 @@ await backendUpdateMyCompleteProfile({
                   data={weightData}
                   selectedValue={data.targetWeight || 70}
                   onValueChange={(value: number) => updateData('targetWeight', value)}
-                  suffix=" kg"
+                  suffix={` ${t('kg')}`}
                   testID="target-weight-picker"
                 />
                 {errors.targetWeight && <Text style={[styles.errorText, { color: colors.error }]}>{errors.targetWeight}</Text>}
@@ -488,9 +488,9 @@ await backendUpdateMyCompleteProfile({
           <View style={styles.stepContainer}>
             <View style={styles.stepHeader}>
               <Calendar size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>Any food allergies?</Text>
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('anyFoodAllergies')}</Text>
               <Text style={[styles.stepDescription, { color: colors.text }]}>
-                We&apos;ll make sure to avoid suggesting foods you can&apos;t eat (optional)
+                {t('foodAllergiesDescription')}
               </Text>
             </View>
 
@@ -543,16 +543,16 @@ await backendUpdateMyCompleteProfile({
         {renderStep()}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer,{flexDirection:isRTL?'row-reverse':'row'}]}>
         {currentStep > 0 && (
           <TouchableOpacity style={styles.backButton} onPress={handleBack} testID="back-button">
             <Text style={[styles.backButtonText, { color: colors.accent }]}>{t('back')}</Text>
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={[styles.nextButton, { backgroundColor: colors.accent }]} onPress={handleNext} testID="next-button">
+        <TouchableOpacity style={[styles.nextButton, { backgroundColor: colors.accent },{flexDirection:isRTL?'row-reverse':'row'}]} onPress={handleNext} testID="next-button">
           <Text style={[styles.nextButtonText, { color: colors.background }]}>
-            {currentStep === ((data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 8 : 7) ? t('completeSetupButton') : t('nextAr')}
+            {currentStep === ((data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 8 : 7) ? t('completeSetup') : t('nextAr')}
           </Text>
           <ChevronRight size={20} color={colors.background} />
         </TouchableOpacity>

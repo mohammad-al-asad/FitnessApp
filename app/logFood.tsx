@@ -752,7 +752,7 @@ export default function LogFoodScreen() {
           <View style={styles.goalItem}>
             <View style={styles.goalHeader}>
               <Text style={styles.goalName}>{t("caloriesLabel")}</Text>
-              {isRTL ? (
+              {!isRTL ? (
                 <Text style={styles.goalValues}>
                   {settings.calorieGoal} / {nutrition.calories}
                 </Text>
@@ -808,7 +808,7 @@ export default function LogFoodScreen() {
               <View key={item.key} style={styles.goalItem}>
                 <View style={styles.goalHeader}>
                   <Text style={styles.goalName}>{item.name}</Text>
-                  {isRTL ? (
+                  {!isRTL ? (
                     <Text style={styles.goalValues}>
                       {item.goal}
                       {t("g")} / {item.current}

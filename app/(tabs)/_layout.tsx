@@ -256,7 +256,6 @@ export default function TabLayout() {
         }}
       />
       {/* Hidden Screens */}
-      <Tabs.Screen name="createCustomFood" options={{ href: null }} />
       <Tabs.Screen name="scanBarcode" options={{ href: null }} />
     </Tabs>
   );
