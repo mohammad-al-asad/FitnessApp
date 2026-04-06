@@ -111,6 +111,8 @@ export type SubscriptionPlan = {
   price: number;
   priceCents: number;
   currency: string;
+  apple_sku?: string;
+  google_sku?: string;
 };
 
 export type CreateSubscriptionPayload = {
@@ -156,6 +158,21 @@ export type CreateSubscriptionResponse = {
   checkoutSessionId: string;
   checkoutUrl: string;
   quote?: SubscriptionQuote;
+};
+
+export type VerifyApplePurchasePayload = {
+  transactionId: string;
+};
+
+export type VerifyGooglePurchasePayload = {
+  purchaseToken: string;
+  productId?: string;
+};
+
+export type VerifyIapResponse = {
+  success: boolean;
+  message: string;
+  user?: BackendUser;
 };
 
 function normalizeBaseUrl(raw?: string): string {
@@ -677,7 +694,7 @@ export async function backendGetSubscriptionPlans(): Promise<
 > {
   const { token } = await readStoredSession();
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-  const json = await request("/api/v1/subscriptions/plans", {
+  const json = await request("/api/v1/subscription/plans", {
     method: "GET",
     headers,
   });
@@ -696,7 +713,61 @@ export async function backendGetSubscriptionPlans(): Promise<
     price: Number(plan?.price ?? 0),
     priceCents: Number(plan?.priceCents ?? 0),
     currency: String(plan?.currency ?? "usd").toLowerCase(),
+    apple_sku: plan?.apple_sku ? String(plan.apple_sku) : undefined,
+    google_sku: plan?.google_sku ? String(plan.google_sku) : undefined,
   }));
+}
+
+export async function backendVerifyApplePurchase(
+  payload: VerifyApplePurchasePayload,
+): Promise<VerifyIapResponse> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/subscription/apple/verify", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const root = json?.data ?? json;
+  if (root?.user) {
+    await saveSession(toBackendUser(root.user));
+  }
+
+  return {
+    success: Boolean(root?.success ?? true),
+    message: String(root?.message ?? ""),
+    user: root?.user ? toBackendUser(root.user) : undefined,
+  };
+}
+
+export async function backendVerifyGooglePurchase(
+  payload: VerifyGooglePurchasePayload,
+): Promise<VerifyIapResponse> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/subscription/google/verify", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const root = json?.data ?? json;
+  if (root?.user) {
+    await saveSession(toBackendUser(root.user));
+  }
+
+  return {
+    success: Boolean(root?.success ?? true),
+    message: String(root?.message ?? ""),
+    user: root?.user ? toBackendUser(root.user) : undefined,
+  };
 }
 
 export async function backendCreateSubscription(
@@ -705,7 +776,7 @@ export async function backendCreateSubscription(
   const { token } = await readStoredSession();
   if (!token) throw new Error("No auth token");
 
-  const json = await request("/api/v1/subscriptions", {
+  const json = await request("/api/v1/subscription", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -743,7 +814,7 @@ export async function backendGetSubscriptionQuote(
   const { token } = await readStoredSession();
   if (!token) throw new Error("No auth token");
 
-  const json = await request("/api/v1/subscriptions/quote", {
+  const json = await request("/api/v1/subscription/quote", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -771,7 +842,7 @@ export async function backendGetMySubscriptionStatus(): Promise<MySubscriptionSt
   const { token } = await readStoredSession();
   if (!token) throw new Error("No auth token");
 
-  const json = await request("/api/v1/subscriptions/me/status", {
+  const json = await request("/api/v1/subscription/status", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
