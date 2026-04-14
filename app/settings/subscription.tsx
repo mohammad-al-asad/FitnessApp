@@ -1,19 +1,22 @@
+import {
+  STATIC_SUBSCRIPTION_PLANS,
+  type SubscriptionPlan,
+} from "@/constants/subscriptions";
 import { TranslationKey } from "@/constants/translations";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import {
   backendGetMySubscriptionStatus,
-  backendGetSubscriptionPlans,
   backendVerifyApplePurchase,
   backendVerifyGooglePurchase,
   type MySubscriptionStatus,
-  type SubscriptionPlan,
 } from "@/services/backend-auth";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Platform,
   ScrollView,
   StatusBar,
@@ -25,6 +28,33 @@ import {
 } from "react-native";
 import { useIAP } from "react-native-iap";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const SkeletonBar = ({ width = 80, height = 18 }: { width?: number; height?: number }) => {
+  const pulse = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [pulse]);
+
+  return (
+    <Animated.View
+      style={{
+        width,
+        height,
+        borderRadius: 6,
+        backgroundColor: "#333",
+        opacity: pulse,
+      }}
+    />
+  );
+};
 
 // Updated Product IDs from App Store Connect
 // On Android, we only query the main Subscription ID (which contains multiple base plans).
@@ -51,15 +81,17 @@ const UpgradePlanScreen = () => {
     onPurchaseSuccess: async (purchase) => {
       try {
         setIsProcessingPurchase(true);
+        let verifyResult;
         if (Platform.OS === "ios") {
-          await backendVerifyApplePurchase({
+          verifyResult = await backendVerifyApplePurchase({
             transactionId: purchase.transactionId || "",
           });
         } else {
-          await backendVerifyGooglePurchase({
+          verifyResult = await backendVerifyGooglePurchase({
             purchaseToken: purchase.purchaseToken!,
           });
         }
+
 
         await finishTransaction({ purchase, isConsumable: false });
         Alert.alert(String(t("success")), String(t("subscriptionActivated")));
@@ -79,7 +111,7 @@ const UpgradePlanScreen = () => {
     },
   });
 
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(STATIC_SUBSCRIPTION_PLANS);
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
@@ -102,17 +134,8 @@ const UpgradePlanScreen = () => {
     try {
       setIsLoadingPlans(true);
 
-      const [plansResult, statusResult] = await Promise.allSettled([
-        backendGetSubscriptionPlans(),
-        backendGetMySubscriptionStatus(),
-      ]);
-
-      if (plansResult.status === "fulfilled") {
-        setPlans(plansResult.value);
-      }
-      if (statusResult.status === "fulfilled") {
-        setSubscriptionStatus(statusResult.value);
-      }
+      const statusResult = await backendGetMySubscriptionStatus();
+      setSubscriptionStatus(statusResult);
 
       if (connected) {
         await fetchProducts({ skus: IAP_SKUS, type: "subs" });
@@ -128,7 +151,6 @@ const UpgradePlanScreen = () => {
     loadInitialData();
   }, [loadInitialData]);
 
-  // Removed old useEffects for purchase handling as they are now handled in useIAP callbacks
 
   const selectedPlan =
     plans.find((p) => p.planType === selectedPeriod) ?? plans[0];
@@ -138,9 +160,21 @@ const UpgradePlanScreen = () => {
 
     if (Platform.OS === "ios") {
       const sku = selectedPlan.apple_sku;
-      return subscriptions.find(
+      const sub = subscriptions.find(
         (s: any) => s.productId === sku || s.id === sku,
       );
+      if (sub) {
+        const hasIntroOffer = !!sub.introductoryPrice;
+        return {
+          ...sub,
+          basePlanPrice: sub.localizedPrice || sub.price,
+          displayPrice: hasIntroOffer
+            ? sub.introductoryPriceAsAmountIOS || sub.introductoryPrice
+            : sub.localizedPrice || sub.price,
+          isDiscounted: hasIntroOffer,
+        };
+      }
+      return null;
     } else {
       // For Android, find the main subscription product first
       const mainSub = subscriptions.find(
@@ -150,49 +184,63 @@ const UpgradePlanScreen = () => {
 
       // Search for offers inside the subscription
       const subAsAny = mainSub as any;
-      if (mainSub && subAsAny.subscriptionOffers) {
+      const offers = subAsAny
+        ? (subAsAny.subscriptionOffers || subAsAny.subscriptionOfferDetailsAndroid)
+        : null;
+
+      if (mainSub && offers && Array.isArray(offers)) {
         const targetBasePlanId = selectedPlan.google_sku;
-        const offers = subAsAny.subscriptionOffers as any[];
+
+        // Find the base plan offer
+        const basePlanOffers = offers.filter(
+          (o) =>
+            o.basePlanId === targetBasePlanId ||
+            o.basePlanIdAndroid === targetBasePlanId,
+        );
+        const basePlanOffer =
+          basePlanOffers.find((o) => o.id === targetBasePlanId) ||
+          basePlanOffers.find((o) => !o.offerId && !o.offerIdAndroid) ||
+          basePlanOffers[0];
 
         // 1. Attempt to find matching offer code if one is applied
         let specificOffer = null;
         if (appliedOfferCode) {
           specificOffer = offers.find(
             (offer) =>
-              offer.basePlanId === targetBasePlanId &&
-              offer.offerId === appliedOfferCode,
+              (offer.basePlanId === targetBasePlanId ||
+                offer.basePlanIdAndroid === targetBasePlanId) &&
+              (offer.offerId === appliedOfferCode ||
+                offer.offerIdAndroid === appliedOfferCode ||
+                offer.id === appliedOfferCode),
           );
         }
 
-        // 2. Fall back to standard offer (null/empty offerId) if no match or no code
+        // 2. Fall back to standard offer
         if (!specificOffer) {
-          specificOffer = offers.find(
-            (offer) => offer.basePlanId === targetBasePlanId && !offer.offerId,
-          );
+          specificOffer = basePlanOffer;
         }
 
-        // 3. Last resort fallback
-        if (!specificOffer) {
-          specificOffer = offers.find(
-            (offer) => offer.basePlanId === targetBasePlanId,
-          );
-        }
-
-        const basePlanOffer = offers.find(
-          (o) => o.basePlanId === targetBasePlanId && !o.offerId,
-        );
+        const pricingPhases =
+          specificOffer?.pricingPhases?.pricingPhaseList ||
+          specificOffer?.pricingPhasesAndroid?.pricingPhaseList;
+        const basePricingPhases =
+          basePlanOffer?.pricingPhases?.pricingPhaseList ||
+          basePlanOffer?.pricingPhasesAndroid?.pricingPhaseList;
 
         // Return a merged object so your UI and price formatting still works
         return {
           ...mainSub,
           basePlanPrice:
-            basePlanOffer?.pricingPhases?.pricingPhaseList?.[0]
-              ?.formattedPrice || mainSub.displayPrice,
+            basePricingPhases?.[0]?.formattedPrice || mainSub.displayPrice,
           displayPrice:
-            specificOffer?.pricingPhases?.pricingPhaseList?.[0]
-              ?.formattedPrice || mainSub.displayPrice,
-          offerTokenToUse: specificOffer?.offerToken,
-          isDiscounted: Boolean(specificOffer?.offerId),
+            pricingPhases?.[0]?.formattedPrice || mainSub.displayPrice,
+          offerTokenToUse:
+            specificOffer?.offerToken || specificOffer?.offerTokenAndroid,
+          isDiscounted: Boolean(
+            specificOffer?.offerId ||
+              specificOffer?.offerIdAndroid ||
+              (specificOffer?.id && specificOffer?.id !== targetBasePlanId),
+          ),
         } as any;
       }
       return mainSub;
@@ -257,21 +305,51 @@ const UpgradePlanScreen = () => {
   };
 
   const handleApplyCoupon = () => {
-    if (!couponText.trim()) return;
+    if (Platform.OS === "ios") {
+      // Apple doesn't support typed coupon codes — open the native redemption sheet
+      try {
+        const RNIap = require("react-native-iap");
+        if (RNIap.presentCodeRedemptionSheetIOS) {
+          RNIap.presentCodeRedemptionSheetIOS();
+        } else {
+          Alert.alert(
+            String(t("error")),
+            "Code redemption is not available on this device.",
+          );
+        }
+      } catch {
+        Alert.alert(
+          String(t("error")),
+          "Code redemption is not available on this device.",
+        );
+      }
+      return;
+    }
 
-    // Check if the code actually exists in our available offers
-    const offers = (nativeStoreProduct as any)?.subscriptionOffers as any[];
-    const offerExists = offers?.some(
-      (off) =>
-        off.basePlanId === selectedPlan?.google_sku &&
-        off.offerId === couponText.trim(),
-    );
+    // Android: check if the code exists in available offers
+    const code = couponText.trim().toLowerCase();
+    if (!code) return;
+
+    const subAsAny = nativeStoreProduct as any;
+    const offers = (subAsAny?.subscriptionOffers ||
+      subAsAny?.subscriptionOfferDetailsAndroid) as any[];
+
+    const offerExists = offers?.some((off) => {
+      const isCorrectBasePlan =
+        off.basePlanId === selectedPlan?.google_sku ||
+        off.basePlanIdAndroid === selectedPlan?.google_sku;
+
+      const isCorrectOfferCode =
+        off.offerId === code || off.offerIdAndroid === code || off.id === code;
+
+      return isCorrectBasePlan && isCorrectOfferCode;
+    });
 
     if (offerExists) {
-      setAppliedOfferCode(couponText.trim());
-      Alert.alert(String(t("success")), "Coupon Applied!");
+      setAppliedOfferCode(code);
+      Alert.alert(String(t("success")), String(t("couponApplied")));
     } else {
-      Alert.alert(String(t("error")), "Invalid coupon code");
+      Alert.alert(String(t("error")), String(t("invalidCoupon")));
     }
   };
 
@@ -390,14 +468,25 @@ const UpgradePlanScreen = () => {
                 { flexDirection: isRTL ? "row-reverse" : "row" },
               ]}
             >
-              <Text style={[styles.price, { color: colors.text }]}>
-                {formatCurrency(selectedPlan.price, selectedPlan.currency)}
-                <Text style={styles.periodText}>
-                  {selectedPlan.interval === "month"
-                    ? t("perMonthly")
-                    : t("perYearly")}
-                </Text>
-              </Text>
+              <View>
+                {nativeStoreProduct?.isDiscounted && (
+                  <Text style={[styles.originalPriceText, { color: colors.placeholder, textDecorationLine: 'line-through' }]}>
+                    {nativeStoreProduct.basePlanPrice}
+                  </Text>
+                )}
+                {nativeStoreProduct?.displayPrice ? (
+                  <Text style={[styles.price, { color: colors.text }]}>
+                    {nativeStoreProduct.displayPrice}
+                    <Text style={styles.periodText}>
+                      {selectedPlan.interval === "month"
+                        ? t("perMonthly")
+                        : t("perYearly")}
+                    </Text>
+                  </Text>
+                ) : (
+                  <SkeletonBar width={100} height={28} />
+                )}
+              </View>
             </View>
 
             {features.map((f, i) => (
@@ -424,46 +513,63 @@ const UpgradePlanScreen = () => {
               </View>
             ))}
 
-            <TouchableOpacity
-              style={[styles.innerButton, { backgroundColor: colors.primary }]}
-            >
-              <Text style={styles.innerButtonText}>
-                {t("choosePremiumPlus")}
-              </Text>
-            </TouchableOpacity>
           </View>
         )}
 
         {/* Coupon Section */}
-        <View style={styles.couponSection}>
-          <Text style={[styles.couponTitle, { color: colors.text }]}>
-            {t("haveACoupon")}
-          </Text>
-          <View style={styles.couponInputWrapper}>
-            <TextInput
-              style={[
-                styles.couponInput,
-                {
-                  backgroundColor: "#1A1A1A",
-                  color: colors.text,
-                  borderColor: colors.surface,
-                },
-              ]}
-              placeholder={String(t("enterCouponCode"))}
-              placeholderTextColor={colors.placeholder}
-              value={couponText}
-              onChangeText={setCouponText}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+        {Platform.OS === "ios" ? (
+          <View style={styles.couponSection}>
             <TouchableOpacity
-              style={[styles.applyButton, { backgroundColor: colors.primary }]}
+              style={[
+                styles.applyButton,
+                { backgroundColor: colors.primary, paddingHorizontal: 20 },
+              ]}
               onPress={handleApplyCoupon}
             >
-              <Text style={styles.applyButtonText}>{t("apply")}</Text>
+              <Text style={styles.applyButtonText}>
+                {t("haveACoupon")}
+              </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          <View style={styles.couponSection}>
+            <Text style={[styles.couponTitle, { color: colors.text }]}>
+              {t("haveACoupon")}
+            </Text>
+            <View style={styles.couponInputWrapper}>
+              <TextInput
+                style={[
+                  styles.couponInput,
+                  {
+                    backgroundColor: "#1A1A1A",
+                    color: colors.text,
+                    borderColor: colors.surface,
+                  },
+                ]}
+                placeholder={String(t("enterCouponCode"))}
+                placeholderTextColor={colors.placeholder}
+                value={couponText}
+                onChangeText={(txt) => setCouponText(txt.toLowerCase())}
+                editable={!appliedOfferCode}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.applyButton, 
+                  { backgroundColor: colors.primary },
+                  (appliedOfferCode || !couponText.trim()) && { opacity: 0.5 }
+                ]}
+                onPress={handleApplyCoupon}
+                disabled={Boolean(appliedOfferCode) || !couponText.trim()}
+              >
+                <Text style={styles.applyButtonText}>
+                  {appliedOfferCode ? t("applied") : t("apply")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Summary Card */}
         <View style={[styles.summaryCard, { backgroundColor: "#1A1A1A" }]}>
@@ -472,14 +578,38 @@ const UpgradePlanScreen = () => {
               {t("originalPrice")}
             </Text>
             <Text style={[styles.summaryValue, { color: colors.placeholder }]}>
-              {nativeStoreProduct?.basePlanPrice ||
-                formatCurrency(
-                  selectedPlan?.price || 0,
-                  selectedPlan?.currency || "USD",
-                )}
+              {nativeStoreProduct?.basePlanPrice || (
+                <SkeletonBar width={70} height={16} />
+              )}
             </Text>
           </View>
-          <View style={styles.divider} />
+          
+          {appliedOfferCode && (
+            <>
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[styles.summaryLabel, { color: colors.placeholder }]}
+                >
+                  {t("appliedCoupon") || "Coupon"}
+                </Text>
+                <Text style={[styles.summaryValue, { color: colors.primary }]}>
+                  {appliedOfferCode.toUpperCase()}
+                </Text>
+              </View>
+              {nativeStoreProduct?.isDiscounted && (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: "#4CAF50" }]}>
+                    {t("discountPercentage") || "Discount Applied"}
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: "#4CAF50" }]}>
+                    {t("saved") || "SAVED!"}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.divider} />
+            </>
+          )}
+
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: colors.text }]}>
               {t("total")}
@@ -487,12 +617,11 @@ const UpgradePlanScreen = () => {
             <Text
               style={[
                 styles.summaryValue,
-                { color: colors.primary, fontWeight: "bold" },
+                { color: colors.primary, fontWeight: "bold", fontSize: 20 },
               ]}
             >
-              {formatCurrency(
-                selectedPlan?.price || 0,
-                selectedPlan?.currency || "USD",
+              {nativeStoreProduct?.displayPrice || (
+                <SkeletonBar width={90} height={22} />
               )}
             </Text>
           </View>
@@ -573,6 +702,7 @@ const styles = StyleSheet.create({
   planSubtitle: { fontSize: 14, marginBottom: 24 },
   priceContainer: { alignItems: "baseline", marginBottom: 24 },
   price: { fontSize: 32, fontWeight: "bold" },
+  originalPriceText: { fontSize: 16, marginBottom: -4, opacity: 0.7 },
   periodText: { fontSize: 16, fontWeight: "normal", opacity: 0.6 },
   featureItem: { alignItems: "center", marginBottom: 16 },
   featureText: { fontSize: 14, opacity: 0.9 },

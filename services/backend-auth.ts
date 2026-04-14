@@ -135,15 +135,16 @@ export type SubscriptionQuote = {
 
 export type ActiveSubscription = {
   id: string;
-  stripeSubscriptionId: string;
-  createdAt: string;
-  expiryDate: string;
+  platform: string;
   planType: string;
+  productId: string;
   price: number;
-  startedAt: string;
+  expiryDate: string;
   status: string;
-  stripeCheckoutSessionId: string;
-  stripeCustomerId: string;
+  isActive: boolean;
+  providerSubscriptionId: string;
+  startedAt: string;
+  createdAt: string;
   updatedAt: string;
   user: string;
 };
@@ -265,7 +266,6 @@ async function request(path: string, init?: RequestInit): Promise<any> {
 
     throw error;
   }
-  
 
   const text = await response.text();
   const json = text ? safeJson(text) : {};
@@ -460,7 +460,9 @@ export async function backendDeleteAccount(): Promise<void> {
 export async function backendGetPublicCms(
   cmsKey: "privacy" | "about" | "terms",
 ): Promise<PublicCmsContent> {
-  const json = await request(`/api/v1/cms/public/${encodeURIComponent(cmsKey)}`);
+  const json = await request(
+    `/api/v1/cms/public/${encodeURIComponent(cmsKey)}`,
+  );
   const root = json?.data ?? json;
   return {
     key: String(root?.key ?? cmsKey),
@@ -469,7 +471,9 @@ export async function backendGetPublicCms(
   };
 }
 
-export async function backendSubmitReport(payload: ReportPayload): Promise<void> {
+export async function backendSubmitReport(
+  payload: ReportPayload,
+): Promise<void> {
   const { token } = await readStoredSession();
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -585,7 +589,10 @@ export async function backendUpdateMyCompleteProfile(
   const normalizedUser = rawUser ? toBackendUser(rawUser) : undefined;
 
   if (normalizedUser) {
-    await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(normalizedUser));
+    await AsyncStorage.setItem(
+      USER_STORAGE_KEY,
+      JSON.stringify(normalizedUser),
+    );
   }
 
   return {
@@ -673,7 +680,10 @@ export async function backendUpdateDailyGoal(
 
       const result = normalizeDailyGoalResponse(json);
       if (result.user) {
-        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user));
+        await AsyncStorage.setItem(
+          USER_STORAGE_KEY,
+          JSON.stringify(result.user),
+        );
       }
       return result;
     } catch (error: any) {
@@ -689,34 +699,6 @@ export async function backendUpdateDailyGoal(
   throw lastError ?? new Error("Failed to update daily goal");
 }
 
-export async function backendGetSubscriptionPlans(): Promise<
-  SubscriptionPlan[]
-> {
-  const { token } = await readStoredSession();
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-  const json = await request("/api/v1/subscription/plans", {
-    method: "GET",
-    headers,
-  });
-
-  const root = json?.data ?? json;
-  const rawPlans = Array.isArray(root)
-    ? root
-    : Array.isArray(root?.plans)
-      ? root.plans
-      : [];
-
-  return rawPlans.map((plan: any) => ({
-    planType: String(plan?.planType ?? plan?.type ?? ""),
-    interval: String(plan?.interval ?? ""),
-    label: String(plan?.label ?? ""),
-    price: Number(plan?.price ?? 0),
-    priceCents: Number(plan?.priceCents ?? 0),
-    currency: String(plan?.currency ?? "usd").toLowerCase(),
-    apple_sku: plan?.apple_sku ? String(plan.apple_sku) : undefined,
-    google_sku: plan?.google_sku ? String(plan.google_sku) : undefined,
-  }));
-}
 
 export async function backendVerifyApplePurchase(
   payload: VerifyApplePurchasePayload,
@@ -860,15 +842,18 @@ export async function backendGetMySubscriptionStatus(): Promise<MySubscriptionSt
     activeSubscription: active
       ? {
           id: String(active?._id ?? active?.id ?? ""),
-          stripeSubscriptionId: String(active?.stripeSubscriptionId ?? ""),
-          createdAt: String(active?.createdAt ?? ""),
-          expiryDate: String(active?.expiryDate ?? ""),
+          platform: String(active?.platform ?? ""),
           planType: String(active?.planType ?? ""),
+          productId: String(active?.productId ?? ""),
           price: Number(active?.price ?? 0),
-          startedAt: String(active?.startedAt ?? ""),
+          expiryDate: String(active?.expiryDate ?? ""),
           status: String(active?.status ?? ""),
-          stripeCheckoutSessionId: String(active?.stripeCheckoutSessionId ?? ""),
-          stripeCustomerId: String(active?.stripeCustomerId ?? ""),
+          isActive: Boolean(active?.isActive ?? false),
+          providerSubscriptionId: String(
+            active?.providerSubscriptionId ?? "",
+          ),
+          startedAt: String(active?.startedAt ?? ""),
+          createdAt: String(active?.createdAt ?? ""),
           updatedAt: String(active?.updatedAt ?? ""),
           user: String(active?.user ?? ""),
         }

@@ -1,9 +1,11 @@
 import colors from "@/constants/colors";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import {
-  backendGetSubscriptionPlans,
-  type SubscriptionPlan,
 } from "@/services/backend-auth";
+import {
+  STATIC_SUBSCRIPTION_PLANS,
+  type SubscriptionPlan,
+} from "@/constants/subscriptions";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -34,36 +36,15 @@ export default function FirstSignInSubscriptionModal({
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
+    if (!visible) return;
 
-    const loadStartingPlan = async () => {
-      if (!visible) return;
+    const plans = STATIC_SUBSCRIPTION_PLANS;
+    const monthlyPlan =
+      plans.find((plan) => plan.interval?.toLowerCase() === "month") ??
+      plans.find((plan) => plan.planType?.toLowerCase() === "monthly") ??
+      [...plans].sort((a, b) => a.price - b.price)[0];
 
-      try {
-        setIsLoadingPlan(true);
-        const plans = await backendGetSubscriptionPlans();
-        if (!isMounted || plans.length === 0) return;
-
-        const monthlyPlan =
-          plans.find((plan) => plan.interval?.toLowerCase() === "month") ??
-          plans.find((plan) => plan.planType?.toLowerCase() === "monthly") ??
-          [...plans].sort((a, b) => a.price - b.price)[0];
-
-        setStartingPlan(monthlyPlan ?? null);
-      } catch {
-        if (!isMounted) return;
-        setStartingPlan(null);
-      } finally {
-        if (!isMounted) return;
-        setIsLoadingPlan(false);
-      }
-    };
-
-    loadStartingPlan();
-
-    return () => {
-      isMounted = false;
-    };
+    setStartingPlan(monthlyPlan ?? null);
   }, [visible]);
 
 

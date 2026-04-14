@@ -2,8 +2,9 @@ import { getApp, getApps, initializeApp } from "firebase/app";
 import { 
   getAuth, 
   initializeAuth, 
+  // @ts-ignore - getReactNativePersistence may not be recognized by default TS config but is available in React Native environment
   getReactNativePersistence 
-} from "firebase/auth"; // Import these
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
