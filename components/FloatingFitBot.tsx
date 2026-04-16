@@ -610,14 +610,30 @@ export default function FloatingFitBot({
               ))}
 
               {isLoading && (
-                <View style={[styles.messageContainer, styles.botMessage]}>
+                <View
+                  style={[
+                    styles.messageContainer,
+                    { flexDirection: isRTL ? "row-reverse" : "row" },
+                    styles.botMessage,
+                  ]}
+                >
                   <View style={styles.botAvatar}>
                     <Image
                       source={require("@/assets/images/fitbot.png")}
                       style={styles.cuteIconAvatar}
                     />
                   </View>
-                  <View style={[styles.messageBubble, styles.botBubble]}>
+                  <View
+                    style={[
+                      styles.messageBubble,
+                      styles.botBubble,
+                      isRTL && {
+                        borderBottomLeftRadius: 20,
+                        borderBottomRightRadius: 4,
+                        marginRight: 6,
+                      },
+                    ]}
+                  >
                     <ActivityIndicator size="small" color="#00d4ff" />
                   </View>
                 </View>
@@ -643,7 +659,7 @@ export default function FloatingFitBot({
                   placeholder={
                     isChatLimitReached
                       ? String(t("chatLimitReachedInput"))
-                      : "Ask me anything about fitness..."
+                      : String(t("chatInputPlaceholder"))
                   }
                   placeholderTextColor="rgba(255,255,255,0.6)"
                   multiline

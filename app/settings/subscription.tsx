@@ -12,7 +12,13 @@ import {
 } from "@/services/backend-auth";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,14 +35,28 @@ import {
 import { useIAP } from "react-native-iap";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const SkeletonBar = ({ width = 80, height = 18 }: { width?: number; height?: number }) => {
+const SkeletonBar = ({
+  width = 80,
+  height = 18,
+}: {
+  width?: number;
+  height?: number;
+}) => {
   const pulse = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
       ]),
     );
     animation.start();
@@ -49,10 +69,114 @@ const SkeletonBar = ({ width = 80, height = 18 }: { width?: number; height?: num
         width,
         height,
         borderRadius: 6,
-        backgroundColor: "#333",
+        backgroundColor: "#404040",
         opacity: pulse,
       }}
     />
+  );
+};
+
+const SubscriptionSkeleton = () => {
+  const colors = useSafeColors();
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={{ alignItems: "center", marginBottom: 24 }}>
+        <SkeletonBar width={200} height={14} />
+      </View>
+
+      <View
+        style={[
+          styles.toggleContainer,
+          {
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <View style={{ flex: 1, padding: 12, alignItems: "center" }}>
+          <SkeletonBar width={60} height={16} />
+        </View>
+        <View style={{ flex: 1, padding: 12, alignItems: "center" }}>
+          <SkeletonBar width={60} height={16} />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.planCard,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            opacity: 0.6,
+          },
+        ]}
+      >
+        <SkeletonBar width={100} height={24} />
+        <View style={{ height: 8 }} />
+        <SkeletonBar width={180} height={14} />
+        <View style={{ height: 24 }} />
+        <SkeletonBar width={140} height={32} />
+        <View style={{ height: 24 }} />
+        {[1, 2, 3, 4].map((i) => (
+          <View
+            key={i}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <SkeletonBar width={18} height={18} />
+            <View style={{ width: 12 }} />
+            <SkeletonBar width={150} height={14} />
+          </View>
+        ))}
+      </View>
+
+      <View
+        style={[
+          styles.summaryCard,
+          {
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            opacity: 0.6,
+          },
+        ]}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+        >
+          <SkeletonBar width={100} height={16} />
+          <SkeletonBar width={60} height={16} />
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <SkeletonBar width={80} height={20} />
+          <SkeletonBar width={90} height={24} />
+        </View>
+      </View>
+
+      <View
+        style={{
+          height: 62,
+          borderRadius: 16,
+          backgroundColor: colors.surface,
+          opacity: 0.4,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <SkeletonBar width={140} height={20} />
+      </View>
+    </ScrollView>
   );
 };
 
@@ -92,7 +216,6 @@ const UpgradePlanScreen = () => {
           });
         }
 
-
         await finishTransaction({ purchase, isConsumable: false });
         Alert.alert(String(t("success")), String(t("subscriptionActivated")));
         loadInitialData();
@@ -111,7 +234,9 @@ const UpgradePlanScreen = () => {
     },
   });
 
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(STATIC_SUBSCRIPTION_PLANS);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(
+    STATIC_SUBSCRIPTION_PLANS,
+  );
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
@@ -151,7 +276,6 @@ const UpgradePlanScreen = () => {
     loadInitialData();
   }, [loadInitialData]);
 
-
   const selectedPlan =
     plans.find((p) => p.planType === selectedPeriod) ?? plans[0];
 
@@ -165,12 +289,19 @@ const UpgradePlanScreen = () => {
       );
       if (sub) {
         const hasIntroOffer = !!sub.introductoryPrice;
+        const rawBasePrice = sub.localizedPrice || sub.price || "0";
+        const rawDisplayPrice = hasIntroOffer
+          ? sub.introductoryPriceAsAmountIOS || sub.introductoryPrice || "0"
+          : rawBasePrice;
+
         return {
           ...sub,
-          basePlanPrice: sub.localizedPrice || sub.price,
-          displayPrice: hasIntroOffer
-            ? sub.introductoryPriceAsAmountIOS || sub.introductoryPrice
-            : sub.localizedPrice || sub.price,
+          basePlanPrice: rawBasePrice,
+          displayPrice: rawDisplayPrice,
+          baseAmount: parseFloat(String(rawBasePrice).replace(/[^0-9.]/g, "")) || 0,
+          displayAmount:
+            parseFloat(String(rawDisplayPrice).replace(/[^0-9.]/g, "")) || 0,
+          currencyCode: (sub as any).currency || "USD",
           isDiscounted: hasIntroOffer,
         };
       }
@@ -185,7 +316,8 @@ const UpgradePlanScreen = () => {
       // Search for offers inside the subscription
       const subAsAny = mainSub as any;
       const offers = subAsAny
-        ? (subAsAny.subscriptionOffers || subAsAny.subscriptionOfferDetailsAndroid)
+        ? subAsAny.subscriptionOffers ||
+          subAsAny.subscriptionOfferDetailsAndroid
         : null;
 
       if (mainSub && offers && Array.isArray(offers)) {
@@ -234,12 +366,20 @@ const UpgradePlanScreen = () => {
             basePricingPhases?.[0]?.formattedPrice || mainSub.displayPrice,
           displayPrice:
             pricingPhases?.[0]?.formattedPrice || mainSub.displayPrice,
+          baseAmount:
+            (Number(basePricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000,
+          displayAmount:
+            (Number(pricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000,
+          currencyCode:
+            pricingPhases?.[0]?.priceCurrencyCode ||
+            basePricingPhases?.[0]?.priceCurrencyCode ||
+            "USD",
           offerTokenToUse:
             specificOffer?.offerToken || specificOffer?.offerTokenAndroid,
           isDiscounted: Boolean(
             specificOffer?.offerId ||
-              specificOffer?.offerIdAndroid ||
-              (specificOffer?.id && specificOffer?.id !== targetBasePlanId),
+            specificOffer?.offerIdAndroid ||
+            (specificOffer?.id && specificOffer?.id !== targetBasePlanId),
           ),
         } as any;
       }
@@ -289,18 +429,13 @@ const UpgradePlanScreen = () => {
   };
 
   const formatCurrency = (amount: number, currencyCode: string) => {
-    // If we have a native store product, it likely has better formatting
-    const nativeAsAny = nativeStoreProduct as any;
-    if (nativeAsAny?.displayPrice) {
-      return nativeAsAny.displayPrice;
-    }
     try {
       return new Intl.NumberFormat(undefined, {
         style: "currency",
         currency: currencyCode.toUpperCase(),
       }).format(amount);
     } catch {
-      return `${currencyCode.toUpperCase()} ${amount}`;
+      return `${currencyCode.toUpperCase()} ${amount.toFixed(2)}`;
     }
   };
 
@@ -354,18 +489,16 @@ const UpgradePlanScreen = () => {
   };
 
   const isSubscribed = Boolean(subscriptionStatus?.subscribed);
+  const isReady =
+    !isLoadingPlans && connected && !!nativeStoreProduct?.displayPrice;
 
-  if (isLoadingPlans && !connected) {
+  if (!isReady) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+        <SubscriptionSkeleton />
+      </SafeAreaView>
     );
   }
 
@@ -406,7 +539,16 @@ const UpgradePlanScreen = () => {
           </View>
         )}
 
-        <View style={[styles.toggleContainer, { backgroundColor: "#1A1A1A" }]}>
+        <View
+          style={[
+            styles.toggleContainer,
+            {
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           {plans.map((plan) => (
             <TouchableOpacity
               key={plan.planType}
@@ -470,21 +612,28 @@ const UpgradePlanScreen = () => {
             >
               <View>
                 {nativeStoreProduct?.isDiscounted && (
-                  <Text style={[styles.originalPriceText, { color: colors.placeholder, textDecorationLine: 'line-through' }]}>
+                  <Text
+                    style={[
+                      styles.originalPriceText,
+                      {
+                        color: colors.placeholder,
+                        textDecorationLine: "line-through",
+                      },
+                    ]}
+                  >
                     {nativeStoreProduct.basePlanPrice}
                   </Text>
                 )}
-                {nativeStoreProduct?.displayPrice ? (
+                {nativeStoreProduct?.displayPrice && (
                   <Text style={[styles.price, { color: colors.text }]}>
                     {nativeStoreProduct.displayPrice}
                     <Text style={styles.periodText}>
+                      {" "}
                       {selectedPlan.interval === "month"
                         ? t("perMonthly")
                         : t("perYearly")}
                     </Text>
                   </Text>
-                ) : (
-                  <SkeletonBar width={100} height={28} />
                 )}
               </View>
             </View>
@@ -512,97 +661,106 @@ const UpgradePlanScreen = () => {
                 </Text>
               </View>
             ))}
-
           </View>
         )}
 
         {/* Coupon Section */}
-        {Platform.OS === "ios" ? (
-          <View style={styles.couponSection}>
-            <TouchableOpacity
-              style={[
-                styles.applyButton,
-                { backgroundColor: colors.primary, paddingHorizontal: 20 },
-              ]}
-              onPress={handleApplyCoupon}
-            >
-              <Text style={styles.applyButtonText}>
-                {t("haveACoupon")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.couponSection}>
-            <Text style={[styles.couponTitle, { color: colors.text }]}>
-              {t("haveACoupon")}
-            </Text>
-            <View style={styles.couponInputWrapper}>
-              <TextInput
-                style={[
-                  styles.couponInput,
-                  {
-                    backgroundColor: "#1A1A1A",
-                    color: colors.text,
-                    borderColor: colors.surface,
-                  },
-                ]}
-                placeholder={String(t("enterCouponCode"))}
-                placeholderTextColor={colors.placeholder}
-                value={couponText}
-                onChangeText={(txt) => setCouponText(txt.toLowerCase())}
-                editable={!appliedOfferCode}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.applyButton, 
-                  { backgroundColor: colors.primary },
-                  (appliedOfferCode || !couponText.trim()) && { opacity: 0.5 }
-                ]}
-                onPress={handleApplyCoupon}
-                disabled={Boolean(appliedOfferCode) || !couponText.trim()}
-              >
-                <Text style={styles.applyButtonText}>
-                  {appliedOfferCode ? t("applied") : t("apply")}
+        {selectedPeriod !== "yearly" && (
+          <>
+            {Platform.OS === "ios" ? (
+              <View style={styles.couponSection}>
+                <TouchableOpacity
+                  style={[
+                    styles.applyButton,
+                    { backgroundColor: colors.primary, paddingHorizontal: 20 },
+                  ]}
+                  onPress={handleApplyCoupon}
+                >
+                  <Text style={styles.applyButtonText}>{t("haveACoupon")}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.couponSection}>
+                <Text style={[styles.couponTitle, { color: colors.text }]}>
+                  {t("haveACoupon")}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                <View style={styles.couponInputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.couponInput,
+                      {
+                        backgroundColor: colors.surface,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    placeholder={String(t("enterCouponCode"))}
+                    placeholderTextColor={colors.placeholder}
+                    value={couponText}
+                    onChangeText={(txt) => setCouponText(txt.toLowerCase())}
+                    editable={!appliedOfferCode}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.applyButton,
+                      { backgroundColor: colors.primary },
+                      (appliedOfferCode || !couponText.trim()) && {
+                        opacity: 0.5,
+                      },
+                    ]}
+                    onPress={handleApplyCoupon}
+                    disabled={Boolean(appliedOfferCode) || !couponText.trim()}
+                  >
+                    <Text style={styles.applyButtonText}>
+                      {appliedOfferCode ? t("applied") : t("apply")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </>
         )}
 
         {/* Summary Card */}
-        <View style={[styles.summaryCard, { backgroundColor: "#1A1A1A" }]}>
+        <View
+          style={[
+            styles.summaryCard,
+            {
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: colors.placeholder }]}>
               {t("originalPrice")}
             </Text>
             <Text style={[styles.summaryValue, { color: colors.placeholder }]}>
-              {nativeStoreProduct?.basePlanPrice || (
-                <SkeletonBar width={70} height={16} />
-              )}
+              {nativeStoreProduct?.basePlanPrice}
             </Text>
           </View>
-          
+
           {appliedOfferCode && (
             <>
-              <View style={styles.summaryRow}>
-                <Text
-                  style={[styles.summaryLabel, { color: colors.placeholder }]}
-                >
-                  {t("appliedCoupon") || "Coupon"}
-                </Text>
-                <Text style={[styles.summaryValue, { color: colors.primary }]}>
-                  {appliedOfferCode.toUpperCase()}
-                </Text>
-              </View>
               {nativeStoreProduct?.isDiscounted && (
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: "#4CAF50" }]}>
                     {t("discountPercentage") || "Discount Applied"}
                   </Text>
                   <Text style={[styles.summaryValue, { color: "#4CAF50" }]}>
-                    {t("saved") || "SAVED!"}
+                    {(() => {
+                      const base = Number(nativeStoreProduct?.baseAmount) || 0;
+                      const current =
+                        Number(nativeStoreProduct?.displayAmount) || 0;
+                      const saved = base - current;
+                      if (saved > 0) {
+                        return `${formatCurrency(saved, nativeStoreProduct?.currencyCode || "USD")}`;
+                      }
+                      return t("saved") || "SAVED!";
+                    })()}
                   </Text>
                 </View>
               )}
@@ -620,9 +778,7 @@ const UpgradePlanScreen = () => {
                 { color: colors.primary, fontWeight: "bold", fontSize: 20 },
               ]}
             >
-              {nativeStoreProduct?.displayPrice || (
-                <SkeletonBar width={90} height={22} />
-              )}
+              {nativeStoreProduct?.displayPrice}
             </Text>
           </View>
         </View>
@@ -681,15 +837,22 @@ const styles = StyleSheet.create({
   statusSubtitle: { fontSize: 14 },
   toggleContainer: {
     flexDirection: "row",
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 4,
     marginBottom: 32,
+    // Shadow for iOS
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    // Elevation for Android
+    elevation: 8,
   },
   toggleButton: {
     flex: 1,
     paddingVertical: 12,
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 14,
   },
   toggleText: { fontWeight: "600" },
   planCard: {
@@ -734,9 +897,16 @@ const styles = StyleSheet.create({
   },
   applyButtonText: { color: "#000", fontWeight: "bold", fontSize: 16 },
   summaryCard: {
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 32,
+    // Shadow for iOS
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    // Elevation for Android
+    elevation: 4,
   },
   summaryRow: {
     flexDirection: "row",

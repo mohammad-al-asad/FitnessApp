@@ -47,7 +47,7 @@ const defaultLanguageContext = {
 
 export const [LanguageProvider, useLanguage] = createContextHook(() => {
   const [currentLanguage, setCurrentLanguage] = useState<Language>("en");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadLanguage();

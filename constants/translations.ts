@@ -269,7 +269,7 @@ export const translations = {
     choosePlanSubtitle: "Choose the plan that fits your needs",
     monthly: "Monthly Plan",
     yearly: "Yearly Plan",
-    premiumSubtitle: "For power users & creators",
+    premiumSubtitle: "For serious tracking & faster result",
     featureBarcode: "Unlimited Barcode Scans",
     featureChat: "Unlimited Chat Access",
     featureSupport: "Admin Support",
@@ -340,6 +340,7 @@ export const translations = {
     chatLimitReachedNotice:
       "Daily free chat limit reached. Subscribe for unlimited messages.",
     chatLimitReachedInput: "Daily limit reached. Subscribe to continue.",
+    chatInputPlaceholder: "Ask me anything about fitness...",
     fitBotWelcome:
       "Hi! I'm FitBot, your AI fitness assistant! I can help with nutrition advice, workout tips, and meal planning. How can I help you today?",
     noFoodsFound: "No foods found.",
@@ -720,7 +721,7 @@ export const translations = {
     choosePlanSubtitle: "اختر الخطة التي تناسب احتياجاتك",
     monthly: "خطة شهرية",
     yearly: "خطة سنوية",
-    premiumSubtitle: "للمستخدمين المتقدمين والمبدعين",
+    premiumSubtitle: "للمتابعة الجدية ونتائج أسرع",
     featureBarcode: "مسح باركود غير محدود",
     featureChat: "وصول غير محدود للمحادثة",
     featureSupport: "دعم فني مباشر",
@@ -796,6 +797,7 @@ export const translations = {
     chatLimitReachedNotice:
       "تم الوصول إلى الحد اليومي للدردشة المجانية. اشترك للحصول على رسائل غير محدودة.",
     chatLimitReachedInput: "تم الوصول للحد اليومي. اشترك للمتابعة.",
+    chatInputPlaceholder: "اسألني أي شيء عن اللياقة...",
     fitBotWelcome:
       "هلا! أنا فيت بوت، مساعدك الذكي للياقة. أقدر أساعدك بنصايح تغذية، تمارين، وتخطيط وجبات. كيف أقدر أخدمك اليوم؟",
     noFoodsFound: "لم يتم العثور على أطعمة.",

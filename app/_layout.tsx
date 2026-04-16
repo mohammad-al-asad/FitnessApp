@@ -17,78 +17,17 @@ import { Asset } from "expo-asset";
 import { router, Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { AppState, AppStateStatus, StyleSheet, View } from "react-native";
 import "react-native-reanimated";
 
-// 🔹 Inner app shell that is allowed to use useLanguage()
-function AppShell() {
-  const { isRTL } = useLanguage();
-  const colorScheme = useColorScheme();
-  const [showSplash, setShowSplash] = useState(true);
+// 🚀 Keep the native splash screen visible until our custom animation is ready to take over.
+// Calling this at the top level is best practice to prevent early auto-hiding.
+ExpoSplashScreen.preventAutoHideAsync().catch(() => {
+  /* ignore errors */
+});
 
-  useEffect(() => {
-    async function prepare() {
-      try {
-        await ExpoSplashScreen.preventAutoHideAsync();
-
-        // 🖼️ Preload About page icons
-        const images = [
-          require("@/assets/icons/instagram.png"),
-          require("@/assets/icons/tiktok.png"),
-          require("@/assets/icons/snapchat.png"),
-        ];
-
-        const cacheImages = images.map((img) => Asset.loadAsync(img));
-        await Promise.all(cacheImages);
-      } catch (e) {
-        console.warn(e);
-      }
-    }
-
-    prepare();
-  }, [isRTL]);
-
-  useEffect(() => {
-    if (!showSplash) {
-      ExpoSplashScreen.hideAsync();
-    }
-  }, [showSplash]);
-
-  return (
-    <View style={{ flex: 1, direction: isRTL ? "rtl" : "ltr" }}>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <AuthProvider>
-          <UserProfileProvider>
-            <NutritionProvider>
-              <RootNavigator />
-              {showSplash && (
-                <View style={StyleSheet.absoluteFill}>
-                  <SplashScreen
-                    onFinish={() => {
-                      setShowSplash(false);
-                    }}
-                  />
-                </View>
-              )}
-              <StatusBar style="light" />
-            </NutritionProvider>
-          </UserProfileProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </View>
-  );
-}
-
-// 🔹 RootLayout now ONLY wraps AppShell with LanguageProvider
-export default function RootLayout() {
-  return (
-    <LanguageProvider>
-      <AppShell />
-    </LanguageProvider>
-  );
-}
-
+// Inner navigator that handles auth routing
 function RootNavigator() {
   const {
     user,
@@ -99,11 +38,10 @@ function RootNavigator() {
 
   const { profile, isLoading: isProfileLoading } = useUserProfile();
   
-  // const firstSignInSubscriptionPromptVisible = true;
-
   const shouldShowSubscriptionPrompt = Boolean(
     user && firstSignInSubscriptionPromptVisible,
   );
+
   useEffect(() => {
     if (user && isInitialized) {
       router.replace("/(tabs)/home");
@@ -134,7 +72,7 @@ function RootNavigator() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         )}
         {user && (
-          <Stack.Screen name="logFood" options={{ presentation: "modal" }} />
+          <Stack.Screen name="logFood" options={{ presentation: "fullScreenModal" }} />
         )}
       </Stack>
       <FirstSignInSubscriptionModal
@@ -149,3 +87,92 @@ function RootNavigator() {
     </>
   );
 }
+
+// Inner app shell that is allowed to use useLanguage()
+function AppShell() {
+  const { isRTL, isLoading: isLangLoading } = useLanguage();
+  const colorScheme = useColorScheme();
+  const [showSplash, setShowSplash] = useState(true);
+
+  const appState = useRef(AppState.currentState);
+
+  useEffect(() => {
+    async function prepare() {
+      try {
+        // Preload icons
+        const images = [
+          require("@/assets/icons/instagram.png"),
+          require("@/assets/icons/tiktok.png"),
+          require("@/assets/icons/snapchat.png"),
+        ];
+
+        const cacheImages = images.map((img) => Asset.loadAsync(img));
+        await Promise.all(cacheImages);
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    prepare();
+
+    // AppState listener to show the splash animation every time the app returns to the foreground
+    const subscription = AppState.addEventListener("change", (nextAppState: AppStateStatus) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === "active"
+      ) {
+        setShowSplash(true);
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showSplash) {
+      ExpoSplashScreen.hideAsync();
+    }
+  }, [showSplash]);
+  
+  if (isLangLoading) {
+    return null;
+  }
+
+  return (
+    <View style={{ flex: 1, direction: isRTL ? "rtl" : "ltr" }}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <AuthProvider>
+          <UserProfileProvider>
+            <NutritionProvider>
+              <RootNavigator />
+              {showSplash && (
+                <View style={StyleSheet.absoluteFill}>
+                  <SplashScreen
+                    onFinish={() => {
+                      setShowSplash(false);
+                    }}
+                  />
+                </View>
+              )}
+              <StatusBar style="light" />
+            </NutritionProvider>
+          </UserProfileProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </View>
+  );
+}
+
+// RootLayout now ONLY wraps AppShell with LanguageProvider
+function RootLayout() {
+  return (
+    <LanguageProvider>
+      <AppShell />
+    </LanguageProvider>
+  );
+}
+
+export default RootLayout;

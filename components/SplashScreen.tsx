@@ -17,14 +17,17 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
 
   const { t, isRTL } = useLanguage();
 
+
+
+
   const taglines = isRTL ? translations.ar.splash_taglines : translations.en.splash_taglines;
 
-
   const [tagline, setTagline] = useState("");
+
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * taglines.length);
     setTagline(taglines[randomIndex]);
-  }, []);
+  }, [taglines]);
 
   const letterAnimations = useRef([
     new Animated.Value(0),
@@ -211,12 +214,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   slogan: {
-  fontSize: 17,
-  fontWeight: "500",
-  letterSpacing: 1.2,
-  textAlign: "center",
-  opacity: 0.85,
-},
+    fontSize: 17,
+    fontWeight: "500",
+    letterSpacing: 1.2,
+    textAlign: "center",
+    opacity: 0.85,
+  },
   madeInSaudiContainer: {
     position: "absolute",
     bottom: 60,
