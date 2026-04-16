@@ -13,8 +13,8 @@ import {
   getFoodLogsHome,
   getFoodLogsWeeklySummary,
 } from "@/services/food-api";
-import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import {
   Award,
   Coffee,
@@ -26,7 +26,13 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { responsiveWidth } from "@/utilities/ScalingUtils";
 import {
@@ -97,9 +103,7 @@ export default function HomeScreen() {
   const colors = useSafeColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [selectedDay] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [selectedDay] = useState(new Date().toISOString().split("T")[0]);
   const [homeData, setHomeData] = useState<FoodLogsHomeResponse | null>(null);
   const [weeklyData, setWeeklyData] =
     useState<FoodLogsWeeklySummaryResponse | null>(null);
@@ -155,7 +159,10 @@ export default function HomeScreen() {
           setWeeklyData(null);
         }
 
-        if (homeResult.status === "fulfilled" || weeklyResult.status === "fulfilled") {
+        if (
+          homeResult.status === "fulfilled" ||
+          weeklyResult.status === "fulfilled"
+        ) {
           lastFetchedRef.current = { date: selectedDay, time: now };
         }
         setHomeLoading(false);
@@ -184,7 +191,8 @@ export default function HomeScreen() {
       : null;
 
   const todayLog = {
-    totalCalories: homeData?.totals?.calories ?? rawTodayLog?.totalCalories ?? 0,
+    totalCalories:
+      homeData?.totals?.calories ?? rawTodayLog?.totalCalories ?? 0,
     totalProtein: homeData?.totals?.protein ?? rawTodayLog?.totalProtein ?? 0,
     totalCarbs: homeData?.totals?.carbs ?? rawTodayLog?.totalCarbs ?? 0,
     totalFats: homeData?.totals?.fat ?? rawTodayLog?.totalFats ?? 0,
@@ -398,7 +406,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.mealsCard, { backgroundColor: colors.surface }]}>
-          <View style={[styles.mealsHeader, isRTL && styles.rtlRow]}>
+          <View style={[styles.mealsHeader]}>
             <Text
               style={[
                 styles.sectionTitle,
@@ -440,7 +448,10 @@ export default function HomeScreen() {
                     index === mealRows.length - 1 && { borderBottomWidth: 0 },
                   ]}
                   onPress={() =>
-                    router.push({ pathname: "/log/log", params: { date: selectedDay } })
+                    router.push({
+                      pathname: "/log/log",
+                      params: { date: selectedDay },
+                    })
                   }
                   activeOpacity={0.7}
                 >
@@ -481,7 +492,10 @@ export default function HomeScreen() {
                   <View
                     style={[
                       styles.addMealButton,
-                      { borderColor: colors.border, backgroundColor: colors.background },
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                      },
                     ]}
                   >
                     <Plus
@@ -492,12 +506,6 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               );
             })
-          )}
-
-          {!!homeError && (
-            <Text style={[styles.mealError, { color: colors.placeholder }]}>
-              {homeError}
-            </Text>
           )}
         </View>
 
