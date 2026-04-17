@@ -6,11 +6,10 @@ import { createFoodLog, getFoodByBarcode } from "@/services/food-api";
 import type { FoodItem } from "@/types/nutrition";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Check, ChevronDown, Moon, Sun, Sunrise, X } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Modal,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// Removed unused Reanimated imports
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
@@ -144,9 +144,6 @@ export default function LogFoodScreen() {
     [],
   );
 
-  const checkmarkScale = new Animated.Value(0);
-  const checkmarkOpacity = new Animated.Value(0);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [showServingModal, setShowServingModal] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
   const { t, isRTL } = useLanguage();
@@ -392,25 +389,7 @@ export default function LogFoodScreen() {
 
       await addFoodToLog(food, actualQuantity, date as string, selectedMeal);
 
-      setShowSuccess(true);
-
-      Animated.parallel([
-        Animated.spring(checkmarkScale, {
-          toValue: 1,
-          friction: 5,
-          tension: 120,
-          useNativeDriver: true,
-        }),
-        Animated.timing(checkmarkOpacity, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setTimeout(() => {
-          router.push("/(tabs)/home");
-        }, 400);
-      });
+      router.replace("/(tabs)/home");
     } catch (error) {
       console.error("Error logging food:", error);
       Alert.alert(
@@ -862,25 +841,9 @@ export default function LogFoodScreen() {
               </Text>
             )}
           </TouchableOpacity>
-          <View style={{ height: 16,backgroundColor:"tranparent" }} />
+          <View style={{ height: 16,backgroundColor:"transparent" }} />
         </View>
       </ScrollView>
-
-      {showSuccess && (
-        <View style={styles.successOverlay}>
-          <Animated.View
-            style={[
-              styles.successCircle,
-              {
-                opacity: checkmarkOpacity,
-                transform: [{ scale: checkmarkScale }],
-              },
-            ]}
-          >
-            <Check size={32} color="#121212" strokeWidth={3} />
-          </Animated.View>
-        </View>
-      )}
     </View>
   );
 }
