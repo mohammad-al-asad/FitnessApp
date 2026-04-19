@@ -115,14 +115,8 @@ function AppShell() {
 
     prepare();
 
-    // AppState listener to show the splash animation every time the app returns to the foreground
+    // Maintain app state ref for internal tracking
     const subscription = AppState.addEventListener("change", (nextAppState: AppStateStatus) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === "active"
-      ) {
-        setShowSplash(true);
-      }
       appState.current = nextAppState;
     });
 
@@ -131,11 +125,7 @@ function AppShell() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!showSplash) {
-      ExpoSplashScreen.hideAsync();
-    }
-  }, [showSplash]);
+  // 🚀 Native splash hiding is now handled inside SplashScreen component for a smoother transition
   
   if (isLangLoading) {
     return null;
@@ -166,12 +156,16 @@ function AppShell() {
   );
 }
 
+import { SafeAreaProvider } from "react-native-safe-area-context";
+
 // RootLayout now ONLY wraps AppShell with LanguageProvider
 function RootLayout() {
   return (
-    <LanguageProvider>
-      <AppShell />
-    </LanguageProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <AppShell />
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }
 

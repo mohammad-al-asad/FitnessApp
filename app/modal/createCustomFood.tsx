@@ -172,7 +172,6 @@ export default function CreateCustomFoodScreen() {
             {
               backgroundColor: colors.surface,
               borderColor: colors.primary,
-              flexDirection: isRTL ? "row-reverse" : "row",
             },
           ]}
           activeOpacity={0.7}

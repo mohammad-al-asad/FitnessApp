@@ -32,8 +32,42 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useIAP } from "react-native-iap";
+import { presentCodeRedemptionSheetIOS, useIAP } from "react-native-iap";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+/**
+ * Safely extracts a numeric value from a price string (e.g., "$9.99" -> 9.99).
+ * Returns 0 if extraction fails.
+ */
+const extractNumericPrice = (val: string | number | null | undefined): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === "number") return val;
+  // Support both dot and comma locales, then keep only digits and first decimal
+  const normalized = String(val).replace(/,/g, ".").replace(/[^0-9.]/g, "");
+  const parsed = parseFloat(normalized);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+/**
+ * Formats a number as a currency string.
+ * Uses a robust fallback if Intl.NumberFormat is unavailable or fails.
+ */
+const formatCurrency = (amount: number, currencyCode: string | null | undefined) => {
+  const code = (currencyCode || "USD").toUpperCase();
+  const safeAmount = isNaN(amount) ? 0 : amount;
+
+  try {
+    if (typeof Intl !== "undefined" && Intl.NumberFormat) {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: code,
+      }).format(safeAmount);
+    }
+  } catch (e) {
+    // Fallback if Intl fails
+  }
+  return `${code} ${safeAmount.toFixed(2)}`;
+};
 
 const SkeletonBar = ({
   width = 80,
@@ -289,31 +323,36 @@ const UpgradePlanScreen = () => {
       );
       if (sub) {
         const hasIntroOffer = !!sub.introductoryPrice;
-        const rawBasePrice = sub.localizedPrice || sub.price || "0";
-        const rawDisplayPrice = hasIntroOffer
-          ? sub.introductoryPriceAsAmountIOS || sub.introductoryPrice || "0"
-          : rawBasePrice;
+        const currencyCode = (sub as any).currency || (sub as any).currencyCode || "USD";
+
+        const baseAmount = extractNumericPrice(sub.price);
+        const displayAmount = hasIntroOffer
+          ? extractNumericPrice(sub.introductoryPrice)
+          : baseAmount;
+
+        const localized = typeof sub.localizedPrice === "string" ? sub.localizedPrice : "";
+        const hasSymbol = /[^\d\s.,]/.test(localized);
 
         return {
           ...sub,
-          basePlanPrice: rawBasePrice,
-          displayPrice: rawDisplayPrice,
-          baseAmount: parseFloat(String(rawBasePrice).replace(/[^0-9.]/g, "")) || 0,
-          displayAmount:
-            parseFloat(String(rawDisplayPrice).replace(/[^0-9.]/g, "")) || 0,
-          currencyCode: (sub as any).currency || "USD",
+          basePlanPrice: hasSymbol ? localized : formatCurrency(baseAmount, currencyCode),
+          displayPrice: (hasIntroOffer && !hasSymbol) 
+            ? formatCurrency(displayAmount, currencyCode) 
+            : localized || formatCurrency(displayAmount, currencyCode),
+          baseAmount: baseAmount,
+          displayAmount: displayAmount,
+          currencyCode: currencyCode,
           isDiscounted: hasIntroOffer,
         };
       }
       return null;
     } else {
-      // For Android, find the main subscription product first
+      // Android logic
       const mainSub = subscriptions.find(
         (s: any) =>
           s.productId === ANDROID_MAIN_SUB_ID || s.id === ANDROID_MAIN_SUB_ID,
       );
 
-      // Search for offers inside the subscription
       const subAsAny = mainSub as any;
       const offers = subAsAny
         ? subAsAny.subscriptionOffers ||
@@ -322,8 +361,6 @@ const UpgradePlanScreen = () => {
 
       if (mainSub && offers && Array.isArray(offers)) {
         const targetBasePlanId = selectedPlan.google_sku;
-
-        // Find the base plan offer
         const basePlanOffers = offers.filter(
           (o) =>
             o.basePlanId === targetBasePlanId ||
@@ -334,7 +371,6 @@ const UpgradePlanScreen = () => {
           basePlanOffers.find((o) => !o.offerId && !o.offerIdAndroid) ||
           basePlanOffers[0];
 
-        // 1. Attempt to find matching offer code if one is applied
         let specificOffer = null;
         if (appliedOfferCode) {
           specificOffer = offers.find(
@@ -347,7 +383,6 @@ const UpgradePlanScreen = () => {
           );
         }
 
-        // 2. Fall back to standard offer
         if (!specificOffer) {
           specificOffer = basePlanOffer;
         }
@@ -359,7 +394,6 @@ const UpgradePlanScreen = () => {
           basePlanOffer?.pricingPhases?.pricingPhaseList ||
           basePlanOffer?.pricingPhasesAndroid?.pricingPhaseList;
 
-        // Return a merged object so your UI and price formatting still works
         return {
           ...mainSub,
           basePlanPrice:
@@ -367,9 +401,9 @@ const UpgradePlanScreen = () => {
           displayPrice:
             pricingPhases?.[0]?.formattedPrice || mainSub.displayPrice,
           baseAmount:
-            (Number(basePricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000,
+            Math.round(((Number(basePricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000) * 100) / 100,
           displayAmount:
-            (Number(pricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000,
+            Math.round(((Number(pricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000) * 100) / 100,
           currencyCode:
             pricingPhases?.[0]?.priceCurrencyCode ||
             basePricingPhases?.[0]?.priceCurrencyCode ||
@@ -404,7 +438,6 @@ const UpgradePlanScreen = () => {
           type: "subs",
         });
       } else {
-        // Android logic: Request the main subscription product with the specific base plan offer token
         const targetBasePlanId = selectedPlan.google_sku;
         if (!targetBasePlanId) throw new Error("Google Base Plan ID not found");
 
@@ -428,63 +461,41 @@ const UpgradePlanScreen = () => {
     }
   };
 
-  const formatCurrency = (amount: number, currencyCode: string) => {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currencyCode.toUpperCase(),
-      }).format(amount);
-    } catch {
-      return `${currencyCode.toUpperCase()} ${amount.toFixed(2)}`;
-    }
-  };
-
   const handleApplyCoupon = () => {
     if (Platform.OS === "ios") {
-      // Apple doesn't support typed coupon codes — open the native redemption sheet
-      try {
-        const RNIap = require("react-native-iap");
-        if (RNIap.presentCodeRedemptionSheetIOS) {
-          RNIap.presentCodeRedemptionSheetIOS();
-        } else {
-          Alert.alert(
-            String(t("error")),
-            "Code redemption is not available on this device.",
-          );
-        }
-      } catch {
+      if (presentCodeRedemptionSheetIOS) {
+        presentCodeRedemptionSheetIOS();
+      } else {
         Alert.alert(
           String(t("error")),
           "Code redemption is not available on this device.",
         );
       }
-      return;
-    }
-
-    // Android: check if the code exists in available offers
-    const code = couponText.trim().toLowerCase();
-    if (!code) return;
-
-    const subAsAny = nativeStoreProduct as any;
-    const offers = (subAsAny?.subscriptionOffers ||
-      subAsAny?.subscriptionOfferDetailsAndroid) as any[];
-
-    const offerExists = offers?.some((off) => {
-      const isCorrectBasePlan =
-        off.basePlanId === selectedPlan?.google_sku ||
-        off.basePlanIdAndroid === selectedPlan?.google_sku;
-
-      const isCorrectOfferCode =
-        off.offerId === code || off.offerIdAndroid === code || off.id === code;
-
-      return isCorrectBasePlan && isCorrectOfferCode;
-    });
-
-    if (offerExists) {
-      setAppliedOfferCode(code);
-      Alert.alert(String(t("success")), String(t("couponApplied")));
     } else {
-      Alert.alert(String(t("error")), String(t("invalidCoupon")));
+      const code = couponText.trim().toLowerCase();
+      if (!code) return;
+
+      const subAsAny = nativeStoreProduct as any;
+      const offers = (subAsAny?.subscriptionOffers ||
+        subAsAny?.subscriptionOfferDetailsAndroid) as any[];
+
+      const offerExists = offers?.some((off) => {
+        const isCorrectBasePlan =
+          off.basePlanId === selectedPlan?.google_sku ||
+          off.basePlanIdAndroid === selectedPlan?.google_sku;
+
+        const isCorrectOfferCode =
+          off.offerId === code || off.offerIdAndroid === code || off.id === code;
+
+        return isCorrectBasePlan && isCorrectOfferCode;
+      });
+
+      if (offerExists) {
+        setAppliedOfferCode(code);
+        Alert.alert(String(t("success")), String(t("couponApplied")));
+      } else {
+        Alert.alert(String(t("error")), String(t("invalidCoupon")));
+      }
     }
   };
 
@@ -664,7 +675,6 @@ const UpgradePlanScreen = () => {
           </View>
         )}
 
-        {/* Coupon Section */}
         {selectedPeriod !== "yearly" && (
           <>
             {Platform.OS === "ios" ? (
@@ -723,7 +733,6 @@ const UpgradePlanScreen = () => {
           </>
         )}
 
-        {/* Summary Card */}
         <View
           style={[
             styles.summaryCard,
@@ -840,12 +849,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 4,
     marginBottom: 32,
-    // Shadow for iOS
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    // Elevation for Android
     elevation: 8,
   },
   toggleButton: {
@@ -900,12 +907,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     marginBottom: 32,
-    // Shadow for iOS
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    // Elevation for Android
     elevation: 4,
   },
   summaryRow: {

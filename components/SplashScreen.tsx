@@ -1,6 +1,7 @@
 // SplashScreen — animated intro displaying the "FITCO" logo and tagline with smooth letter-by-letter transitions before entering the main app.
 import { translations } from "@/constants/translations";
 import { useLanguage } from "@/hooks/language-context";
+import * as ExpoSplashScreen from "expo-splash-screen";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
@@ -49,6 +50,9 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
   }, [onFinish]);
 
   useEffect(() => {
+    // 🚀 Hide the native splash screen as soon as our custom one is ready to animate
+    ExpoSplashScreen.hideAsync().catch(() => {});
+
     const letterSequence = letterAnimations.map((anim, i) =>
       Animated.sequence([
         Animated.delay(i * 60),
