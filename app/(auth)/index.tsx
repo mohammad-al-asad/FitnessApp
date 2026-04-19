@@ -286,7 +286,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
               </Text>
             </TouchableOpacity>
 
-            {isLogin && (
+            {/* {isLogin && (
               <TouchableOpacity style={styles.forgotPassword}>
                 <Text
                   style={[styles.forgotPasswordText, { color: colors.accent }]}
@@ -294,7 +294,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                   {t("forgotPassword")}
                 </Text>
               </TouchableOpacity>
-            )}
+            )} */}
           </View>
 
           {/* Footer */}
