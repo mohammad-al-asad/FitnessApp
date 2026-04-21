@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { Activity, Calendar, ChevronRight, Target, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -525,6 +526,16 @@ await backendUpdateMyCompleteProfile({
       <View style={styles.header}>
         <Text style={[styles.logo, { color: colors.accent }]}>FITCO</Text>
         <Text style={[styles.subtitle, { color: colors.text }]}>{t('personalizeExperience')}</Text>
+        <Text style={[styles.citationText, { color: colors.text }]}>
+          {t('calculationSource')}
+        </Text>
+        <TouchableOpacity onPress={() => {
+          Alert.alert(t('medicalDisclaimerTitle'), t('medicalDisclaimerBody'));
+        }} style={{ marginBottom: 12 }}>
+          <Text style={[styles.disclaimerLink, { color: colors.accent }]}>
+             {t('medicalDisclaimerTitle')}
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.progressContainer}>
           {Array.from({ length: (data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 9 : 8 }, (_, i) => (
@@ -606,4 +617,17 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4,
   },
   nextButtonText: { fontSize: 16, fontWeight: '600' },
+  citationText: {
+    fontSize: 12,
+    opacity: 0.6,
+    textAlign: "center",
+    marginBottom: 4,
+    fontStyle: "italic",
+  },
+  disclaimerLink: {
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+    textAlign: "center",
+  },
 });

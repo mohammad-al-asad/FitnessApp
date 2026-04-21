@@ -24,6 +24,7 @@ import {
   Alert,
   Animated,
   Platform,
+  Linking,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -810,9 +811,33 @@ const UpgradePlanScreen = () => {
           )}
         </TouchableOpacity>
 
-        <Text style={[styles.footerNote, { color: colors.placeholder }]}>
-          {t("iapTermsNote")}
-        </Text>
+        <View style={styles.transparencySection}>
+          <Text style={[styles.autoRenewalNotice, { color: colors.text }]}>
+            {t("autoRenewalNotice")}
+          </Text>
+
+          <TouchableOpacity 
+            onPress={() => {
+              const url = Platform.OS === 'ios' ? 'https://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions';
+              Linking.openURL(url);
+            }}
+            style={styles.manageLink}
+          >
+            <Text style={[styles.manageLinkText, { color: colors.primary }]}>
+              {t("manageSubscription")}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.policyRow}>
+            <TouchableOpacity onPress={() => router.push("/settings/account/privacyPolicy")}>
+              <Text style={[styles.policyLink, { color: colors.primary }]}>{t("privacyPolicy")}</Text>
+            </TouchableOpacity>
+            <Text style={{ color: colors.placeholder, marginHorizontal: 8 }}>•</Text>
+            <TouchableOpacity onPress={() => router.push("/settings/account/termsOfServices")}>
+              <Text style={[styles.policyLink, { color: colors.primary }]}>{t("termsOfUse")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -940,6 +965,36 @@ const styles = StyleSheet.create({
     textAlign: "center",
     opacity: 0.6,
     lineHeight: 18,
+  },
+  transparencySection: {
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+  },
+  autoRenewalNotice: {
+    fontSize: 12,
+    textAlign: "center",
+    opacity: 0.8,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  manageLink: {
+    marginBottom: 16,
+  },
+  manageLinkText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    textDecorationLine: "underline",
+  },
+  policyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  policyLink: {
+    fontSize: 12,
+    fontWeight: "500",
   },
 });
 

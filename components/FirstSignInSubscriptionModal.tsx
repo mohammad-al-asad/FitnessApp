@@ -7,9 +7,11 @@ import {
   type SubscriptionPlan,
 } from "@/constants/subscriptions";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Platform,
   StyleSheet,
@@ -31,6 +33,7 @@ export default function FirstSignInSubscriptionModal({
   onDismiss,
 }: FirstSignInSubscriptionModalProps) {
   const { t, tArray, currentLanguage } = useLanguage();
+  const router = useRouter();
   const colors = useSafeColors();
   const [startingPlan, setStartingPlan] = useState<SubscriptionPlan | null>(
     null,
@@ -166,6 +169,21 @@ export default function FirstSignInSubscriptionModal({
                 </View>
               )
             )}
+
+            <View style={styles.modalTransparency}>
+              <Text style={[styles.modalAutoRenewal, { color: colors.placeholder }]}>
+                 {t("autoRenewalNotice")}
+              </Text>
+              <View style={styles.modalPolicyRow}>
+                <TouchableOpacity onPress={() => router.push("/settings/account/privacyPolicy")}>
+                  <Text style={[styles.modalPolicyLink, { color: colors.primary }]}>{t("privacyPolicy")}</Text>
+                </TouchableOpacity>
+                <Text style={{ color: colors.placeholder, marginHorizontal: 4 }}>•</Text>
+                <TouchableOpacity onPress={() => router.push("/settings/account/termsOfServices")}>
+                  <Text style={[styles.modalPolicyLink, { color: colors.primary }]}>{t("termsOfUse")}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
 
           <View style={[styles.actions, { flexDirection: "column" }]}>
@@ -299,5 +317,26 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontSize: 15,
     fontWeight: "700",
+  },
+  modalTransparency: {
+    marginTop: 12,
+    alignItems: "center",
+    paddingHorizontal: 10,
+  },
+  modalAutoRenewal: {
+    fontSize: 10,
+    textAlign: "center",
+    marginBottom: 6,
+    lineHeight: 14,
+    opacity: 0.8,
+  },
+  modalPolicyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  modalPolicyLink: {
+    fontSize: 10,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });

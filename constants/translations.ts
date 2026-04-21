@@ -455,11 +455,20 @@ export const translations = {
       "Thank you for using Fitco! We’re here to help you achieve your health goals.",
 
     cal: "Cal",
-
     consumed: "consumed",
     remaining: "remaining",
     reminderTime: "Reminder Time",
     timeFormatHint: "Use 24-hour format (e.g., 20:00 for 8 PM)",
+
+    // Compliance & Disclaimers
+    medicalDisclaimerTitle: "Medical Disclaimer",
+    medicalDisclaimerBody: "This application provides health and nutrition information for educational purposes only. It is not intended as a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition. Use of this application is at your own risk.",
+    calculationSource: "Calculation based on the Mifflin-St Jeor Equation.",
+    autoRenewalNotice: "Payments will be charged to your store account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. You can manage or cancel your subscription at any time in your store account settings.",
+    manageSubscription: "Manage Subscription",
+    termsOfUse: "Terms of Use",
+    viewPrivacy: "Privacy Policy",
+    fitBotDisclaimer: "FitBot is an AI assistant, not a doctor. Consult a medical professional for health advice.",
   },
 
   ar: {
@@ -799,7 +808,18 @@ export const translations = {
     chatLimitReachedInput: "تم الوصول للحد اليومي. اشترك للمتابعة.",
     chatInputPlaceholder: "اسألني أي شيء عن اللياقة...",
     fitBotWelcome:
-      "هلا! أنا فيت بوت، مساعدك الذكي للياقة. أقدر أساعدك بنصايح تغذية، تمارين، وتخطيط وجبات. كيف أقدر أخدمك اليوم؟",
+      "أهلاً! أنا فت بوت، مساعدك الذكي للياقة البدنية! يمكنني مساعدتك في نصائح التغذية، تمارين الرياضة، وتخطيط الوجبات. كيف يمكنني مساعدتك اليوم؟",
+
+    // Compliance & Disclaimers
+    medicalDisclaimerTitle: "إخلاء مسؤولية طبية",
+    medicalDisclaimerBody: "يوفر هذا التطبيق معلومات عن الصحة والتغذية للأغراض التعليمية فقط. وليس المقصود منه أن يكون بديلاً عن المشورة الطبية المهنية أو التشخيص أو العلاج. احرص دائماً على استشارة طبيبك أو غيره من مقدمي الخدمات الصحية المؤهلين بشأن أي أسئلة قد تكون لديكم بخصوص حالة طبية. استخدام هذا التطبيق على مسؤوليتك الخاصة.",
+    calculationSource: "الحساب مبني على معادلة Mifflin-St Jeor.",
+    autoRenewalNotice: "سيتم خصم المبلغ من حساب المتجر الخاص بك عند تأكيد الشراء. يتجدد الاشتراك تلقائياً ما لم يتم إيقاف التجديد التلقائي قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة أو إلغاء اشتراكك في أي وقت من إعدادات حساب المتجر الخاص بك.",
+    manageSubscription: "إدارة الاشتراك",
+    termsOfUse: "شروط الاستخدام",
+    viewPrivacy: "سياسة الخصوصية",
+    fitBotDisclaimer: "فت بوت هو مساعد ذكاء اصطناعي وليس طبيباً. استشر مختصاً طبياً للحصول على مشورة صحية.",
+
     noFoodsFound: "لم يتم العثور على أطعمة.",
     failedToLoadFoods: "فشل تحميل الأطعمة.",
     missingCheckoutUrl: "رابط الدفع غير متوفر.",
