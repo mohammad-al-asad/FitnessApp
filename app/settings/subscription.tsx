@@ -602,7 +602,7 @@ const UpgradePlanScreen = () => {
                 { color: colors.text, textAlign: isRTL ? "right" : "left" },
               ]}
             >
-              {t("premium")}
+              {t(selectedPeriod === "monthly" ? "monthlyPremium" : "yearlyPremium")}
             </Text>
             <Text
               style={[

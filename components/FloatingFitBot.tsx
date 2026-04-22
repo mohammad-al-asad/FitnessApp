@@ -540,9 +540,6 @@ export default function FloatingFitBot({
               </>
             ) : null}
           </View>
-          <View style={styles.persistentDisclaimer}>
-            <Text style={styles.disclaimerText}>{String(t("fitBotDisclaimer"))}</Text>
-          </View>
 
           <KeyboardAvoidingView
             style={styles.contentContainer}
@@ -699,6 +696,11 @@ export default function FloatingFitBot({
                 </TouchableOpacity>
               </View>
             </View>
+            <View style={styles.persistentDisclaimer}>
+              <Text style={styles.disclaimerText}>
+                {String(t("fitBotDisclaimer"))}
+              </Text>
+            </View>
           </KeyboardAvoidingView>
         </LinearGradient>
       </Modal>
@@ -805,12 +807,12 @@ const styles = StyleSheet.create({
   persistentDisclaimer: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "rgba(239, 68, 68, 0.15)", // Subtle red backdrop
+    backgroundColor: "rgba(255,255,255,0.15)", // Semi-transparent white backdrop
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(239, 68, 68, 0.3)",
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   disclaimerText: {
-    color: "#ff8a8a",
+    color: "#fde047", // Yellowish color
     fontSize: 12,
     fontWeight: "500",
     textAlign: "center",

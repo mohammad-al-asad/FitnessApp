@@ -103,6 +103,7 @@ export const translations = {
     anyFoodAllergies: "Any food allergies?",
     foodAllergiesDescription: "We'll make sure to avoid suggesting foods you can't eat (optional)",
     completeSetup: "Complete Setup",
+    iAgreeToMedicalDisclaimer: "I agree and understand the medical disclaimer",
 
     // Home Screen
     heyThere: "Hey there!",
@@ -280,6 +281,8 @@ export const translations = {
     total: "Total",
     subscribeNow: "Subscribe Now",
     premium: "Premium",
+    monthlyPremium: "Monthly Premium",
+    yearlyPremium: "Yearly Premium",
     choosePremiumPlus: "Choose Premium Plus",
     apply: "Apply",
     applied: "Applied",
@@ -741,6 +744,8 @@ export const translations = {
     total: "المجموع",
     subscribeNow: "اشترك الآن",
     premium: "العضوية المميزة",
+    monthlyPremium: "بريميوم شهري",
+    yearlyPremium: "بريميوم سنوي",
     choosePremiumPlus: "اختر العضوية المميزة بلس",
     applied: "تم التطبيق",
     couponApplied: "تم تطبيق الكوبون!",
@@ -814,6 +819,7 @@ export const translations = {
     medicalDisclaimerTitle: "إخلاء مسؤولية طبية",
     medicalDisclaimerBody: "يوفر هذا التطبيق معلومات عن الصحة والتغذية للأغراض التعليمية فقط. وليس المقصود منه أن يكون بديلاً عن المشورة الطبية المهنية أو التشخيص أو العلاج. احرص دائماً على استشارة طبيبك أو غيره من مقدمي الخدمات الصحية المؤهلين بشأن أي أسئلة قد تكون لديكم بخصوص حالة طبية. استخدام هذا التطبيق على مسؤوليتك الخاصة.",
     calculationSource: "الحساب مبني على معادلة Mifflin-St Jeor.",
+    iAgreeToMedicalDisclaimer: "أوافق وأفهم إخلاء المسؤولية الطبية",
     autoRenewalNotice: "سيتم خصم المبلغ من حساب المتجر الخاص بك عند تأكيد الشراء. يتجدد الاشتراك تلقائياً ما لم يتم إيقاف التجديد التلقائي قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة أو إلغاء اشتراكك في أي وقت من إعدادات حساب المتجر الخاص بك.",
     manageSubscription: "إدارة الاشتراك",
     termsOfUse: "شروط الاستخدام",

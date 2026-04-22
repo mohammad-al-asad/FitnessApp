@@ -7,7 +7,7 @@ import { getQuestionnaireSettings, useNutrition } from "@/hooks/nutrition-store"
 import { backendUpdateMyCompleteProfile } from "@/services/backend-auth";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { Activity, Calendar, ChevronRight, Target, User } from 'lucide-react-native';
+import { Activity, Calendar, ChevronRight, Target, User, ShieldCheck, Square, CheckSquare } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -79,6 +79,7 @@ export default function QuestionnaireScreen() {
     medicalConditions: '',
     allergies: '',
   });
+  const [agreed, setAgreed] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateStep = (step: number): boolean => {
@@ -100,6 +101,9 @@ export default function QuestionnaireScreen() {
           newErrors.targetWeight = 'Please select a valid target weight in kg (30-300)';
         }
         break;
+      case 9:
+        if (!agreed) newErrors.agreed = 'Please agree to the medical disclaimer';
+        break;
     }
 
     setErrors(newErrors);
@@ -113,8 +117,8 @@ export default function QuestionnaireScreen() {
       setCurrentStep(7);
       return;
     }
-    const totalSteps = (data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 9 : 8;
-    if (currentStep < totalSteps - 1) {
+    
+    if (currentStep < 9) {
       setCurrentStep(currentStep + 1);
     } else {
       handleComplete();
@@ -514,6 +518,47 @@ await backendUpdateMyCompleteProfile({
           </View>
         );
 
+      case 9:
+        return (
+          <View style={styles.stepContainer}>
+            <View style={styles.stepHeader}>
+              <ShieldCheck size={32} color={colors.accent} />
+              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('medicalDisclaimerTitle')}</Text>
+              <Text style={[styles.stepDescription, { color: colors.text }]}>
+                {t('medicalDisclaimerBody')}
+              </Text>
+            </View>
+
+            <TouchableOpacity 
+              style={[
+                styles.optionCard, 
+                { 
+                  backgroundColor: colors.surface, 
+                  borderColor: agreed ? colors.accent : 'transparent',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginTop: 20
+                }
+              ]}
+              onPress={() => setAgreed(!agreed)}
+            >
+              {agreed ? (
+                <CheckSquare size={24} color={colors.accent} />
+              ) : (
+                <Square size={24} color={colors.placeholder} />
+              )}
+              <Text style={[styles.optionTitle, { color: colors.text, flex: 1, fontSize: 16 }]}>
+                {t('iAgreeToMedicalDisclaimer')}
+              </Text>
+            </TouchableOpacity>
+            
+            <Text style={[styles.citationText, { color: colors.text, marginTop: 24 }]}>
+              {t('calculationSource')}
+            </Text>
+          </View>
+        );
+
       default:
         return null;
     }
@@ -526,19 +571,9 @@ await backendUpdateMyCompleteProfile({
       <View style={styles.header}>
         <Text style={[styles.logo, { color: colors.accent }]}>FITCO</Text>
         <Text style={[styles.subtitle, { color: colors.text }]}>{t('personalizeExperience')}</Text>
-        <Text style={[styles.citationText, { color: colors.text }]}>
-          {t('calculationSource')}
-        </Text>
-        <TouchableOpacity onPress={() => {
-          Alert.alert(t('medicalDisclaimerTitle'), t('medicalDisclaimerBody'));
-        }} style={{ marginBottom: 12 }}>
-          <Text style={[styles.disclaimerLink, { color: colors.accent }]}>
-             {t('medicalDisclaimerTitle')}
-          </Text>
-        </TouchableOpacity>
 
         <View style={styles.progressContainer}>
-          {Array.from({ length: (data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 9 : 8 }, (_, i) => (
+          {Array.from({ length: (data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 10 : 9 }, (_, i) => (
             <View
               key={i}
               style={[
@@ -561,9 +596,19 @@ await backendUpdateMyCompleteProfile({
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={[styles.nextButton, { backgroundColor: colors.accent },{flexDirection:isRTL?'row-reverse':'row'}]} onPress={handleNext} testID="next-button">
+        <TouchableOpacity 
+          style={[
+            styles.nextButton, 
+            { backgroundColor: colors.accent },
+            { flexDirection: isRTL ? 'row-reverse' : 'row' },
+            (currentStep === 9 && !agreed) && { opacity: 0.5 }
+          ]} 
+          onPress={handleNext} 
+          disabled={currentStep === 9 && !agreed}
+          testID="next-button"
+        >
           <Text style={[styles.nextButtonText, { color: colors.background }]}>
-            {currentStep === ((data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 8 : 7) ? t('completeSetup') : t('nextAr')}
+            {currentStep === 9 ? t('completeSetup') : t('nextAr')}
           </Text>
           <ChevronRight size={20} color={colors.background} />
         </TouchableOpacity>
