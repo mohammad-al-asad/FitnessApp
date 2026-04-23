@@ -268,6 +268,7 @@ export const translations = {
     subscription: "Subscription",
     subscriptionSubtitle: "Upgrade Your Plan",
     choosePlanSubtitle: "Choose the plan that fits your needs",
+    restorePurchases: "Restore Purchases",
     monthly: "Monthly Plan",
     yearly: "Yearly Plan",
     premiumSubtitle: "For serious tracking & faster result",
@@ -472,6 +473,9 @@ export const translations = {
     termsOfUse: "Terms of Use",
     viewPrivacy: "Privacy Policy",
     fitBotDisclaimer: "FitBot is an AI assistant, not a doctor. Consult a medical professional for health advice.",
+    medicalDisclaimerLink: "Learn more about our health information sources and medical disclaimer",
+    citationsTitle: "Citations & Sources",
+    citationsBody: "Calculations for Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE) are based on the Mifflin-St Jeor Equation (1990). Macro distributions follow general nutritional guidelines (30% Protein, 40% Carbs, 30% Fats).\n\nSource: Mifflin, M. D., St Jeor, S. T., Hill, L. A., Scott, B. J., Daugherty, S. A., & Koh, Y. O. (1990). A new predictive equation for resting energy expenditure in healthy individuals. The American journal of clinical nutrition, 51(2), 241-247.",
   },
 
   ar: {
@@ -731,6 +735,7 @@ export const translations = {
     subscription: "الاشتراك",
     subscriptionSubtitle: "خطة الترقية",
     choosePlanSubtitle: "اختر الخطة التي تناسب احتياجاتك",
+    restorePurchases: "استعادة المشتريات",
     monthly: "خطة شهرية",
     yearly: "خطة سنوية",
     premiumSubtitle: "للمتابعة الجدية ونتائج أسرع",
@@ -824,11 +829,13 @@ export const translations = {
     manageSubscription: "إدارة الاشتراك",
     termsOfUse: "شروط الاستخدام",
     viewPrivacy: "سياسة الخصوصية",
-    fitBotDisclaimer: "فت بوت هو مساعد ذكاء اصطناعي وليس طبيباً. استشر مختصاً طبياً للحصول على مشورة صحية.",
-
     noFoodsFound: "لم يتم العثور على أطعمة.",
     failedToLoadFoods: "فشل تحميل الأطعمة.",
     missingCheckoutUrl: "رابط الدفع غير متوفر.",
+    fitBotDisclaimer: "FitBot هو مساعد ذكاء اصطناعي، وليس طبيباً. استشر طبيباً مختصاً للحصول على نصائح صحية.",
+    medicalDisclaimerLink: "تعرف على المزيد حول مصادر معلوماتنا الصحية وإخلاء المسؤولية الطبي",
+    citationsTitle: "المصادر والاستشهادات",
+    citationsBody: "تعتمد حسابات معدل الأيض الأساسي (BMR) وإجمالي الإنفاق اليومي للطاقة (TDEE) على معادلة Mifflin-St Jeor (1990). تتبع توزيعات الماكروز الإرشادات الغذائية العامة (30٪ بروتين، 40٪ كربوهيدرات، 30٪ دهون).\n\nالمصدر: Mifflin, M. D., St Jeor, S. T., Hill, L. A., Scott, B. J., Daugherty, S. A., & Koh, Y. O. (1990). A new predictive equation for resting energy expenditure in healthy individuals. The American journal of clinical nutrition, 51(2), 241-247.",
 
     // Goals & Nutrition
     dailyGoals: "الاهداف اليومية",

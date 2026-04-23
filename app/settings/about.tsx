@@ -122,6 +122,29 @@ export default function AboutScreen() {
           </Text>
         </View>
 
+        {/* Medical Disclaimer & Citations Section */}
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
+            <Heart size={20} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+              {t("medicalDisclaimerTitle")}
+            </Text>
+          </View>
+          <Text style={[styles.disclaimerText, isRTL && styles.rtlText]}>
+            {t("medicalDisclaimerBody")}
+          </Text>
+          
+          <View style={[styles.sectionHeader, isRTL && styles.rtlRow, { marginTop: 20 }]}>
+            <Info size={20} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+              {t("citationsTitle")}
+            </Text>
+          </View>
+          <Text style={[styles.disclaimerText, isRTL && styles.rtlText]}>
+            {t("citationsBody")}
+          </Text>
+        </View>
+
         {/* Technical Info */}
         <View style={styles.technicalInfo}>
           <Text style={[styles.technicalText, isRTL && styles.rtlText]}>
@@ -190,6 +213,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
     lineHeight: 22,
+  },
+  disclaimerText: {
+    fontSize: 14,
+    color: Colors.placeholder,
+    lineHeight: 20,
   },
   developmentText: {
     fontSize: 16,

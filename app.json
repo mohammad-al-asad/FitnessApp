@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.creedtng.fitcov3",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Fitco uses your camera to scan food barcodes. This allows us to instantly identify products and log their nutritional information to your daily diary."
       }
     },
     "android": {
@@ -34,7 +35,16 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": ["expo-router", "react-native-iap"],
+    "plugins": [
+      "expo-router",
+      "react-native-iap",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Fitco uses your camera to scan food barcodes. This allows us to instantly identify products and log their nutritional information to your daily diary."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

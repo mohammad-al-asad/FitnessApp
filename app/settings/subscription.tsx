@@ -236,6 +236,7 @@ const UpgradePlanScreen = () => {
     fetchProducts,
     requestPurchase,
     finishTransaction,
+    getAvailablePurchases,
   } = useIAP({
     onPurchaseSuccess: async (purchase) => {
       try {
@@ -497,6 +498,54 @@ const UpgradePlanScreen = () => {
       } else {
         Alert.alert(String(t("error")), String(t("invalidCoupon")));
       }
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      setIsProcessingPurchase(true);
+      const purchases = await getAvailablePurchases();
+
+      if (!purchases || purchases.length === 0) {
+        Alert.alert(
+          String(t("error")),
+          String(t("no_active_subscription_found")),
+        );
+        return;
+      }
+
+      let restoredCount = 0;
+      for (const purchase of purchases) {
+        try {
+          if (Platform.OS === "ios") {
+            await backendVerifyApplePurchase({
+              transactionId: purchase.transactionId || "",
+            });
+          } else {
+            await backendVerifyGooglePurchase({
+              purchaseToken: purchase.purchaseToken!,
+            });
+          }
+          await finishTransaction({ purchase, isConsumable: false });
+          restoredCount++;
+        } catch (e) {
+          console.error("Failed to restore a specific purchase:", e);
+        }
+      }
+
+      if (restoredCount > 0) {
+        Alert.alert(String(t("success")), String(t("subscription_restored")));
+        loadInitialData();
+      } else {
+        Alert.alert(String(t("error")), String(t("failed_to_restore")));
+      }
+    } catch (error: any) {
+      Alert.alert(
+        String(t("error")),
+        error.message || "Failed to restore purchases",
+      );
+    } finally {
+      setIsProcessingPurchase(false);
     }
   };
 
@@ -825,6 +874,16 @@ const UpgradePlanScreen = () => {
           >
             <Text style={[styles.manageLinkText, { color: colors.primary }]}>
               {t("manageSubscription")}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleRestore}
+            style={styles.manageLink}
+            disabled={isProcessingPurchase}
+          >
+            <Text style={[styles.manageLinkText, { color: colors.primary }]}>
+              {t("restorePurchases")}
             </Text>
           </TouchableOpacity>
 
