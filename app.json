@@ -28,7 +28,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": ["android.permission.CAMERA"],
-      "package": "com.anonymous.FitcoV3"
+      "package": "com.fitcoksa"
     },
     "web": {
       "output": "static",
