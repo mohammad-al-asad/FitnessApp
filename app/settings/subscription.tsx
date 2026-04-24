@@ -23,8 +23,8 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Platform,
   Linking,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -40,11 +40,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
  * Safely extracts a numeric value from a price string (e.g., "$9.99" -> 9.99).
  * Returns 0 if extraction fails.
  */
-const extractNumericPrice = (val: string | number | null | undefined): number => {
+const extractNumericPrice = (
+  val: string | number | null | undefined,
+): number => {
   if (val === null || val === undefined) return 0;
   if (typeof val === "number") return val;
   // Support both dot and comma locales, then keep only digits and first decimal
-  const normalized = String(val).replace(/,/g, ".").replace(/[^0-9.]/g, "");
+  const normalized = String(val)
+    .replace(/,/g, ".")
+    .replace(/[^0-9.]/g, "");
   const parsed = parseFloat(normalized);
   return isNaN(parsed) ? 0 : parsed;
 };
@@ -53,7 +57,10 @@ const extractNumericPrice = (val: string | number | null | undefined): number =>
  * Formats a number as a currency string.
  * Uses a robust fallback if Intl.NumberFormat is unavailable or fails.
  */
-const formatCurrency = (amount: number, currencyCode: string | null | undefined) => {
+const formatCurrency = (
+  amount: number,
+  currencyCode: string | null | undefined,
+) => {
   const code = (currencyCode || "USD").toUpperCase();
   const safeAmount = isNaN(amount) ? 0 : amount;
 
@@ -270,6 +277,8 @@ const UpgradePlanScreen = () => {
     },
   });
 
+  console.log(JSON.stringify(subscriptions, null, 2));
+
   const [plans, setPlans] = useState<SubscriptionPlan[]>(
     STATIC_SUBSCRIPTION_PLANS,
   );
@@ -325,22 +334,27 @@ const UpgradePlanScreen = () => {
       );
       if (sub) {
         const hasIntroOffer = !!sub.introductoryPrice;
-        const currencyCode = (sub as any).currency || (sub as any).currencyCode || "USD";
+        const currencyCode =
+          (sub as any).currency || (sub as any).currencyCode || "USD";
 
         const baseAmount = extractNumericPrice(sub.price);
         const displayAmount = hasIntroOffer
           ? extractNumericPrice(sub.introductoryPrice)
           : baseAmount;
 
-        const localized = typeof sub.localizedPrice === "string" ? sub.localizedPrice : "";
+        const localized =
+          typeof sub.localizedPrice === "string" ? sub.localizedPrice : "";
         const hasSymbol = /[^\d\s.,]/.test(localized);
 
         return {
           ...sub,
-          basePlanPrice: hasSymbol ? localized : formatCurrency(baseAmount, currencyCode),
-          displayPrice: (hasIntroOffer && !hasSymbol) 
-            ? formatCurrency(displayAmount, currencyCode) 
-            : localized || formatCurrency(displayAmount, currencyCode),
+          basePlanPrice: hasSymbol
+            ? localized
+            : formatCurrency(baseAmount, currencyCode),
+          displayPrice:
+            hasIntroOffer && !hasSymbol
+              ? formatCurrency(displayAmount, currencyCode)
+              : localized || formatCurrency(displayAmount, currencyCode),
           baseAmount: baseAmount,
           displayAmount: displayAmount,
           currencyCode: currencyCode,
@@ -403,9 +417,16 @@ const UpgradePlanScreen = () => {
           displayPrice:
             pricingPhases?.[0]?.formattedPrice || mainSub.displayPrice,
           baseAmount:
-            Math.round(((Number(basePricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000) * 100) / 100,
+            Math.round(
+              ((Number(basePricingPhases?.[0]?.priceAmountMicros) || 0) /
+                1000000) *
+                100,
+            ) / 100,
           displayAmount:
-            Math.round(((Number(pricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000) * 100) / 100,
+            Math.round(
+              ((Number(pricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000) *
+                100,
+            ) / 100,
           currencyCode:
             pricingPhases?.[0]?.priceCurrencyCode ||
             basePricingPhases?.[0]?.priceCurrencyCode ||
@@ -487,7 +508,9 @@ const UpgradePlanScreen = () => {
           off.basePlanIdAndroid === selectedPlan?.google_sku;
 
         const isCorrectOfferCode =
-          off.offerId === code || off.offerIdAndroid === code || off.id === code;
+          off.offerId === code ||
+          off.offerIdAndroid === code ||
+          off.id === code;
 
         return isCorrectBasePlan && isCorrectOfferCode;
       });
@@ -651,7 +674,11 @@ const UpgradePlanScreen = () => {
                 { color: colors.text, textAlign: isRTL ? "right" : "left" },
               ]}
             >
-              {t(selectedPeriod === "monthly" ? "monthlyPremium" : "yearlyPremium")}
+              {t(
+                selectedPeriod === "monthly"
+                  ? "monthlyPremium"
+                  : "yearlyPremium",
+              )}
             </Text>
             <Text
               style={[
@@ -865,9 +892,12 @@ const UpgradePlanScreen = () => {
             {t("autoRenewalNotice")}
           </Text>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
-              const url = Platform.OS === 'ios' ? 'https://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions';
+              const url =
+                Platform.OS === "ios"
+                  ? "https://apps.apple.com/account/subscriptions"
+                  : "https://play.google.com/store/account/subscriptions";
               Linking.openURL(url);
             }}
             style={styles.manageLink}
@@ -888,12 +918,22 @@ const UpgradePlanScreen = () => {
           </TouchableOpacity>
 
           <View style={styles.policyRow}>
-            <TouchableOpacity onPress={() => router.push("/settings/account/privacyPolicy")}>
-              <Text style={[styles.policyLink, { color: colors.primary }]}>{t("privacyPolicy")}</Text>
+            <TouchableOpacity
+              onPress={() => router.push("/settings/account/privacyPolicy")}
+            >
+              <Text style={[styles.policyLink, { color: colors.primary }]}>
+                {t("privacyPolicy")}
+              </Text>
             </TouchableOpacity>
-            <Text style={{ color: colors.placeholder, marginHorizontal: 8 }}>•</Text>
-            <TouchableOpacity onPress={() => router.push("/settings/account/termsOfServices")}>
-              <Text style={[styles.policyLink, { color: colors.primary }]}>{t("termsOfUse")}</Text>
+            <Text style={{ color: colors.placeholder, marginHorizontal: 8 }}>
+              •
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/settings/account/termsOfServices")}
+            >
+              <Text style={[styles.policyLink, { color: colors.primary }]}>
+                {t("termsOfUse")}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
