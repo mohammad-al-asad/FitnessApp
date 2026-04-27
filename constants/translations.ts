@@ -104,6 +104,8 @@ export const translations = {
     foodAllergiesDescription: "We'll make sure to avoid suggesting foods you can't eat (optional)",
     completeSetup: "Complete Setup",
     iAgreeToMedicalDisclaimer: "I agree and understand the medical disclaimer",
+    learnMore: "Learn More",
+    howWeMakeRecommendations: "How we make recommendations",
 
     // Home Screen
     heyThere: "Hey there!",
@@ -466,16 +468,18 @@ export const translations = {
 
     // Compliance & Disclaimers
     medicalDisclaimerTitle: "Medical Disclaimer",
-    medicalDisclaimerBody: "This application provides health and nutrition information for educational purposes only. It is not intended as a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition. Use of this application is at your own risk.",
-    calculationSource: "Calculation based on the Mifflin-St Jeor Equation.",
+    medicalDisclaimerBody: "Fitco provides health, fitness, and nutrition information for educational purposes only. The content is not intended to be a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition. Never disregard professional medical advice or delay in seeking it because of something you have read in this application. Use of this application is at your own risk.",
+    calculationSource: "Calculations based on:",
+    citationsTitle: "Scientific Sources",
     autoRenewalNotice: "Payments will be charged to your store account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. You can manage or cancel your subscription at any time in your store account settings.",
     manageSubscription: "Manage Subscription",
     termsOfUse: "Terms of Use",
     viewPrivacy: "Privacy Policy",
-    fitBotDisclaimer: "FitBot is an AI assistant, not a doctor. Consult a medical professional for health advice.",
+    fitBotDisclaimer: "FitBot provides general information based on verified nutritional science and your profile. It is not a clinical diagnostic tool. Consult a doctor for medical decisions.",
     medicalDisclaimerLink: "Learn more about our health information sources and medical disclaimer",
-    citationsTitle: "Citations & Sources",
-    citationsBody: "Calculations for Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE) are based on the Mifflin-St Jeor Equation (1990). Macro distributions follow general nutritional guidelines (30% Protein, 40% Carbs, 30% Fats).\n\nSource: Mifflin, M. D., St Jeor, S. T., Hill, L. A., Scott, B. J., Daugherty, S. A., & Koh, Y. O. (1990). A new predictive equation for resting energy expenditure in healthy individuals. The American journal of clinical nutrition, 51(2), 241-247.",
+    citationsBody1: "1. Energy Expenditure: Basal Metabolic Rate (BMR) is estimated using the Mifflin-St Jeor Equation (1990), currently considered the most accurate predictor for healthy adults.\nReference: Mifflin, M. D., et al. (1990). 'A new predictive equation for resting energy expenditure'. Am J Clin Nutr.",
+    citationsBody2: "2. Activity Factors: Total Daily Energy Expenditure (TDEE) multipliers are derived from the Physical Activity Level (PAL) categories defined by the FAO/WHO/UNU (2001).\n\n3. Macronutrient Targets: Default distributions (30% Protein, 40% Carbs, 30% Fats) align with the Acceptable Macronutrient Distribution Ranges (AMDR) established by the Institute of Medicine (IOM).\n\n4. Weight Management: Caloric deficits and surpluses are set within safe clinical ranges for sustainable progress (±400-500 kcal), avoiding extreme metabolic stress.\n\nNote: Fitco is an educational tool. All recommendations should be reviewed with a medical professional, especially for individuals with pre-existing conditions.",
+    macroDistributionScientificBasis: "These default distributions align with the Acceptable Macronutrient Distribution Ranges (AMDR) established by the Institute of Medicine (IOM).",
   },
 
   ar: {
@@ -576,6 +580,8 @@ export const translations = {
     targetWeightQuestion: "ما هو وزنك المستهدف؟",
     targetWeightDescription: "ما هو الوزن الذي ترغب في الوصول إليه؟ تذكر أن التغييرات التدريجية أكثر استدامة.",
     anyFoodAllergies: "هل لديك أي حساسية تجاه الطعام؟",
+    learnMore: "معرفة المزيد",
+    howWeMakeRecommendations: "كيف نضع التوصيات",
     foodAllergiesDescription: "سنتأكد من تجنب اقتراح الأطعمة التي لا يمكنك تناولها (اختياري).",
 
     // Home Screen
@@ -822,8 +828,8 @@ export const translations = {
 
     // Compliance & Disclaimers
     medicalDisclaimerTitle: "إخلاء مسؤولية طبية",
-    medicalDisclaimerBody: "يوفر هذا التطبيق معلومات عن الصحة والتغذية للأغراض التعليمية فقط. وليس المقصود منه أن يكون بديلاً عن المشورة الطبية المهنية أو التشخيص أو العلاج. احرص دائماً على استشارة طبيبك أو غيره من مقدمي الخدمات الصحية المؤهلين بشأن أي أسئلة قد تكون لديكم بخصوص حالة طبية. استخدام هذا التطبيق على مسؤوليتك الخاصة.",
-    calculationSource: "الحساب مبني على معادلة Mifflin-St Jeor.",
+    medicalDisclaimerBody: "يوفر فتكو معلومات عن الصحة واللياقة البدنية والتغذية للأغراض التعليمية فقط. لا يُقصد من المحتوى أن يكون بديلاً عن المشورة الطبية المهنية أو التشخيص أو العلاج. احرص دائماً على استشارة طبيبك أو غيره من مقدمي الخدمات الصحية المؤهلين بشأن أي أسئلة قد تكون لديك بخصوص حالة طبية. لا تتجاهل أبداً المشورة الطبية المهنية أو تتأخر في طلبها بسبب شيء قرأته في هذا التطبيق. استخدام هذا التطبيق يكون على مسؤوليتك الخاصة.",
+    calculationSource: "الحسابات مبنية على:",
     iAgreeToMedicalDisclaimer: "أوافق وأفهم إخلاء المسؤولية الطبية",
     autoRenewalNotice: "سيتم خصم المبلغ من حساب المتجر الخاص بك عند تأكيد الشراء. يتجدد الاشتراك تلقائياً ما لم يتم إيقاف التجديد التلقائي قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة أو إلغاء اشتراكك في أي وقت من إعدادات حساب المتجر الخاص بك.",
     manageSubscription: "إدارة الاشتراك",
@@ -832,10 +838,11 @@ export const translations = {
     noFoodsFound: "لم يتم العثور على أطعمة.",
     failedToLoadFoods: "فشل تحميل الأطعمة.",
     missingCheckoutUrl: "رابط الدفع غير متوفر.",
-    fitBotDisclaimer: "FitBot هو مساعد ذكاء اصطناعي، وليس طبيباً. استشر طبيباً مختصاً للحصول على نصائح صحية.",
+    fitBotDisclaimer: "يوفر FitBot معلومات عامة بناءً على علوم التغذية الموثقة وملفك الشخصي. إنها ليست أداة تشخيص سريري. استشر طبيباً لاتخاذ القرارات الطبية.",
     medicalDisclaimerLink: "تعرف على المزيد حول مصادر معلوماتنا الصحية وإخلاء المسؤولية الطبي",
     citationsTitle: "المصادر والاستشهادات",
-    citationsBody: "تعتمد حسابات معدل الأيض الأساسي (BMR) وإجمالي الإنفاق اليومي للطاقة (TDEE) على معادلة Mifflin-St Jeor (1990). تتبع توزيعات الماكروز الإرشادات الغذائية العامة (30٪ بروتين، 40٪ كربوهيدرات، 30٪ دهون).\n\nالمصدر: Mifflin, M. D., St Jeor, S. T., Hill, L. A., Scott, B. J., Daugherty, S. A., & Koh, Y. O. (1990). A new predictive equation for resting energy expenditure in healthy individuals. The American journal of clinical nutrition, 51(2), 241-247.",
+    citationsBody1: "1. تقدير الطاقة: يتم حساب معدل الأيض الأساسي (BMR) باستخدام معادلة 'ميفلين-سانت جور' (1990)، والتي تُعتبر حاليًا الأدق للتنبؤ باحتياجات البالغين الأصحاء.\nالمرجع: Mifflin, M. D., et al. (1990). 'A new predictive equation for resting energy expenditure'.",
+    citationsBody2: "2. مستويات النشاط: تم اشتقاق مضاعفات إجمالي استهلاك الطاقة اليومي (TDEE) من فئات مستويات النشاط البدني (PAL) المحددة من قبل منظمة الأغذية والزراعة ومنظمة الصحة العالمية (FAO/WHO/UNU 2001).\n\n3. توزيع الماكروز: تتماشى التوزيعات الافتراضية (30٪ بروتين، 40٪ كربوهيدرات، 30٪ دهون) مع النطاقات المقبولة لتوزيع المغذيات الكبيرة (AMDR) التي وضعها معهد الطب (IOM).\n\n4. إدارة الوزن: يتم تحديد العجز أو الفائض الحراري ضمن النطاقات السريرية الآمنة لضمان تقدم مستدام (±400-500 سعرة) وتجنب الإجهاد البدني الشديد.\n\nملاحظة: فتكو أداة تعليمية. يجب مراجعة جميع التوصيات مع مختص طبي، خاصة للأفراد الذين يعانون من حالات صحية مسبقة.",
 
     // Goals & Nutrition
     dailyGoals: "الاهداف اليومية",
@@ -849,6 +856,7 @@ export const translations = {
     fatsPercent: "دهون: 30٪ من السعرات",
     dailyGoalUpdated: "تم تحديث الهدف اليومي",
     failedToUpdateGoals: "فشل تحديث الأهداف",
+    macroDistributionScientificBasis: "تتماشى هذه التوزيعات الافتراضية مع النطاقات المقبولة لتوزيع المغذيات الكبيرة (AMDR) التي وضعها معهد الطب (IOM).",
 
     // Preferences Page
     language: "اللغة",

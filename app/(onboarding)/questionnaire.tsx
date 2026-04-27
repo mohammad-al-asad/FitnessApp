@@ -7,16 +7,31 @@ import { getQuestionnaireSettings, useNutrition } from "@/hooks/nutrition-store"
 import { backendUpdateMyCompleteProfile } from "@/services/backend-auth";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { Activity, Calendar, ChevronRight, Target, User, ShieldCheck, Square, CheckSquare } from 'lucide-react-native';
+import { 
+  Activity, 
+  Calendar, 
+  ChevronRight, 
+  Target, 
+  User, 
+  ShieldCheck, 
+  Circle, 
+  CheckCircle2,
+  X,
+  Info
+} from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ScrollView, 
+  TextInput, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ActivityIndicator,
+  Linking,
+  Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -80,6 +95,7 @@ export default function QuestionnaireScreen() {
     allergies: '',
   });
   const [agreed, setAgreed] = useState<boolean>(false);
+  const [showCitations, setShowCitations] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateStep = (step: number): boolean => {
@@ -138,7 +154,7 @@ export default function QuestionnaireScreen() {
     try {
       const userId = user?.uid;
 if (!userId) {
-  console.warn("âš ï¸ No authenticated user found â€” skipping questionnaire save.");
+  console.warn("âš ï¸  No authenticated user found â€” skipping questionnaire save.");
   return;
 }
 
@@ -213,7 +229,7 @@ await backendUpdateMyCompleteProfile({
 });
       await markFirstSignInSubscriptionPromptPending();
 } catch (err) {
-      console.error('âŒ Failed to save questionnaire data:', err);
+      console.error('â Œ Failed to save questionnaire data:', err);
     } finally {
       // give store a moment to read AsyncStorage, then go home
       setTimeout(() => {
@@ -520,14 +536,17 @@ await backendUpdateMyCompleteProfile({
 
       case 9:
         return (
-          <View style={styles.stepContainer}>
-            <View style={styles.stepHeader}>
-              <ShieldCheck size={32} color={colors.accent} />
-              <Text style={[styles.stepTitle, { color: colors.text }]}>{t('medicalDisclaimerTitle')}</Text>
-              <Text style={[styles.stepDescription, { color: colors.text }]}>
+          <View style={{ flex: 1 }}>
+            <View style={{ marginBottom: 24, alignItems: 'center' }}>
+              <Text style={[styles.stepTitle, { color: colors.text, textAlign: 'center' }]}>
+                {t('medicalDisclaimerTitle')}
+              </Text>
+              <Text style={[styles.stepDescription, { color: colors.placeholder, textAlign: 'center', marginTop: 8 }]}>
                 {t('medicalDisclaimerBody')}
               </Text>
             </View>
+
+
 
             <TouchableOpacity 
               style={[
@@ -537,25 +556,54 @@ await backendUpdateMyCompleteProfile({
                   borderColor: agreed ? colors.accent : 'transparent',
                   flexDirection: isRTL ? 'row-reverse' : 'row',
                   alignItems: 'center',
-                  gap: 12,
-                  marginTop: 20
+                  padding: 20,
+                  gap: 16,
                 }
               ]}
               onPress={() => setAgreed(!agreed)}
+              activeOpacity={0.8}
             >
-              {agreed ? (
-                <CheckSquare size={24} color={colors.accent} />
-              ) : (
-                <Square size={24} color={colors.placeholder} />
-              )}
-              <Text style={[styles.optionTitle, { color: colors.text, flex: 1, fontSize: 16 }]}>
-                {t('iAgreeToMedicalDisclaimer')}
+              <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+                {agreed ? (
+                  <CheckCircle2 size={28} color={colors.accent} />
+                ) : (
+                  <Circle size={28} color={colors.placeholder} />
+                )}
+              </View>
+              <Text style={{ color: colors.text, flex: 1, fontSize: 16, lineHeight: 24, fontWeight: '500' }}>
+                {isRTL ? "أوافق على " : "I agree to Fitco's "}
+                <Text 
+                  style={{ color: colors.accent, fontWeight: '700', textDecorationLine: 'underline' }}
+                  onPress={() => router.push('/settings/account/termsOfServices')}
+                >
+                  {t('termsOfServices')}
+                </Text>
+                {isRTL ? " و " : " and "}
+                <Text 
+                  style={{ color: colors.accent, fontWeight: '700', textDecorationLine: 'underline' }}
+                  onPress={() => router.push('/settings/account/privacyPolicy')}
+                >
+                  {t('privacyPolicy')}
+                </Text>
               </Text>
             </TouchableOpacity>
-            
-            <Text style={[styles.citationText, { color: colors.text, marginTop: 24 }]}>
-              {t('calculationSource')}
-            </Text>
+
+            <TouchableOpacity 
+              onPress={() => setShowCitations(true)}
+              style={{ 
+                marginTop: 32, 
+                flexDirection: isRTL ? 'row-reverse' : 'row', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                gap: 6,
+                paddingHorizontal: 24
+              }}
+            >
+              <Info size={14} color={colors.text} style={{ opacity: 0.6 }} />
+              <Text style={[styles.citationText, { color: colors.text, marginBottom: 0, fontStyle: 'normal' }]}>
+                {t('howWeMakeRecommendations')}
+              </Text>
+            </TouchableOpacity>
           </View>
         );
 
@@ -613,6 +661,41 @@ await backendUpdateMyCompleteProfile({
           <ChevronRight size={20} color={colors.background} />
         </TouchableOpacity>
       </View>
+      <Modal
+        visible={showCitations}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCitations(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{t('citationsTitle')}</Text>
+              <TouchableOpacity onPress={() => setShowCitations(false)}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.citationsFullText, { color: colors.text, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('citationsBody1')}
+              </Text>
+              
+              <TouchableOpacity 
+                onPress={() => Linking.openURL('https://reference.medscape.com/calculator/846/mifflin-st-jeor-equation')}
+                style={{ marginTop: 8, marginBottom: 16, alignSelf: isRTL ? 'flex-end' : 'flex-start' }}
+              >
+                <Text style={{ color: colors.accent, fontWeight: '700', textDecorationLine: 'underline' }}>
+                  {t('learnMore')} (Medscape)
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={[styles.citationsFullText, { color: colors.text, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('citationsBody2')}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -674,5 +757,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textDecorationLine: "underline",
     textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  modalBody: {
+    marginBottom: 24,
+  },
+  citationsFullText: {
+    fontSize: 14,
+    lineHeight: 22,
+    opacity: 0.9,
   },
 });

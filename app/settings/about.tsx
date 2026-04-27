@@ -1,10 +1,10 @@
 // Displays the About screen — provides app information, features, credits, and development details with multilingual support.
 import Colors from "@/constants/colors";
 import { useLanguage } from "@/hooks/language-context";
-import { Heart, Info, Star } from "lucide-react-native";
+import { Heart, Info, Star, ShieldCheck } from "lucide-react-native";
 
 import React from "react";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View, TouchableOpacity, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AboutScreen() {
@@ -122,10 +122,10 @@ export default function AboutScreen() {
           </Text>
         </View>
 
-        {/* Medical Disclaimer & Citations Section */}
+        {/* Medical Disclaimer Section */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
-            <Heart size={20} color={Colors.primary} />
+            <ShieldCheck size={20} color={Colors.primary} />
             <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
               {t("medicalDisclaimerTitle")}
             </Text>
@@ -133,15 +133,29 @@ export default function AboutScreen() {
           <Text style={[styles.disclaimerText, isRTL && styles.rtlText]}>
             {t("medicalDisclaimerBody")}
           </Text>
-          
-          <View style={[styles.sectionHeader, isRTL && styles.rtlRow, { marginTop: 20 }]}>
+        </View>
+
+        {/* Scientific Citations Section */}
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
             <Info size={20} color={Colors.primary} />
             <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
               {t("citationsTitle")}
             </Text>
           </View>
-          <Text style={[styles.disclaimerText, isRTL && styles.rtlText]}>
-            {t("citationsBody")}
+          <Text style={[styles.citationsText, isRTL && styles.rtlText]}>
+            {t("citationsBody1")}
+          </Text>
+          <TouchableOpacity 
+            onPress={() => Linking.openURL('https://reference.medscape.com/calculator/846/mifflin-st-jeor-equation')}
+            style={{ marginTop: 4, marginBottom: 12 }}
+          >
+            <Text style={{ color: Colors.primary, fontWeight: '700', textDecorationLine: 'underline', fontSize: 13 }}>
+              {t('learnMore')} (Medscape)
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.citationsText, isRTL && styles.rtlText]}>
+            {t("citationsBody2")}
           </Text>
         </View>
 
@@ -217,7 +231,14 @@ const styles = StyleSheet.create({
   disclaimerText: {
     fontSize: 14,
     color: Colors.placeholder,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  citationsText: {
+    fontSize: 13,
+    color: Colors.text,
     lineHeight: 20,
+    opacity: 0.9,
   },
   developmentText: {
     fontSize: 16,

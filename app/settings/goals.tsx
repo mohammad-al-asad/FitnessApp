@@ -3,9 +3,9 @@ import Colors from '@/constants/colors';
 import { useLanguage } from '@/hooks/language-context';
 import { useNutrition } from '@/hooks/nutrition-store';
 import { backendUpdateDailyGoal } from '@/services/backend-auth';
-import { Save, Target } from 'lucide-react-native';
+import { Save, Target, Info } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Linking } from 'react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type UserSettings = any;
@@ -156,6 +156,10 @@ export default function GoalsScreen() {
             <Text style={[styles.distributionItem, isRTL && styles.rtlText]}>{t('carbsPercent')}</Text>
             <Text style={[styles.distributionItem, isRTL && styles.rtlText]}>{t('fatsPercent')}</Text>
           </View>
+
+          <Text style={[styles.citationText, isRTL && styles.rtlText]}>
+            {t('macroDistributionScientificBasis')}
+          </Text>
         </View>
 
         {/* Save Button */}
@@ -176,6 +180,7 @@ export default function GoalsScreen() {
           </View>
         )}
       </ScrollView>
+
     </View>
   );
 }
@@ -292,5 +297,55 @@ const styles = StyleSheet.create({
   },
   rtlInput: {
     textAlign: 'right',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    width: '100%',
+    maxHeight: '80%',
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    flex: 1,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalBody: {
+    flex: 0,
+  },
+  citationsFullText: {
+    fontSize: 14,
+    color: Colors.text,
+    lineHeight: 22,
+  },
+  citationText: {
+    fontSize: 12,
+    color: Colors.placeholder,
+    marginTop: 12,
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
 });
