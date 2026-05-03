@@ -544,6 +544,9 @@ await backendUpdateMyCompleteProfile({
               <Text style={[styles.stepDescription, { color: colors.placeholder, textAlign: 'center', marginTop: 8 }]}>
                 {t('medicalDisclaimerBody')}
               </Text>
+              <Text style={[styles.stepDescription, { color: colors.placeholder, textAlign: isRTL ? 'right' : 'center', marginTop: 16 }]}>
+                {String(t('aiConsentDescription'))}
+              </Text>
             </View>
 
 

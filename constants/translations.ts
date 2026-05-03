@@ -480,6 +480,13 @@ export const translations = {
     citationsBody1: "1. Energy Expenditure: Basal Metabolic Rate (BMR) is estimated using the Mifflin-St Jeor Equation (1990), currently considered the most accurate predictor for healthy adults.\nReference: Mifflin, M. D., et al. (1990). 'A new predictive equation for resting energy expenditure'. Am J Clin Nutr.",
     citationsBody2: "2. Activity Factors: Total Daily Energy Expenditure (TDEE) multipliers are derived from the Physical Activity Level (PAL) categories defined by the FAO/WHO/UNU (2001).\n\n3. Macronutrient Targets: Default distributions (30% Protein, 40% Carbs, 30% Fats) align with the Acceptable Macronutrient Distribution Ranges (AMDR) established by the Institute of Medicine (IOM).\n\n4. Weight Management: Caloric deficits and surpluses are set within safe clinical ranges for sustainable progress (±400-500 kcal), avoiding extreme metabolic stress.\n\nNote: Fitco is an educational tool. All recommendations should be reviewed with a medical professional, especially for individuals with pre-existing conditions.",
     macroDistributionScientificBasis: "These default distributions align with the Acceptable Macronutrient Distribution Ranges (AMDR) established by the Institute of Medicine (IOM).",
+    
+    // AI Consent
+    aiConsentTitle: "AI Processing Consent",
+    aiConsentDescription: "To provide personalized fitness advice, FitBot uses OpenAI technology. By clicking 'Agree', you authorize Fitco to share your chat messages and profile data (name, age, weight, goals, height, progress, and subscription status) with OpenAI. Your data is used only to generate responses and is not used to train AI models.",
+    aiConsentCheckbox: "I agree to share my data with OpenAI",
+    aiConsentDecline: "Decline",
+    aiConsentAgree: "Agree & Continue",
   },
 
   ar: {
@@ -798,6 +805,13 @@ export const translations = {
     newPassword: "كلمة المرور الجديدة",
     confirmPassword: "تأكيد كلمة المرور",
     updatePassword: "تحديث كلمة المرور",
+
+    // AI Consent
+    aiConsentTitle: "الموافقة على معالجة البيانات بالذكاء الاصطناعي",
+    aiConsentDescription: "لتقديم نصائح رياضية مخصصة، يستخدم FitBot تقنية OpenAI. بالضغط على 'موافق'، فإنك تفوض فتكو بمشاركة رسائل المحادثة وبيانات ملفك الشخصي (الاسم، العمر، الوزن، الأهداف، الطول، التقدم، وحالة الاشتراك) مع OpenAI. يتم استخدام بياناتك فقط لإنشاء الاستجابات ولا يتم استخدامها لتدريب نماذج الذكاء الاصطناعي.",
+    aiConsentCheckbox: "أوافق على مشاركة بياناتي مع OpenAI",
+    aiConsentDecline: "رفض",
+    aiConsentAgree: "موافق ومتابعة",
 
     // Report
     report: "تقرير",

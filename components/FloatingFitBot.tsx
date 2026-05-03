@@ -1,4 +1,5 @@
 import FirstSignInSubscriptionModal from "@/components/FirstSignInSubscriptionModal";
+import { useAuth } from "@/hooks/auth-context";
 import { useLanguage } from "@/hooks/language-context";
 import {
   backendGetChatHistory,
@@ -6,6 +7,7 @@ import {
   backendSendChatMessage,
   type ChatLimitStatus,
 } from "@/services/backend-auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Send, X } from "lucide-react-native";
@@ -98,8 +100,15 @@ export default function FloatingFitBot({
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [chatLimit, setChatLimit] = useState<ChatLimitStatus | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [hasConsented, setHasConsented] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
   const [androidKeyboardOffset, setAndroidKeyboardOffset] = useState(0);
   const { isRTL, t } = useLanguage();
+  const { user } = useAuth();
+  const consentStorageKey = user?.uid
+    ? `fitbot_ai_consent_${user.uid}`
+    : "fitbot_ai_consent_guest";
 
   const scrollViewRef = useRef<ScrollView>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,6 +136,23 @@ export default function FloatingFitBot({
       ]);
     }
   }, [t, hasLoadedHistory]);
+
+  useEffect(() => {
+    const checkConsent = async () => {
+      try {
+        const userConsent = await AsyncStorage.getItem(consentStorageKey);
+        
+        if (userConsent === "true") {
+          setHasConsented(true);
+        } else {
+          setHasConsented(false);
+        }
+      } catch (e) {
+        setHasConsented(false);
+      }
+    };
+    checkConsent();
+  }, [consentStorageKey]);
 
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -164,9 +190,9 @@ export default function FloatingFitBot({
   }, []);
 
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible || !hasConsented) return;
     void loadChatLimit();
-  }, [isVisible, loadChatLimit]);
+  }, [isVisible, hasConsented, loadChatLimit]);
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -279,7 +305,12 @@ export default function FloatingFitBot({
         duration: 100,
         useNativeDriver: false,
       }),
-    ]).start(() => setIsVisible(true));
+    ]).start(() => {
+      setIsVisible(true);
+      if (!hasConsented) {
+        setShowConsentModal(true);
+      }
+    });
   };
 
   const panResponder = useRef(
@@ -332,7 +363,7 @@ export default function FloatingFitBot({
   const handleClose = () => setIsVisible(false);
 
   useEffect(() => {
-    if (!isVisible || hasLoadedHistory) return;
+    if (!isVisible || !hasConsented || hasLoadedHistory) return;
 
     const loadHistory = async () => {
       try {
@@ -374,11 +405,17 @@ export default function FloatingFitBot({
     };
 
     loadHistory();
-  }, [isVisible, hasLoadedHistory]);
+  }, [isVisible, hasConsented, hasLoadedHistory]);
 
   const sendMessage = () => {
     if (!inputText.trim() || isLoading || isLoadingLimit || isChatLimitReached)
       return;
+
+    if (!hasConsented) {
+      setShowConsentModal(true);
+      return;
+    }
+
     const prompt = inputText.trim();
 
     const userMsg: Message = {
@@ -394,7 +431,9 @@ export default function FloatingFitBot({
 
     (async () => {
       try {
-        const botReply = await backendSendChatMessage(prompt);
+        const botReply = await backendSendChatMessage(prompt, {
+          aiConsent: true,
+        });
 
         const botMsg: Message = {
           id: String(Date.now() + 1),
@@ -702,6 +741,63 @@ export default function FloatingFitBot({
               </Text>
             </View>
           </KeyboardAvoidingView>
+
+          {showConsentModal && (
+            <View style={[StyleSheet.absoluteFill, styles.consentOverlay, { zIndex: 9999, elevation: 9999 }]}>
+              <View style={styles.consentCard}>
+                <Text style={[styles.consentTitle, isRTL && { textAlign: "right" }]}>
+                  {String(t("aiConsentTitle"))}
+                </Text>
+                <Text style={[styles.consentText, isRTL && { textAlign: "right" }]}>
+                  {String(t("aiConsentDescription"))}
+                </Text>
+                
+                <TouchableOpacity 
+                  style={[styles.consentCheckboxRow, isRTL && { flexDirection: "row-reverse" }]} 
+                  onPress={() => setConsentChecked(!consentChecked)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, isRTL ? { marginLeft: 12 } : { marginRight: 12 }, consentChecked && styles.checkboxSelected]}>
+                    {consentChecked && <View style={styles.checkboxInner} />}
+                  </View>
+                  <Text style={[styles.consentCheckboxText, isRTL && { textAlign: "right" }]}>
+                    {String(t("aiConsentCheckbox"))}
+                  </Text>
+                </TouchableOpacity>
+ 
+                <View style={[styles.consentActions, isRTL && { flexDirection: "row-reverse", justifyContent: "flex-start" }]}>
+                  <TouchableOpacity 
+                    style={styles.consentButtonSecondary}
+                    onPress={() => {
+                      setShowConsentModal(false);
+                      setIsVisible(false); 
+                    }}
+                  >
+                    <Text style={styles.consentButtonTextSecondary}>
+                      {String(t("aiConsentDecline"))}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.consentButtonPrimary, !consentChecked && styles.consentButtonDisabled]}
+                    disabled={!consentChecked}
+                    onPress={async () => {
+                      try {
+                        await AsyncStorage.setItem(consentStorageKey, "true");
+                        setHasConsented(true);
+                        setShowConsentModal(false);
+                      } catch (e) {
+                        console.error("Failed to save consent", e);
+                      }
+                    }}
+                  >
+                    <Text style={styles.consentButtonTextPrimary}>
+                      {String(t("aiConsentAgree"))}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
         </LinearGradient>
       </Modal>
 
@@ -923,6 +1019,96 @@ const styles = StyleSheet.create({
   cuteIcon: { width: 52, height: 52, borderRadius: 24 },
   cuteIconHeader: { width: 30, height: 30, borderRadius: 14 },
   cuteIconAvatar: { width: 26, height: 26, borderRadius: 12 },
+  consentOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  consentCard: {
+    backgroundColor: "#1a1a3e",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  consentTitle: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  consentText: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  consentCheckboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 12,
+    borderRadius: 8,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#00d4ff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxSelected: {
+    borderColor: "#00d4ff",
+  },
+  checkboxInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#00d4ff",
+  },
+  consentCheckboxText: {
+    color: "white",
+    fontSize: 15,
+    flex: 1,
+  },
+  consentActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+  consentButtonSecondary: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  consentButtonTextSecondary: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  consentButtonPrimary: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: "#00d4ff",
+  },
+  consentButtonDisabled: {
+    backgroundColor: "rgba(0, 212, 255, 0.3)",
+  },
+  consentButtonTextPrimary: {
+    color: "#0f0f23",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
 });
 
 const markdownStyles = StyleSheet.create({

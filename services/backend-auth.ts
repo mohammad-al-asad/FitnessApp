@@ -484,7 +484,10 @@ export async function backendSubmitReport(
   });
 }
 
-export async function backendSendChatMessage(message: string): Promise<string> {
+export async function backendSendChatMessage(
+  message: string,
+  options?: { aiConsent?: boolean },
+): Promise<string> {
   const { token } = await readStoredSession();
   if (!token) throw new Error("No auth token");
 
@@ -493,7 +496,7 @@ export async function backendSendChatMessage(message: string): Promise<string> {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, aiConsent: options?.aiConsent === true }),
   });
 
   const root = json?.data ?? json;
