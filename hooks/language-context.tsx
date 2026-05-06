@@ -36,17 +36,17 @@ const COLORS = {
 export const LANGUAGE_KEY = "fitco_language";
 
 const defaultLanguageContext = {
-  currentLanguage: "en" as Language,
+  currentLanguage: "ar" as Language,
   changeLanguage: async (_: Language) => {},
   colors: COLORS,
   t: (key: TranslationKey) => key,
   tArray: (key: TranslationKey) => [],
-  isRTL: false as boolean,
+  isRTL: true as boolean,
   isLoading: false as boolean,
 };
 
 export const [LanguageProvider, useLanguage] = createContextHook(() => {
-  const [currentLanguage, setCurrentLanguage] = useState<Language>("en");
+  const [currentLanguage, setCurrentLanguage] = useState<Language>("ar");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -58,21 +58,21 @@ export const [LanguageProvider, useLanguage] = createContextHook(() => {
       setIsLoading(true);
       const savedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
 
-      if (savedLanguage === "ar") {
-        I18nManager.allowRTL(true);
-        I18nManager.forceRTL(true);
-        setCurrentLanguage("ar");
-      } else {
+      if (savedLanguage === "en") {
         I18nManager.allowRTL(false);
         I18nManager.forceRTL(false);
         setCurrentLanguage("en");
+      } else {
+        I18nManager.allowRTL(true);
+        I18nManager.forceRTL(true);
+        setCurrentLanguage("ar");
       }
 
       setIsLoading(false);
     } catch {
-      I18nManager.allowRTL(false);
-      I18nManager.forceRTL(false);
-      setCurrentLanguage("en");
+      I18nManager.allowRTL(true);
+      I18nManager.forceRTL(true);
+      setCurrentLanguage("ar");
       setIsLoading(false);
     }
   };

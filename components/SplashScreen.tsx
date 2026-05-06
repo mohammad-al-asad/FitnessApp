@@ -18,9 +18,6 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
 
   const { t, isRTL } = useLanguage();
 
-
-
-
   const taglines = isRTL ? translations.ar.splash_taglines : translations.en.splash_taglines;
 
   const [tagline, setTagline] = useState("");
@@ -163,7 +160,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
             },
           ]}
         >
-          <Text style={[styles.slogan, { color: colors.text }]}>{tagline}</Text>
+          <Text style={[styles.slogan, { color: colors.text, letterSpacing: isRTL ? 0 : 1.2 }]}>{tagline}</Text>
         </Animated.View>
 
         {/* Made in Saudi */}
@@ -183,7 +180,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
             },
           ]}
         >
-          <Text style={[styles.madeInSaudi, { color: colors.text }]}>
+          <Text style={[styles.madeInSaudi, { color: colors.text, letterSpacing: isRTL ? 0 : 1 }]}>
             {t('madeInSaudi')}
           </Text>
         </Animated.View>
@@ -220,7 +217,6 @@ const styles = StyleSheet.create({
   slogan: {
     fontSize: 17,
     fontWeight: "500",
-    letterSpacing: 1.2,
     textAlign: "center",
     opacity: 0.85,
   },
@@ -233,7 +229,6 @@ const styles = StyleSheet.create({
   madeInSaudi: {
     fontSize: 14,
     fontWeight: "500",
-    letterSpacing: 1,
     textAlign: "center",
     opacity: 0.9,
   },

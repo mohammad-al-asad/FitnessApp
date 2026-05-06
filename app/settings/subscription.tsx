@@ -252,15 +252,29 @@ const UpgradePlanScreen = () => {
         if (Platform.OS === "ios") {
           verifyResult = await backendVerifyApplePurchase({
             transactionId: purchase.transactionId || "",
+            receipt: purchase.transactionReceipt || "",
           });
         } else {
           verifyResult = await backendVerifyGooglePurchase({
             purchaseToken: purchase.purchaseToken!,
           });
         }
+        const isActive =
+          verifyResult?.success === true &&
+          (verifyResult?.normalized?.isActive === true ||
+            verifyResult?.subscription?.isActive === true);
+
+        if (!isActive) {
+          throw new Error(verifyResult?.message || "Subscription verification failed");
+        }
 
         await finishTransaction({ purchase, isConsumable: false });
-        Alert.alert(String(t("success")), String(t("subscriptionActivated")));
+        Alert.alert(
+          String(t("success")),
+          verifyResult?.message && verifyResult.message !== "Success"
+            ? verifyResult.message
+            : String(t("subscriptionActivated")),
+        );
         loadInitialData();
       } catch (error: any) {
         Alert.alert(
@@ -277,7 +291,7 @@ const UpgradePlanScreen = () => {
     },
   });
 
-  console.log(JSON.stringify(subscriptions, null, 2));
+  // console.log(JSON.stringify(subscriptions, null, 2));
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>(
     STATIC_SUBSCRIPTION_PLANS,
@@ -538,21 +552,34 @@ const UpgradePlanScreen = () => {
       }
 
       let restoredCount = 0;
+      let lastError: any = null;
       for (const purchase of purchases) {
         try {
+          let verifyResult;
           if (Platform.OS === "ios") {
-            await backendVerifyApplePurchase({
+            verifyResult = await backendVerifyApplePurchase({
               transactionId: purchase.transactionId || "",
+              receipt: purchase.transactionReceipt || "",
             });
           } else {
-            await backendVerifyGooglePurchase({
+            verifyResult = await backendVerifyGooglePurchase({
               purchaseToken: purchase.purchaseToken!,
             });
           }
+          const isActive =
+            verifyResult?.success === true &&
+            (verifyResult?.normalized?.isActive === true ||
+             verifyResult?.subscription?.isActive === true);
+
+          if (!isActive) {
+            throw new Error(verifyResult?.message || "Subscription verification failed");
+          }
+
           await finishTransaction({ purchase, isConsumable: false });
           restoredCount++;
-        } catch (e) {
+        } catch (e: any) {
           console.error("Failed to restore a specific purchase:", e);
+          lastError = e;
         }
       }
 
@@ -560,7 +587,7 @@ const UpgradePlanScreen = () => {
         Alert.alert(String(t("success")), String(t("subscription_restored")));
         loadInitialData();
       } else {
-        Alert.alert(String(t("error")), String(t("failed_to_restore")));
+        Alert.alert(String(t("error")), lastError?.message || String(t("failed_to_restore")));
       }
     } catch (error: any) {
       Alert.alert(

@@ -621,7 +621,7 @@ await backendUpdateMyCompleteProfile({
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <Text style={[styles.logo, { color: colors.accent }]}>FITCO</Text>
-        <Text style={[styles.subtitle, { color: colors.text }]}>{t('personalizeExperience')}</Text>
+        <Text style={[styles.subtitle, { color: colors.text, letterSpacing: isRTL ? 0 : 1.5 }]}>{t('personalizeExperience')}</Text>
 
         <View style={styles.progressContainer}>
           {Array.from({ length: (data.goal === 'lose_weight' || data.goal === 'gain_weight') ? 10 : 9 }, (_, i) => (
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     fontSize: 72, fontWeight: '900', marginBottom: 8, includeFontPadding: false, letterSpacing: -2,
     textShadowColor: 'rgba(0, 0, 0, 0.1)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4,
   },
-  subtitle: { fontSize: 18, fontWeight: '400', letterSpacing: 1.5, textAlign: 'center', opacity: 0.8, marginBottom: 24 },
+  subtitle: { fontSize: 18, fontWeight: '400', textAlign: 'center', opacity: 0.8, marginBottom: 24 },
   progressContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   progressDot: { width: 12, height: 12, borderRadius: 6 },
   content: { flex: 1 },

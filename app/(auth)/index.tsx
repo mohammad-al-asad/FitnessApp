@@ -124,7 +124,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
             <Text style={[styles.subtitle, { color: colors.text }]}>
               {isLogin ? t("welcomeBack") : t("readyToStart")}
             </Text>
-            <Text style={[styles.description, { color: colors.text }]}>
+            <Text style={[styles.description, { color: colors.text, letterSpacing: isRTL ? 0 : 0.4 }]}>
               {isLogin ? funnyLine : t("makeFutureSelfProud")}
             </Text>
           </View>
@@ -363,7 +363,6 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 17,
     fontWeight: "500",
-    letterSpacing: 0.4,
     textAlign: "center",
     opacity: 0.9,
     lineHeight: 24,

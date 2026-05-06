@@ -163,6 +163,7 @@ export type CreateSubscriptionResponse = {
 
 export type VerifyApplePurchasePayload = {
   transactionId: string;
+  receipt?: string;
 };
 
 export type VerifyGooglePurchasePayload = {
@@ -174,6 +175,8 @@ export type VerifyIapResponse = {
   success: boolean;
   message: string;
   user?: BackendUser;
+  normalized?: { isActive?: boolean };
+  subscription?: { isActive?: boolean };
 };
 
 function normalizeBaseUrl(raw?: string): string {
@@ -717,15 +720,20 @@ export async function backendVerifyApplePurchase(
     body: JSON.stringify(payload),
   });
 
+
   const root = json?.data ?? json;
   if (root?.user) {
     await saveSession(toBackendUser(root.user));
   }
 
+  const success = root?.success ?? (root?.normalized?.isActive === true || root?.subscription?.isActive === true);
+  
   return {
-    success: Boolean(root?.success ?? true),
-    message: String(root?.message ?? ""),
+    success: Boolean(success),
+    message: String(root?.message ?? (success ? "Success" : "Subscription not active")),
     user: root?.user ? toBackendUser(root.user) : undefined,
+    normalized: root?.normalized,
+    subscription: root?.subscription,
   };
 }
 
@@ -748,10 +756,14 @@ export async function backendVerifyGooglePurchase(
     await saveSession(toBackendUser(root.user));
   }
 
+  const success = root?.success ?? (root?.normalized?.isActive === true || root?.subscription?.isActive === true);
+
   return {
-    success: Boolean(root?.success ?? true),
-    message: String(root?.message ?? ""),
+    success: Boolean(success),
+    message: String(root?.message ?? (success ? "Success" : "Subscription not active")),
     user: root?.user ? toBackendUser(root.user) : undefined,
+    normalized: root?.normalized,
+    subscription: root?.subscription,
   };
 }
 
