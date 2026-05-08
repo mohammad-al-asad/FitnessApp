@@ -33,7 +33,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { presentCodeRedemptionSheetIOS, useIAP } from "react-native-iap";
+import { useIAP, presentCodeRedemptionSheetIOS, getAvailablePurchases as getAvailablePurchasesStandalone } from "expo-iap";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 /**
@@ -239,11 +239,12 @@ const UpgradePlanScreen = () => {
   const router = useRouter();
   const {
     connected,
-    subscriptions,
+    subscriptions: storeSubscriptions,
     fetchProducts,
     requestPurchase,
     finishTransaction,
     getAvailablePurchases,
+    availablePurchases,
   } = useIAP({
     onPurchaseSuccess: async (purchase) => {
       try {
@@ -291,7 +292,7 @@ const UpgradePlanScreen = () => {
     },
   });
 
-  // console.log(JSON.stringify(subscriptions, null, 2));
+  console.log(JSON.stringify(storeSubscriptions, null, 2));
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>(
     STATIC_SUBSCRIPTION_PLANS,
@@ -343,7 +344,7 @@ const UpgradePlanScreen = () => {
 
     if (Platform.OS === "ios") {
       const sku = selectedPlan.apple_sku;
-      const sub = subscriptions.find(
+      const sub = storeSubscriptions.find(
         (s: any) => s.productId === sku || s.id === sku,
       );
       if (sub) {
@@ -378,7 +379,7 @@ const UpgradePlanScreen = () => {
       return null;
     } else {
       // Android logic
-      const mainSub = subscriptions.find(
+      const mainSub = storeSubscriptions.find(
         (s: any) =>
           s.productId === ANDROID_MAIN_SUB_ID || s.id === ANDROID_MAIN_SUB_ID,
       );
@@ -456,7 +457,7 @@ const UpgradePlanScreen = () => {
       }
       return mainSub;
     }
-  }, [subscriptions, selectedPlan, appliedOfferCode]);
+  }, [storeSubscriptions, selectedPlan, appliedOfferCode]);
 
   const handleSubscribe = async () => {
     if (!selectedPlan || isProcessingPurchase) return;
@@ -541,7 +542,7 @@ const UpgradePlanScreen = () => {
   const handleRestore = async () => {
     try {
       setIsProcessingPurchase(true);
-      const purchases = await getAvailablePurchases();
+      const purchases = await getAvailablePurchasesStandalone();
 
       if (!purchases || purchases.length === 0) {
         Alert.alert(

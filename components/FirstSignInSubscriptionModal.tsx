@@ -19,7 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useIAP } from "react-native-iap";
+import { useIAP } from "expo-iap";
 
 type FirstSignInSubscriptionModalProps = {
   visible: boolean;
@@ -40,7 +40,7 @@ export default function FirstSignInSubscriptionModal({
   );
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
 
-  const { connected, subscriptions, fetchProducts } = useIAP();
+  const { connected, subscriptions: storeSubscriptions, fetchProducts } = useIAP();
   const [iapPlan, setIapPlan] = useState<any>(null);
 
   useEffect(() => {
@@ -67,14 +67,14 @@ export default function FirstSignInSubscriptionModal({
   }, [visible, connected, fetchProducts]);
 
   useEffect(() => {
-    if (subscriptions.length > 0) {
+    if (storeSubscriptions.length > 0) {
       const sku = "com.fitco.subscription.monthly";
-      const sub = subscriptions.find(s => s.productId === sku || (s as any).id === sku);
+      const sub = storeSubscriptions.find(s => s.productId === sku || (s as any).id === sku);
       if (sub) {
         setIapPlan(sub);
       }
     }
-  }, [subscriptions]);
+  }, [storeSubscriptions]);
 
 
   const startingPriceText = useMemo(() => {
