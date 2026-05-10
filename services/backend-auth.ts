@@ -102,6 +102,10 @@ export type ChatLimitStatus = {
   dailyFreeLimit: number;
   messagesUsedToday: number;
   messagesLeftToday: number;
+  paidMonthlyLimit?: number;
+  premiumMonthlyLimit?: number;
+  messagesUsedThisMonth?: number;
+  messagesLeftThisMonth?: number | null;
 };
 
 export type SubscriptionPlan = {
@@ -537,12 +541,17 @@ export async function backendGetChatLimitStatus(): Promise<ChatLimitStatus> {
 
   const root = json?.data ?? json;
 
+
   return {
     subscriptionStatus: String(root?.subscriptionStatus ?? "free"),
     isUnlimited: Boolean(root?.isUnlimited),
     dailyFreeLimit: Number(root?.dailyFreeLimit ?? 0),
     messagesUsedToday: Number(root?.messagesUsedToday ?? 0),
     messagesLeftToday: Number(root?.messagesLeftToday ?? 0),
+    paidMonthlyLimit: root?.paidMonthlyLimit != null ? Number(root.paidMonthlyLimit) : undefined,
+    premiumMonthlyLimit: root?.premiumMonthlyLimit != null ? Number(root.premiumMonthlyLimit) : undefined,
+    messagesUsedThisMonth: root?.messagesUsedThisMonth != null ? Number(root.messagesUsedThisMonth) : undefined,
+    messagesLeftThisMonth: root?.messagesLeftThisMonth !== undefined ? (root.messagesLeftThisMonth === null ? null : Number(root.messagesLeftThisMonth)) : undefined,
   };
 }
 

@@ -341,7 +341,9 @@ export const translations = {
     email: "Email",
     submitReport: "Submit Report",
     chatDailyLimitLabel: "Daily Chat Limit",
+    chatMonthlyLimitLabel: "Monthly Chat Limit",
     chatMessagesLeftToday: "left today",
+    chatMessagesLeftThisMonth: "left this month",
     chatUnlimitedLabel: "Unlimited chat",
     chatLimitReachedNotice:
       "Daily free chat limit reached. Subscribe for unlimited messages.",
@@ -831,7 +833,9 @@ export const translations = {
     email: "البريد الإلكتروني",
     submitReport: "إرسال البلاغ",
     chatDailyLimitLabel: "حد الدردشة اليومي",
+    chatMonthlyLimitLabel: "حد الدردشة الشهري",
     chatMessagesLeftToday: "متبقي اليوم",
+    chatMessagesLeftThisMonth: "متبقي هذا الشهر",
     chatUnlimitedLabel: "دردشة غير محدودة",
     chatLimitReachedNotice:
       "تم الوصول إلى الحد اليومي للدردشة المجانية. اشترك للحصول على رسائل غير محدودة.",

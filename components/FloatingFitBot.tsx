@@ -15,12 +15,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Image,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
-  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
@@ -141,7 +139,7 @@ export default function FloatingFitBot({
     const checkConsent = async () => {
       try {
         const userConsent = await AsyncStorage.getItem(consentStorageKey);
-        
+
         if (userConsent === "true") {
           setHasConsented(true);
         } else {
@@ -155,21 +153,6 @@ export default function FloatingFitBot({
   }, [consentStorageKey]);
 
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
-  const initialX = isRTL ? -right : screenWidth - right - BUTTON_SIZE;
-  const initialY =
-    screenHeight -
-    bottom -
-    BUTTON_SIZE -
-    (Platform.OS === "ios" ? insets.bottom : 0);
-
-  const pan = useRef(
-    new Animated.ValueXY({
-      x: initialX,
-      y: initialY,
-    }),
-  ).current;
-  const [isDragging, setIsDragging] = useState(false);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -211,20 +194,39 @@ export default function FloatingFitBot({
     };
   }, [scrollToBottom]);
 
+  const isPremium = chatLimit?.subscriptionStatus === "premium";
   const isChatLimitReached =
-    !!chatLimit && !chatLimit.isUnlimited && chatLimit.messagesLeftToday <= 0;
+    !!chatLimit &&
+    !chatLimit.isUnlimited &&
+    (isPremium
+      ? chatLimit.messagesLeftThisMonth !== null &&
+        chatLimit.messagesLeftThisMonth !== undefined &&
+        chatLimit.messagesLeftThisMonth <= 0
+      : chatLimit.messagesLeftToday <= 0);
   const prevChatLimitReachedRef = useRef(false);
 
-  const chatLimitUsagePercent =
-    chatLimit && !chatLimit.isUnlimited && chatLimit.dailyFreeLimit > 0
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            (chatLimit.messagesUsedToday / chatLimit.dailyFreeLimit) * 100,
-          ),
-        )
-      : 0;
+  const chatLimitUsagePercent = React.useMemo(() => {
+    if (!chatLimit || chatLimit.isUnlimited) return 0;
+
+    if (isPremium) {
+      const limit =
+        chatLimit.paidMonthlyLimit || chatLimit.premiumMonthlyLimit || 0;
+      if (limit <= 0) return 0;
+      return Math.min(
+        100,
+        Math.max(0, ((chatLimit.messagesUsedThisMonth ?? 0) / limit) * 100),
+      );
+    } else {
+      if (chatLimit.dailyFreeLimit <= 0) return 0;
+      return Math.min(
+        100,
+        Math.max(
+          0,
+          (chatLimit.messagesUsedToday / chatLimit.dailyFreeLimit) * 100,
+        ),
+      );
+    }
+  }, [chatLimit, isPremium]);
 
   useEffect(() => {
     if (isVisible && isChatLimitReached && !prevChatLimitReachedRef.current) {
@@ -292,8 +294,6 @@ export default function FloatingFitBot({
   }, []);
 
   const handlePress = () => {
-    if (isDragging) return;
-
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.9,
@@ -312,53 +312,6 @@ export default function FloatingFitBot({
       }
     });
   };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_evt, g) =>
-        Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5,
-      onPanResponderGrant: () => {
-        setIsDragging(true);
-        pan.setOffset({
-          x: (pan.x as any)._value,
-          y: (pan.y as any)._value,
-        });
-      },
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: () => {
-        pan.flattenOffset();
-
-        const minX = isRTL ? -(screenWidth - BUTTON_SIZE) : 0;
-        const maxX = isRTL ? 0 : screenWidth - BUTTON_SIZE;
-        const minY = insets.top;
-        const maxY =
-          screenHeight -
-          BUTTON_SIZE -
-          (Platform.OS === "ios" ? insets.bottom : 0);
-
-        const currentX = (pan.x as any)._value;
-        const currentY = (pan.y as any)._value;
-
-        const x = Math.max(minX, Math.min(maxX, currentX));
-        const y = Math.max(minY, Math.min(maxY, currentY));
-
-        if (x !== currentX || y !== currentY) {
-          Animated.spring(pan, {
-            toValue: { x, y },
-            useNativeDriver: false,
-          }).start();
-        }
-
-        setTimeout(() => setIsDragging(false), 100);
-      },
-    }),
-  ).current;
-
-  useEffect(() => {
-    pan.setValue({ x: initialX, y: initialY });
-  }, [initialX, initialY, pan]);
 
   const handleClose = () => setIsVisible(false);
 
@@ -474,15 +427,12 @@ export default function FloatingFitBot({
   return (
     <>
       <Animated.View
-        {...panResponder.panHandlers}
         style={[
           styles.floatingButton,
           {
-            transform: [
-              { translateX: pan.x },
-              { translateY: pan.y },
-              { scale: scaleAnim },
-            ],
+            bottom: bottom + (Platform.OS === "ios" ? insets.bottom : 0),
+            right: right,
+            transform: [{ scale: scaleAnim }],
           },
         ]}
       >
@@ -531,54 +481,56 @@ export default function FloatingFitBot({
             </View>
           </View>
 
-          <View style={styles.limitContainer}>
-            {isLoadingLimit ? (
-              <ActivityIndicator size="small" color="#22c55e" />
-            ) : chatLimit ? (
-              <>
-                <View style={styles.limitRow}>
-                  <Text style={styles.limitTitle}>
-                    {chatLimit.isUnlimited
-                      ? String(t("chatUnlimitedLabel"))
-                      : `${String(t("chatDailyLimitLabel"))}: ${chatLimit.messagesUsedToday}/${chatLimit.dailyFreeLimit}`}
-                  </Text>
+          {!isPremium && (
+            <View style={styles.limitContainer}>
+              {isLoadingLimit ? (
+                <ActivityIndicator size="small" color="#22c55e" />
+              ) : chatLimit ? (
+                <>
+                  <View style={styles.limitRow}>
+                    <Text style={styles.limitTitle}>
+                      {chatLimit.isUnlimited
+                        ? String(t("chatUnlimitedLabel"))
+                        : `${String(t("chatDailyLimitLabel"))}: ${chatLimit.messagesUsedToday}/${chatLimit.dailyFreeLimit}`}
+                    </Text>
+                    {!chatLimit.isUnlimited && (
+                      <Text
+                        style={[
+                          styles.limitCount,
+                          isChatLimitReached && styles.limitCountReached,
+                        ]}
+                      >
+                        {chatLimit.messagesLeftToday}{" "}
+                        {String(t("chatMessagesLeftToday"))}
+                      </Text>
+                    )}
+                  </View>
+
                   {!chatLimit.isUnlimited && (
-                    <Text
-                      style={[
-                        styles.limitCount,
-                        isChatLimitReached && styles.limitCountReached,
-                      ]}
-                    >
-                      {chatLimit.messagesLeftToday}{" "}
-                      {String(t("chatMessagesLeftToday"))}
+                    <View style={styles.limitTrack}>
+                      <View
+                        style={[
+                          styles.limitFill,
+                          {
+                            width: `${chatLimitUsagePercent}%`,
+                            backgroundColor: isChatLimitReached
+                              ? "#f97316"
+                              : "#22c55e",
+                          },
+                        ]}
+                      />
+                    </View>
+                  )}
+
+                  {isChatLimitReached && (
+                    <Text style={styles.limitNotice}>
+                      {String(t("chatLimitReachedNotice"))}
                     </Text>
                   )}
-                </View>
-
-                {!chatLimit.isUnlimited && (
-                  <View style={styles.limitTrack}>
-                    <View
-                      style={[
-                        styles.limitFill,
-                        {
-                          width: `${chatLimitUsagePercent}%`,
-                          backgroundColor: isChatLimitReached
-                            ? "#f97316"
-                            : "#22c55e",
-                        },
-                      ]}
-                    />
-                  </View>
-                )}
-
-                {isChatLimitReached && (
-                  <Text style={styles.limitNotice}>
-                    {String(t("chatLimitReachedNotice"))}
-                  </Text>
-                )}
-              </>
-            ) : null}
-          </View>
+                </>
+              ) : null}
+            </View>
+          )}
 
           <KeyboardAvoidingView
             style={styles.contentContainer}
@@ -743,42 +695,77 @@ export default function FloatingFitBot({
           </KeyboardAvoidingView>
 
           {showConsentModal && (
-            <View style={[StyleSheet.absoluteFill, styles.consentOverlay, { zIndex: 9999, elevation: 9999 }]}>
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                styles.consentOverlay,
+                { zIndex: 9999, elevation: 9999 },
+              ]}
+            >
               <View style={styles.consentCard}>
-                <Text style={[styles.consentTitle, isRTL && { textAlign: "right" }]}>
+                <Text
+                  style={[styles.consentTitle, isRTL && { textAlign: "right" }]}
+                >
                   {String(t("aiConsentTitle"))}
                 </Text>
-                <Text style={[styles.consentText, isRTL && { textAlign: "right" }]}>
+                <Text
+                  style={[styles.consentText, isRTL && { textAlign: "right" }]}
+                >
                   {String(t("aiConsentDescription"))}
                 </Text>
-                
-                <TouchableOpacity 
-                  style={[styles.consentCheckboxRow, isRTL && { flexDirection: "row-reverse" }]} 
+
+                <TouchableOpacity
+                  style={[
+                    styles.consentCheckboxRow,
+                    isRTL && { flexDirection: "row-reverse" },
+                  ]}
                   onPress={() => setConsentChecked(!consentChecked)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.checkbox, isRTL ? { marginLeft: 12 } : { marginRight: 12 }, consentChecked && styles.checkboxSelected]}>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      isRTL ? { marginLeft: 12 } : { marginRight: 12 },
+                      consentChecked && styles.checkboxSelected,
+                    ]}
+                  >
                     {consentChecked && <View style={styles.checkboxInner} />}
                   </View>
-                  <Text style={[styles.consentCheckboxText, isRTL && { textAlign: "right" }]}>
+                  <Text
+                    style={[
+                      styles.consentCheckboxText,
+                      isRTL && { textAlign: "right" },
+                    ]}
+                  >
                     {String(t("aiConsentCheckbox"))}
                   </Text>
                 </TouchableOpacity>
- 
-                <View style={[styles.consentActions, isRTL && { flexDirection: "row-reverse", justifyContent: "flex-start" }]}>
-                  <TouchableOpacity 
+
+                <View
+                  style={[
+                    styles.consentActions,
+                    isRTL && {
+                      flexDirection: "row-reverse",
+                      justifyContent: "flex-start",
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
                     style={styles.consentButtonSecondary}
                     onPress={() => {
                       setShowConsentModal(false);
-                      setIsVisible(false); 
+                      setIsVisible(false);
                     }}
                   >
                     <Text style={styles.consentButtonTextSecondary}>
                       {String(t("aiConsentDecline"))}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.consentButtonPrimary, !consentChecked && styles.consentButtonDisabled]}
+                  <TouchableOpacity
+                    style={[
+                      styles.consentButtonPrimary,
+                      !consentChecked && styles.consentButtonDisabled,
+                    ]}
                     disabled={!consentChecked}
                     onPress={async () => {
                       try {
@@ -832,8 +819,6 @@ export default function FloatingFitBot({
 const styles = StyleSheet.create({
   floatingButton: {
     position: "absolute",
-    top: 0,
-    left: 0,
     width: 56,
     height: 56,
     borderRadius: 28,
