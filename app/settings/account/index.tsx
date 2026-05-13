@@ -386,7 +386,7 @@ export default function AccountScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top - 15 }]}>
+    <View style={styles.container}>
       <ConfirmationAlert
         message="confirmDeleteAccount"
         visible={isDeleteModal}
@@ -396,7 +396,7 @@ export default function AccountScreen() {
         }}
         onCancel={() => setIsDeleteModal(false)}
       />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 15 }}>
         {/* User Info Section */}
         {user && (
           <View style={styles.section}>

@@ -72,7 +72,7 @@ function RootNavigator() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         )}
         {user && (
-          <Stack.Screen name="logFood" options={{ presentation: "fullScreenModal" }} />
+          <Stack.Screen name="logFood" />
         )}
       </Stack>
       <FirstSignInSubscriptionModal

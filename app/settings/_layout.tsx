@@ -33,6 +33,7 @@ export default function SettingsLayout() {
         headerStyle: { backgroundColor: "#121212" },
         headerTintColor: "#fff",
         headerTitleStyle: { fontWeight: "600" },
+        headerTitleAlign: "center",
         headerShown: true,
         presentation: "card",
       }}
@@ -50,33 +51,27 @@ export default function SettingsLayout() {
           name={name}
           options={{
             headerShown: name === "account" ? false : true,
-            headerTitle: () => (
-              <Text
-                style={{
-                  color: "#fff",
-                  fontWeight: "600",
-                  fontSize: 17,
-                  textAlign: "center",
-                  flex: 1,
-                }}
-              >
-                {String(t(getTitleKey(name)))}
-              </Text>
-            ),
+            headerTitle: String(t(getTitleKey(name))),
             headerBackVisible: false,
 
             headerLeft: () => (
               <Pressable
                 onPress={() => router.back()}
+                style={{
+                  width: 38,
+                  height: 38,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginLeft: 10,
+                }}
               >
                 {isRTL ? (
-                  <ArrowRight size={24} color="#fff" />
+                  <ArrowRight size={22} color="#fff" />
                 ) : (
-                  <ArrowLeft size={24} color="#fff" />
+                  <ArrowLeft size={22} color="#fff" />
                 )}
               </Pressable>
             ),
-            headerRight: () => <View style={{ width: 30 }} />,
           }}
         />
       ))}

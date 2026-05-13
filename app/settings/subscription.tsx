@@ -606,16 +606,16 @@ const UpgradePlanScreen = () => {
 
   if (!isReady) {
     return (
-      <SafeAreaView
+      <View
         style={[styles.container, { backgroundColor: colors.background }]}
       >
         <SubscriptionSkeleton />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView
+    <View
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <StatusBar barStyle="light-content" />
@@ -966,7 +966,7 @@ const UpgradePlanScreen = () => {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -981,7 +981,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: "bold" },
   backButton: { position: "absolute", left: 20, zIndex: 10 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 15 },
   subtitle: {
     fontSize: 14,
     textAlign: "center",

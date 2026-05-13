@@ -71,7 +71,7 @@ const ChangePasswordScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -132,7 +132,7 @@ const ChangePasswordScreen = () => {
             disabled={isSubmitting}
           />
         </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: scale(20),
-    paddingTop: verticalScale(20),
+    paddingTop: verticalScale(15),
     paddingBottom: verticalScale(100),
   },
   form: {

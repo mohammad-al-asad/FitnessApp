@@ -12,8 +12,8 @@ export default function AboutScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top - 15 }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 15 }}>
         {/* App Info Section */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>

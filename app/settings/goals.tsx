@@ -104,9 +104,9 @@ export default function GoalsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top - 15 }]}>
+    <View style={styles.container}>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 15 }}>
         {/* Daily Goals Section */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>

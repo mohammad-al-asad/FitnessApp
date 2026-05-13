@@ -46,8 +46,8 @@ useEffect(() => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top - 15 }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 15 }}>
         {/* Language Section */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
