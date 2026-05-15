@@ -295,6 +295,7 @@ export default function LogFoodScreen() {
             params: {
               foodData: JSON.stringify(item),
               date: selectedDate ?? new Date().toISOString().split("T")[0],
+              meal: params.meal,
             },
           })
         }

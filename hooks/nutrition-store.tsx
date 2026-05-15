@@ -1,5 +1,8 @@
 import { useAuth } from "@/hooks/auth-context";
+import { useLanguage } from "@/hooks/language-context";
 import { useUserProfile } from "@/hooks/user-profile-context";
+import { Alert } from "react-native";
+import { backendDeleteFoodLog, getFoodLogsHome } from "@/services/food-api";
 import createContextHook from "@nkzw/create-context-hook";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -79,6 +82,7 @@ export async function getQuestionnaireSettings(userId: string) {
 export const [NutritionProvider, useNutrition] = createContextHook(() => {
   const { profile } = useUserProfile();
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const userId = user?.uid || "guest";
   const isRealUser = !!user && userId !== "guest";
@@ -148,6 +152,63 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
         setDailyLogs(logs);
       } else {
         setDailyLogs({});
+      }
+
+      // Sync today's logs from backend
+      try {
+        const today = getTodayString();
+        const homeData = await getFoodLogsHome(today);
+        
+        const backendFoods: any[] = [];
+        const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
+        
+        mealTypes.forEach(meal => {
+          (homeData.meals[meal] || []).forEach(item => {
+            backendFoods.push({
+              id: item.id,
+              foodItem: {
+                name: item.foodName,
+                brand: item.brandName,
+                calories: item.calories / (item.servings || 1),
+                protein: item.protein / (item.servings || 1),
+                carbs: item.carbs / (item.servings || 1),
+                fats: item.fat / (item.servings || 1),
+                servingSize: `${item.servingSize}${item.servingUnit}`,
+              },
+              quantity: item.servings,
+              timestamp: item.loggedAt ? new Date(item.loggedAt) : new Date(),
+              mealType: meal,
+            });
+          });
+        });
+
+        if (backendFoods.length > 0) {
+          setDailyLogs(prev => {
+            const updated = { ...prev };
+            updated[today] = {
+              date: today,
+              foods: backendFoods,
+              totalCalories: homeData.totals.calories,
+              totalProtein: homeData.totals.protein,
+              totalCarbs: homeData.totals.carbs,
+              totalFats: homeData.totals.fat,
+            };
+            return updated;
+          });
+          // Also persist to AsyncStorage
+          const currentLogs = JSON.parse((await AsyncStorage.getItem(LOGS_KEY)) || "{}");
+          currentLogs[today] = {
+            date: today,
+            foods: backendFoods,
+            totalCalories: homeData.totals.calories,
+            totalProtein: homeData.totals.protein,
+            totalCarbs: homeData.totals.carbs,
+            totalFats: homeData.totals.fat,
+          };
+          await AsyncStorage.setItem(LOGS_KEY, JSON.stringify(currentLogs));
+        }
+      } catch (error) {
+        console.error("Error syncing logs from backend:", error);
       }
     } catch (e) {
     } finally {
@@ -248,11 +309,11 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
     );
 
   const addFoodToLog = useCallback(
-    async (foodItem: any, quantity: number, date?: string, mealType?: string) => {
+    async (foodItem: any, quantity: number, date?: string, mealType?: string, backendId?: string) => {
       const targetDate = date || getTodayString();
 
       const loggedFood: LoggedFood = {
-        id: Date.now().toString(),
+        id: backendId || Date.now().toString(),
         foodItem,
         quantity,
         timestamp: new Date(),
@@ -293,6 +354,15 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
       };
 
       await saveDailyLogs(updatedLogs);
+
+      try {
+        const response = await backendDeleteFoodLog(foodId);
+        if (response?.message) {
+          Alert.alert(t("success") as string, response.message);
+        }
+      } catch (error) {
+        console.error("Error deleting food log from backend:", error);
+      }
     },
     [dailyLogs, saveDailyLogs],
   );

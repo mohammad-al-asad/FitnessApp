@@ -67,6 +67,11 @@ export type FoodLogsHomeResponse = {
     protein: number;
     carbs: number;
     fat: number;
+    macroRatio?: {
+      proteinPercent: number;
+      carbsPercent: number;
+      fatPercent: number;
+    };
   };
   totals: {
     calories: number;
@@ -521,6 +526,49 @@ export async function createFoodLog(
   return parsedBody?.data ?? parsedBody;
 }
 
+export async function backendDeleteFoodLog(mealLogId: string): Promise<any> {
+  const url = new URL(`/api/v1/food-logs/${mealLogId}`, getServerUrl());
+  const { token } = await readStoredSession();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method: "DELETE",
+      headers,
+    });
+  } catch (error: any) {
+    const rawMessage = String(error?.message ?? "").toLowerCase();
+    const isNetworkError =
+      rawMessage.includes("network request failed") ||
+      rawMessage.includes("failed to fetch");
+
+    if (isNetworkError) {
+      throw new Error(
+        `Cannot reach backend at ${url.toString()}. Check EXPO_PUBLIC_SERVER_URL and backend availability.`,
+      );
+    }
+
+    throw error;
+  }
+
+  const bodyText = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      parseErrorMessage(bodyText, `Failed to delete food log (${response.status})`),
+    );
+  }
+
+  return bodyText ? JSON.parse(bodyText) : { message: "Food log deleted" };
+}
+
 function mapHomeMealItem(raw: any): FoodLogsHomeMealItem {
   return {
     id: raw?._id ? String(raw._id) : undefined,
@@ -573,6 +621,13 @@ function normalizeFoodLogsHomeResponse(json: any): FoodLogsHomeResponse {
       protein: toNumber(root?.goals?.protein),
       carbs: toNumber(root?.goals?.carbs),
       fat: toNumber(root?.goals?.fat),
+      macroRatio: (root?.goals?.macroRatio || root?.dailyGoal?.macroRatio)
+        ? {
+            proteinPercent: toNumber(root?.goals?.macroRatio?.proteinPercent ?? root?.dailyGoal?.macroRatio?.proteinPercent),
+            carbsPercent: toNumber(root?.goals?.macroRatio?.carbsPercent ?? root?.dailyGoal?.macroRatio?.carbsPercent),
+            fatPercent: toNumber(root?.goals?.macroRatio?.fatPercent ?? root?.dailyGoal?.macroRatio?.fatPercent),
+          }
+        : undefined,
     },
     totals: {
       calories: toNumber(root?.totals?.calories),

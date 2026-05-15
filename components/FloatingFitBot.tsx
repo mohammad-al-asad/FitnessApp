@@ -470,7 +470,7 @@ export default function FloatingFitBot({
                     style={styles.cuteIconHeader}
                   />
                 </View>
-                <Text style={styles.headerTitle}>{isRTL ? "بوت فت" : "FitBot"}</Text>
+                <Text style={styles.headerTitle}>{isRTL ? "فيت بوت" : "FitBot"}</Text>
               </View>
               <TouchableOpacity
                 style={styles.closeButton}

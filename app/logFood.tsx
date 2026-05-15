@@ -139,7 +139,9 @@ export default function LogFoodScreen() {
   const [selectedUnit, setSelectedUnit] = useState<MeasurementUnit | null>(
     null,
   );
-  const [selectedMeal, setSelectedMeal] = useState<MealType>("breakfast");
+  const [selectedMeal, setSelectedMeal] = useState<MealType>(
+    (params.meal as MealType) || "breakfast",
+  );
   const [measurementUnits, setMeasurementUnits] = useState<MeasurementUnit[]>(
     [],
   );
@@ -374,7 +376,7 @@ export default function LogFoodScreen() {
         throw new Error("Invalid serving size.");
       }
 
-      await createFoodLog({
+      const result = await createFoodLog({
         foodId,
         meal: selectedMeal,
         servings: amount,
@@ -387,7 +389,9 @@ export default function LogFoodScreen() {
       const servingGrams = getServingGrams(food);
       const actualQuantity = gramsEaten / servingGrams;
 
-      await addFoodToLog(food, actualQuantity, date as string, selectedMeal);
+      const backendId = result?._id || result?.id || result?.createdFoodLog?._id || result?.createdFoodLog?.id;
+
+      await addFoodToLog(food, actualQuantity, date as string, selectedMeal, backendId);
 
       router.replace("/(tabs)/home");
     } catch (error) {

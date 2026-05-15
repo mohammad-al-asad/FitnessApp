@@ -109,7 +109,10 @@ export default function JournalScreen() {
         <TouchableOpacity
           style={[styles.mealHeader, isRTL && styles.rtlRow]}
           onPress={() =>
-            router.push({ pathname: "/log/log", params: { date: selectedDay } })
+            router.push({
+              pathname: "/log/log",
+              params: { date: selectedDay, meal: mealType },
+            })
           }
           activeOpacity={0.7}
         >

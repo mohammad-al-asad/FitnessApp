@@ -450,7 +450,7 @@ export default function HomeScreen() {
                   onPress={() =>
                     router.push({
                       pathname: "/log/log",
-                      params: { date: selectedDay },
+                      params: { date: selectedDay, meal: meal.key },
                     })
                   }
                   activeOpacity={0.7}

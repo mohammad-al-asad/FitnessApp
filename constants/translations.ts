@@ -438,7 +438,7 @@ export const translations = {
     aboutSubtitle: "About the app and the team",
     appInformation: "App Information",
     appName: "Fitco فتكو",
-    version: "Version 0.9 (Beta)",
+    version: "Version",
     yourNutritionCompanion: "Your personal nutrition tracking companion",
     addTo: "Add to",
 
@@ -945,7 +945,7 @@ export const translations = {
     aboutSubtitle: "عن التطبيق والفريق",
     appInformation: "معلومات التطبيق",
     appName: "Fitco فتكو",
-    version: "الاصدار 0.9 (تجريبي)",
+    version: "الاصدار",
     yourNutritionCompanion: "رفيقك الشخصي لمتابعة التغذية",
     addTo: "اضف إليه",
 

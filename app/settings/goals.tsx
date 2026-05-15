@@ -3,6 +3,8 @@ import Colors from '@/constants/colors';
 import { useLanguage } from '@/hooks/language-context';
 import { useNutrition } from '@/hooks/nutrition-store';
 import { backendUpdateDailyGoal } from '@/services/backend-auth';
+import { getFoodLogsHome } from '@/services/food-api';
+import Slider from '@react-native-community/slider';
 import { Save, Target, Info } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Linking } from 'react-native';
@@ -16,7 +18,31 @@ export default function GoalsScreen() {
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [macroRatio, setMacroRatio] = useState({
+    proteinPercent: 30,
+    carbsPercent: 40,
+    fatPercent: 30,
+  });
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const data = await getFoodLogsHome(today);
+        if (data.goals.macroRatio) {
+          setMacroRatio({
+            proteinPercent: data.goals.macroRatio.proteinPercent,
+            carbsPercent: data.goals.macroRatio.carbsPercent,
+            fatPercent: data.goals.macroRatio.fatPercent,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching initial goals:', error);
+      }
+    };
+    fetchInitialData();
+  }, []);
 
   useEffect(() => {
     if (!hasChanges) {
@@ -24,16 +50,15 @@ export default function GoalsScreen() {
     }
   }, [settings, hasChanges]);
 
-  const calculateMacroGoals = (calories: number) => {
-    // Standard macro distribution: 30% protein, 40% carbs, 30% fats
-    const proteinCalories = calories * 0.3;
-    const carbsCalories = calories * 0.4;
-    const fatsCalories = calories * 0.3;
+  const calculateMacroGoals = (calories: number, ratio = macroRatio) => {
+    const proteinCalories = calories * (ratio.proteinPercent / 100);
+    const carbsCalories = calories * (ratio.carbsPercent / 100);
+    const fatsCalories = calories * (ratio.fatPercent / 100);
 
     return {
-      protein: Math.round(proteinCalories / 4), // 4 calories per gram
-      carbs: Math.round(carbsCalories / 4), // 4 calories per gram
-      fats: Math.round(fatsCalories / 9), // 9 calories per gram
+      protein: Math.round(proteinCalories / 4),
+      carbs: Math.round(carbsCalories / 4),
+      fats: Math.round(fatsCalories / 9),
     };
   };
 
@@ -67,6 +92,77 @@ export default function GoalsScreen() {
     }
   };
 
+  const handleMacroChange = (key: keyof typeof macroRatio, newValue: number) => {
+    const otherKeys = (['proteinPercent', 'carbsPercent', 'fatPercent'] as const).filter(k => k !== key);
+    const oldValue = macroRatio[key];
+    const delta = newValue - oldValue;
+    
+    let newRatio = { ...macroRatio, [key]: newValue };
+    const sumOthers = otherKeys.reduce((sum, k) => sum + macroRatio[k], 0);
+
+    if (delta > 0) {
+      let remainingToSubtract = delta;
+      if (sumOthers > 0) {
+        otherKeys.forEach(k => {
+          const toSubtract = Math.min(macroRatio[k], Math.floor(delta * (macroRatio[k] / sumOthers)));
+          newRatio[k] -= toSubtract;
+          remainingToSubtract -= toSubtract;
+        });
+      }
+      while (remainingToSubtract > 0) {
+        const reducibleKeys = otherKeys.filter(k => newRatio[k] > 0);
+        if (reducibleKeys.length === 0) break;
+        reducibleKeys.forEach(k => {
+          if (remainingToSubtract > 0) {
+            newRatio[k]--;
+            remainingToSubtract--;
+          }
+        });
+      }
+    } else {
+      let remainingToAdd = -delta;
+      if (sumOthers > 0) {
+        otherKeys.forEach(k => {
+          const toAdd = Math.floor((-delta) * (macroRatio[k] / sumOthers));
+          newRatio[k] += toAdd;
+          remainingToAdd -= toAdd;
+        });
+      } else {
+        const share = Math.floor(remainingToAdd / otherKeys.length);
+        otherKeys.forEach(k => {
+          newRatio[k] += share;
+          remainingToAdd -= share;
+        });
+      }
+      while (remainingToAdd > 0) {
+        otherKeys.forEach(k => {
+          if (remainingToAdd > 0) {
+            newRatio[k]++;
+            remainingToAdd--;
+          }
+        });
+      }
+    }
+
+    const total = newRatio.proteinPercent + newRatio.carbsPercent + newRatio.fatPercent;
+    if (total !== 100) {
+       newRatio[otherKeys[0]] += (100 - total);
+    }
+
+    setMacroRatio(newRatio);
+    setHasChanges(true);
+
+    if (localSettings.calorieGoal > 0) {
+      const macros = calculateMacroGoals(localSettings.calorieGoal, newRatio);
+      setLocalSettings((prev: any) => ({
+        ...prev,
+        proteinGoal: macros.protein,
+        carbsGoal: macros.carbs,
+        fatsGoal: macros.fats,
+      }));
+    }
+  };
+
   const handleSave = async () => {
     const calories = Number(localSettings.calorieGoal || 0);
     if (!Number.isFinite(calories) || calories <= 0) {
@@ -77,7 +173,10 @@ export default function GoalsScreen() {
     try {
       setIsSaving(true);
 
-      const response = await backendUpdateDailyGoal({ calories });
+      const response = await backendUpdateDailyGoal({ 
+        calories,
+        macroRatio 
+      });
       const nextSettings = {
         ...localSettings,
         calorieGoal: Number(response.dailyGoal.calories || calories),
@@ -151,10 +250,67 @@ export default function GoalsScreen() {
           <Text style={[styles.infoText, isRTL && styles.rtlText]}>
             {t('macroDistributionDesc')}
           </Text>
-          <View style={styles.distributionList}>
-            <Text style={[styles.distributionItem, isRTL && styles.rtlText]}>{t('proteinPercent')}</Text>
-            <Text style={[styles.distributionItem, isRTL && styles.rtlText]}>{t('carbsPercent')}</Text>
-            <Text style={[styles.distributionItem, isRTL && styles.rtlText]}>{t('fatsPercent')}</Text>
+          <View style={styles.sliderGroup}>
+            <View style={styles.sliderHeader}>
+              <Text style={[styles.sliderLabel, isRTL && styles.rtlText]}>
+                {t('protein')}: {macroRatio.proteinPercent}%
+              </Text>
+            </View>
+            <Slider
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={100}
+              step={1}
+              value={macroRatio.proteinPercent}
+              onValueChange={(val) => handleMacroChange('proteinPercent', val)}
+              minimumTrackTintColor={Colors.primary}
+              maximumTrackTintColor={Colors.border}
+              thumbTintColor={Colors.primary}
+            />
+          </View>
+
+          <View style={styles.sliderGroup}>
+            <View style={styles.sliderHeader}>
+              <Text style={[styles.sliderLabel, isRTL && styles.rtlText]}>
+                {t('carbs')}: {macroRatio.carbsPercent}%
+              </Text>
+            </View>
+            <Slider
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={100}
+              step={1}
+              value={macroRatio.carbsPercent}
+              onValueChange={(val) => handleMacroChange('carbsPercent', val)}
+              minimumTrackTintColor={Colors.primary}
+              maximumTrackTintColor={Colors.border}
+              thumbTintColor={Colors.primary}
+            />
+          </View>
+
+          <View style={styles.sliderGroup}>
+            <View style={styles.sliderHeader}>
+              <Text style={[styles.sliderLabel, isRTL && styles.rtlText]}>
+                {t('fats')}: {macroRatio.fatPercent}%
+              </Text>
+            </View>
+            <Slider
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={100}
+              step={1}
+              value={macroRatio.fatPercent}
+              onValueChange={(val) => handleMacroChange('fatPercent', val)}
+              minimumTrackTintColor={Colors.primary}
+              maximumTrackTintColor={Colors.border}
+              thumbTintColor={Colors.primary}
+            />
+          </View>
+
+          <View style={styles.totalIndicator}>
+            <Text style={[styles.totalText, isRTL && styles.rtlText]}>
+              {t('total')}: {macroRatio.proteinPercent + macroRatio.carbsPercent + macroRatio.fatPercent}%
+            </Text>
           </View>
 
           <Text style={[styles.citationText, isRTL && styles.rtlText]}>
@@ -347,5 +503,35 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontStyle: 'italic',
     lineHeight: 18,
+  },
+  sliderGroup: {
+    marginBottom: 16,
+  },
+  sliderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sliderLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  totalIndicator: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    alignItems: 'flex-end',
+  },
+  totalText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.primary,
   },
 });

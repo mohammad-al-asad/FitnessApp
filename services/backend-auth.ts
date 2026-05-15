@@ -69,6 +69,11 @@ export type UpdateMyCompleteProfileResponse = {
 
 export type DailyGoalPayload = {
   calories: number;
+  macroRatio?: {
+    proteinPercent: number;
+    carbsPercent: number;
+    fatPercent: number;
+  };
 };
 
 export type DailyGoalData = {

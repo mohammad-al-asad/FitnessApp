@@ -6,6 +6,7 @@ import { Heart, Info, Star, ShieldCheck } from "lucide-react-native";
 import React from "react";
 import { Image, ScrollView, StyleSheet, Text, View, TouchableOpacity, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Constants from "expo-constants";
 
 export default function AboutScreen() {
   const { t, isRTL } = useLanguage();
@@ -28,7 +29,7 @@ export default function AboutScreen() {
               {t("appName")}
             </Text>
             <Text style={[styles.appVersion, isRTL && styles.rtlText]}>
-              {t("version")}
+              {t("version")} {Constants.expoConfig?.version}
             </Text>
             <Text style={[styles.appDescription, isRTL && styles.rtlText]}>
               {t("yourNutritionCompanion")}
@@ -165,7 +166,7 @@ export default function AboutScreen() {
             React Native • Expo • TypeScript
           </Text>
           <Text style={[styles.technicalText, isRTL && styles.rtlText]}>
-            {t("version")}
+            {t("version")} {Constants.expoConfig?.version}
           </Text>
         </View>
       </ScrollView>
