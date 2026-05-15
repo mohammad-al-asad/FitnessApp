@@ -149,7 +149,7 @@ export default function CreateCustomFoodScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(tabs)/home")}
           activeOpacity={0.7}
         >
           <X size={24} color={colors.text} />

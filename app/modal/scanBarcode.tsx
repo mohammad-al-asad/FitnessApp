@@ -13,6 +13,7 @@ import { RefreshCw, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Keyboard,
   Platform,
   StyleSheet,
@@ -22,6 +23,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getFoodByBarcode } from "@/services/food-api";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -48,6 +50,7 @@ export default function ScanBarcode() {
   const [dailyLimitReached, setDailyLimitReached] = useState<boolean>(false);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -138,6 +141,33 @@ export default function ScanBarcode() {
     if (!cleanedBarcode) return;
 
     const source = params.source as string;
+
+    if (source !== "createCustom") {
+      setIsSearching(true);
+      try {
+        const food = await getFoodByBarcode(cleanedBarcode);
+        setIsSearching(false);
+        if (!food) {
+          Alert.alert(
+            t("error") as string,
+            (t("foodNotFound") as string) || "No food found for this barcode."
+          );
+          setScannedCode(null);
+          setIsScanning(true);
+          return;
+        }
+      } catch (error: any) {
+        setIsSearching(false);
+        Alert.alert(
+          t("error") as string,
+          error?.message || "Error searching for barcode."
+        );
+        setScannedCode(null);
+        setIsScanning(true);
+        return;
+      }
+    }
+
     const navigate = () => {
       if (source === "createCustom") {
         router.navigate(`/modal/createCustomFood?barcode=${cleanedBarcode}`);
@@ -204,7 +234,7 @@ export default function ScanBarcode() {
   };
 
   const handleClose = () => {
-    router.back();
+    router.replace("/(tabs)/home");
   };
 
   if (!permission) {
@@ -360,8 +390,8 @@ export default function ScanBarcode() {
           justifyContent: "space-between",
           marginBottom: keyboardVisible
             ? Platform.OS === "ios"
-              ? responsiveHeight(20)
-              : responsiveHeight(25)
+              ? responsiveHeight(25)
+              : responsiveHeight(30)
             : 0,
         }}
       >
@@ -387,6 +417,7 @@ export default function ScanBarcode() {
 
         <TouchableOpacity
           onPress={() => {
+            if (isSearching) return;
             if (!scannedCode) return;
             if (dailyLimitReached) {
               showLimitAlert();
@@ -394,14 +425,20 @@ export default function ScanBarcode() {
             }
             void navigateWithBarcode(scannedCode);
           }}
+          disabled={isSearching}
           style={{
             backgroundColor: colors.primary,
             paddingVertical: 12,
             paddingHorizontal: 16,
             borderRadius: 10,
+            opacity: isSearching ? 0.7 : 1,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "600" }}>{t("use")}</Text>
+          {isSearching ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={{ color: "#fff", fontWeight: "600" }}>{t("use")}</Text>
+          )}
         </TouchableOpacity>
       </View>
       {/* ? END MANUAL INPUT BOX ? */}

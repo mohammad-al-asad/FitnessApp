@@ -217,6 +217,8 @@ export const translations = {
     invalidServingSize: "Invalid serving size",
     pleaseEnterValidServingSize:
       "Please enter a valid serving size (e.g., 100g or 100ml)",
+    foodNotFound: "No food found for this barcode.",
+    macroTotalMustBe100: "Macro percentages must total exactly 100%.",
 
     // Placeholders
     medicalConditionsPlaceholder: "Diabetes, heart conditions, etc. (optional)",
@@ -690,6 +692,8 @@ export const translations = {
     invalidServingSize: "حجم الحصة غير صالح",
     pleaseEnterValidServingSize:
       "يرجى إدخال حجم حصة صالح (على سبيل المثال، 100 غرام أو 100 مل)",
+    foodNotFound: "لم يتم العثور على طعام لهذا الباركود.",
+    macroTotalMustBe100: "يجب أن يكون مجموع نسب الماكروز 100٪ بالضبط.",
 
     // Placeholders
     medicalConditionsPlaceholder: "مثل السكري او امراض القلب (اختياري)",

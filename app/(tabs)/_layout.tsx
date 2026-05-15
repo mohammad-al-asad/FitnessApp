@@ -137,15 +137,15 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         onClose={() => setShowModal(false)}
         onLogFood={() => {
           setShowModal(false);
-          router.push("/log/log");
+          router.replace("/log/log");
         }}
         onCreateCustom={() => {
           setShowModal(false);
-          router.push("/modal/createCustomFood");
+          router.replace("/modal/createCustomFood");
         }}
         onScanBarcode={() => {
           setShowModal(false);
-          router.push("/(tabs)/scanBarcode?source=foodLog");
+          router.replace("/modal/scanBarcode?source=foodLog");
         }}
       />
     </View>

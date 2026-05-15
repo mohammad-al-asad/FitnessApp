@@ -328,7 +328,7 @@ export default function LogFoodScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Pressable
           style={styles.closeButton}
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(tabs)/home")}
           hitSlop={10}
         >
           <X size={24} color={colors.text} />

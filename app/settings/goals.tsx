@@ -93,61 +93,7 @@ export default function GoalsScreen() {
   };
 
   const handleMacroChange = (key: keyof typeof macroRatio, newValue: number) => {
-    const otherKeys = (['proteinPercent', 'carbsPercent', 'fatPercent'] as const).filter(k => k !== key);
-    const oldValue = macroRatio[key];
-    const delta = newValue - oldValue;
-    
-    let newRatio = { ...macroRatio, [key]: newValue };
-    const sumOthers = otherKeys.reduce((sum, k) => sum + macroRatio[k], 0);
-
-    if (delta > 0) {
-      let remainingToSubtract = delta;
-      if (sumOthers > 0) {
-        otherKeys.forEach(k => {
-          const toSubtract = Math.min(macroRatio[k], Math.floor(delta * (macroRatio[k] / sumOthers)));
-          newRatio[k] -= toSubtract;
-          remainingToSubtract -= toSubtract;
-        });
-      }
-      while (remainingToSubtract > 0) {
-        const reducibleKeys = otherKeys.filter(k => newRatio[k] > 0);
-        if (reducibleKeys.length === 0) break;
-        reducibleKeys.forEach(k => {
-          if (remainingToSubtract > 0) {
-            newRatio[k]--;
-            remainingToSubtract--;
-          }
-        });
-      }
-    } else {
-      let remainingToAdd = -delta;
-      if (sumOthers > 0) {
-        otherKeys.forEach(k => {
-          const toAdd = Math.floor((-delta) * (macroRatio[k] / sumOthers));
-          newRatio[k] += toAdd;
-          remainingToAdd -= toAdd;
-        });
-      } else {
-        const share = Math.floor(remainingToAdd / otherKeys.length);
-        otherKeys.forEach(k => {
-          newRatio[k] += share;
-          remainingToAdd -= share;
-        });
-      }
-      while (remainingToAdd > 0) {
-        otherKeys.forEach(k => {
-          if (remainingToAdd > 0) {
-            newRatio[k]++;
-            remainingToAdd--;
-          }
-        });
-      }
-    }
-
-    const total = newRatio.proteinPercent + newRatio.carbsPercent + newRatio.fatPercent;
-    if (total !== 100) {
-       newRatio[otherKeys[0]] += (100 - total);
-    }
+    const newRatio = { ...macroRatio, [key]: newValue };
 
     setMacroRatio(newRatio);
     setHasChanges(true);
@@ -164,6 +110,15 @@ export default function GoalsScreen() {
   };
 
   const handleSave = async () => {
+    const total = macroRatio.proteinPercent + macroRatio.carbsPercent + macroRatio.fatPercent;
+    if (total !== 100) {
+      Alert.alert(
+        t('error') as string,
+        (t('macroTotalMustBe100') as string) || `Macro percentages must total exactly 100%. Currently at ${total}%.`
+      );
+      return;
+    }
+
     const calories = Number(localSettings.calorieGoal || 0);
     if (!Number.isFinite(calories) || calories <= 0) {
       Alert.alert(t('error') as string, t('enterCalorieGoal') as string);
@@ -308,9 +263,18 @@ export default function GoalsScreen() {
           </View>
 
           <View style={styles.totalIndicator}>
-            <Text style={[styles.totalText, isRTL && styles.rtlText]}>
-              {t('total')}: {macroRatio.proteinPercent + macroRatio.carbsPercent + macroRatio.fatPercent}%
-            </Text>
+            {(() => {
+              const total = macroRatio.proteinPercent + macroRatio.carbsPercent + macroRatio.fatPercent;
+              return (
+                <Text style={[
+                  styles.totalText, 
+                  isRTL && styles.rtlText,
+                  { color: total === 100 ? Colors.primary : Colors.error }
+                ]}>
+                  {t('total')}: {total}%
+                </Text>
+              );
+            })()}
           </View>
 
           <Text style={[styles.citationText, isRTL && styles.rtlText]}>

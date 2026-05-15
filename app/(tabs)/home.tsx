@@ -97,7 +97,7 @@ export default function HomeScreen() {
 
   // --- Hooks / contexts ---
   const { showFirstSignInSubscriptionPromptIfPending } = useAuth();
-  const { settings, getTodayLog, getProgressData, getLogByDate } =
+  const { settings, getTodayLog, getProgressData, getLogByDate, lastUpdateTimestamp } =
     useNutrition();
   const { t, isRTL } = useLanguage();
   const colors = useSafeColors();
@@ -125,6 +125,7 @@ export default function HomeScreen() {
         const isFreshForSameDate =
           !!lastFetch &&
           lastFetch.date === selectedDay &&
+          lastFetch.time > lastUpdateTimestamp &&
           now - lastFetch.time < HOME_REFRESH_INTERVAL_MS;
 
         if (isFreshForSameDate && homeData && weeklyData) return;
@@ -173,7 +174,7 @@ export default function HomeScreen() {
       return () => {
         isActive = false;
       };
-    }, [selectedDay, homeData, weeklyData]),
+    }, [selectedDay, homeData, weeklyData, lastUpdateTimestamp]),
   );
 
   // --- Safe guards / fallbacks to kill NaNs and undefineds ---

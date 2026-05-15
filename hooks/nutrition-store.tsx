@@ -93,6 +93,7 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
   const [settings, setSettings] = useState<UserSettings>(getDefaultSettings());
   const [dailyLogs, setDailyLogs] = useState<Record<string, DailyLog>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState<number>(Date.now());
 
   const loadData = useCallback(async () => {
     if (!isRealUser) {
@@ -257,6 +258,7 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
       try {
         await AsyncStorage.setItem(LOGS_KEY, JSON.stringify(logs));
         setDailyLogs(logs);
+        setLastUpdateTimestamp(Date.now());
       } catch (error) {
         console.error("Error saving logs:", error);
       }
@@ -442,6 +444,7 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
       settings,
       dailyLogs,
       isLoading,
+      lastUpdateTimestamp,
       saveSettings,
       getTodayLog,
       getLogByDate,
@@ -453,6 +456,7 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
       settings,
       dailyLogs,
       isLoading,
+      lastUpdateTimestamp,
       saveSettings,
       getTodayLog,
       getLogByDate,
