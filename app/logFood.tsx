@@ -5,8 +5,8 @@ import { useNutrition } from "@/hooks/nutrition-store";
 import { createFoodLog, getFoodByBarcode } from "@/services/food-api";
 import type { FoodItem } from "@/types/nutrition";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { Check, ChevronDown, Moon, Sun, Sunrise, X } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import { ChevronDown, Moon, Sun, Sunrise, X } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -148,6 +148,8 @@ export default function LogFoodScreen() {
 
   const [showServingModal, setShowServingModal] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
+  const [isSearching, setIsSearching] = useState(!!barcode && !params.foodData);
+  const [notFound, setNotFound] = useState(false);
   const { t, isRTL } = useLanguage();
 
   const MEAL_OPTIONS: {
@@ -220,8 +222,9 @@ export default function LogFoodScreen() {
   // Handle barcode lookup
   useEffect(() => {
     const lookupFood = async () => {
-      if (barcode && !food) {
-        // Only lookup if we have barcode and no food is set yet
+      if (barcode && !food && !params.foodData) {
+        setIsSearching(true);
+        setNotFound(false);
         try {
           const existingFood = await getFoodByBarcode(barcode);
 
@@ -280,20 +283,58 @@ export default function LogFoodScreen() {
 
             setMeasurementUnits(units);
             setSelectedUnit(units[0]);
+            setIsSearching(false);
           } else {
             // No food found for barcode
             console.warn("No food found for barcode:", barcode);
-            router.back();
+            setIsSearching(false);
+            setNotFound(true);
           }
         } catch (error) {
           console.error("Error looking up food by barcode:", error);
-          router.back();
+          setIsSearching(false);
+          setNotFound(true);
         }
       }
     };
 
     lookupFood();
-  }, [barcode, food]);
+  }, [barcode, food, params.foodData]);
+
+  if (isSearching) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.header, { paddingTop: 8 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+            <X size={22} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t("logFood")}</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 18, color: colors.text, marginBottom: 20, textAlign: 'center', fontWeight: '500' }}>
+            {(t("foodNotFound") as string) || "No food found for this barcode."}
+          </Text>
+          <TouchableOpacity
+            style={[styles.logButton, { width: '100%' }]}
+            onPress={() => router.push(`/modal/createCustomFood?barcode=${barcode}`)}
+          >
+            <Text style={styles.logButtonText}>{(t("createCustomFood") as string) || "Create Custom Food"}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   if (!food || !selectedUnit) {
     return (
@@ -389,10 +430,20 @@ export default function LogFoodScreen() {
       const servingGrams = getServingGrams(food);
       const actualQuantity = gramsEaten / servingGrams;
 
-      const backendId = result?._id || result?.id || result?.createdFoodLog?._id || result?.createdFoodLog?.id;
+      const backendId =
+        result?._id ||
+        result?.id ||
+        result?.createdFoodLog?._id ||
+        result?.createdFoodLog?.id;
 
-      await addFoodToLog(food, actualQuantity, date as string, selectedMeal, backendId);
-
+      await addFoodToLog(
+        food,
+        actualQuantity,
+        date as string,
+        selectedMeal,
+        backendId,
+      );
+      router.dismissAll();
       router.replace("/(tabs)/home");
     } catch (error) {
       console.error("Error logging food:", error);
@@ -845,7 +896,7 @@ export default function LogFoodScreen() {
               </Text>
             )}
           </TouchableOpacity>
-          <View style={{ height: 16,backgroundColor:"transparent" }} />
+          <View style={{ height: 16, backgroundColor: "transparent" }} />
         </View>
       </ScrollView>
     </View>

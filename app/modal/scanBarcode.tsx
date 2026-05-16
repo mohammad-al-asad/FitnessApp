@@ -142,32 +142,6 @@ export default function ScanBarcode() {
 
     const source = params.source as string;
 
-    if (source !== "createCustom") {
-      setIsSearching(true);
-      try {
-        const food = await getFoodByBarcode(cleanedBarcode);
-        setIsSearching(false);
-        if (!food) {
-          Alert.alert(
-            t("error") as string,
-            (t("foodNotFound") as string) || "No food found for this barcode."
-          );
-          setScannedCode(null);
-          setIsScanning(true);
-          return;
-        }
-      } catch (error: any) {
-        setIsSearching(false);
-        Alert.alert(
-          t("error") as string,
-          error?.message || "Error searching for barcode."
-        );
-        setScannedCode(null);
-        setIsScanning(true);
-        return;
-      }
-    }
-
     const navigate = () => {
       if (source === "createCustom") {
         router.navigate(`/modal/createCustomFood?barcode=${cleanedBarcode}`);

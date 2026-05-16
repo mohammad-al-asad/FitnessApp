@@ -175,7 +175,7 @@ export default function CreateCustomFoodScreen() {
             },
           ]}
           activeOpacity={0.7}
-          onPress={() => router.push("/scanBarcode?source=createCustom")}
+          onPress={() => router.push("/modal/scanBarcode?source=createCustom")}
         >
           <View
             style={[
