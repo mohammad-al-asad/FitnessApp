@@ -128,7 +128,10 @@ export default function LogFoodScreen() {
   const params = useLocalSearchParams();
   const date = Array.isArray(params.date)
     ? params.date[0]
-    : params.date || new Date().toISOString().split("T")[0];
+    : params.date || (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      })();
 
   const barcode = Array.isArray(params.barcode)
     ? params.barcode[0]

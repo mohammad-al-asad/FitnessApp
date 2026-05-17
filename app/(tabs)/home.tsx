@@ -103,7 +103,7 @@ export default function HomeScreen() {
   const colors = useSafeColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [selectedDay] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDay] = useState(() => formatLocalDate(new Date()));
   const [homeData, setHomeData] = useState<FoodLogsHomeResponse | null>(null);
   const [weeklyData, setWeeklyData] =
     useState<FoodLogsWeeklySummaryResponse | null>(null);
@@ -191,15 +191,46 @@ export default function HomeScreen() {
       ? getTodayLog()
       : null;
 
+  const hasLocalFoods = !!rawTodayLog?.foods?.length;
+
   const todayLog = {
-    totalCalories:
-      homeData?.totals?.calories ?? rawTodayLog?.totalCalories ?? 0,
-    totalProtein: homeData?.totals?.protein ?? rawTodayLog?.totalProtein ?? 0,
-    totalCarbs: homeData?.totals?.carbs ?? rawTodayLog?.totalCarbs ?? 0,
-    totalFats: homeData?.totals?.fat ?? rawTodayLog?.totalFats ?? 0,
+    totalCalories: hasLocalFoods
+      ? rawTodayLog.totalCalories
+      : (homeData?.totals?.calories ?? 0),
+    totalProtein: hasLocalFoods
+      ? rawTodayLog.totalProtein
+      : (homeData?.totals?.protein ?? 0),
+    totalCarbs: hasLocalFoods
+      ? rawTodayLog.totalCarbs
+      : (homeData?.totals?.carbs ?? 0),
+    totalFats: hasLocalFoods
+      ? rawTodayLog.totalFats
+      : (homeData?.totals?.fat ?? 0),
   };
 
-  const meals = homeData?.meals ?? { breakfast: [], lunch: [], dinner: [] };
+  const meals = useMemo(() => {
+    const emptyMeals = { breakfast: [], lunch: [], dinner: [] };
+    const backendMeals = homeData?.meals ?? emptyMeals;
+
+    const localFoods = rawTodayLog?.foods ?? [];
+    const localMeals = {
+      breakfast: localFoods
+        .filter((f: any) => f.mealType === "breakfast")
+        .map((f: any) => ({ calories: f.foodItem.calories * f.quantity })),
+      lunch: localFoods
+        .filter((f: any) => f.mealType === "lunch")
+        .map((f: any) => ({ calories: f.foodItem.calories * f.quantity })),
+      dinner: localFoods
+        .filter((f: any) => f.mealType === "dinner")
+        .map((f: any) => ({ calories: f.foodItem.calories * f.quantity })),
+    };
+
+    return {
+      breakfast: localMeals.breakfast.length > 0 ? localMeals.breakfast : backendMeals.breakfast,
+      lunch: localMeals.lunch.length > 0 ? localMeals.lunch : backendMeals.lunch,
+      dinner: localMeals.dinner.length > 0 ? localMeals.dinner : backendMeals.dinner,
+    };
+  }, [homeData?.meals, rawTodayLog?.foods]);
   const mealRows = [
     {
       key: "breakfast",

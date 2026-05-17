@@ -5,6 +5,7 @@ import { useNutrition } from "@/hooks/nutrition-store";
 import { router } from "expo-router";
 import { Calendar, ChevronRight, Flame, TrendingUp } from "lucide-react-native";
 import React from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   Animated,
   ScrollView,
@@ -52,8 +53,18 @@ export default function ProgressScreen() {
     return Math.round(total / 7);
   };
 
+  const parseDateString = (dateStr: string) => {
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return new Date(dateStr);
+    return new Date(
+      parseInt(parts[0], 10),
+      parseInt(parts[1], 10) - 1,
+      parseInt(parts[2], 10)
+    );
+  };
+
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseDateString(dateStr);
     const dayIndex = date.getDay();
     const days = isRTL
       ? ["الاحد", "الاثنين", "الثلاثاء", "الاربعاء", "الخميس", "الجمعة", "السبت"]
@@ -93,21 +104,36 @@ export default function ProgressScreen() {
     return "#4CAF50";
   };
 
-  // 🔹 Animated bar heights setup (safe for empty weeklyData)
-  const animatedHeights = weeklyData.map(() => new Animated.Value(0));
+  // 🔹 Persist animated heights using useRef to prevent resetting to 0 and flickering on re-renders
+  const animatedHeightsRef = React.useRef<Animated.Value[]>([]);
 
-  React.useEffect(() => {
-    if (!weeklyData.length) return; // ✅ skip if no data yet
-    Animated.parallel(
-      animatedHeights.map((anim: Animated.Value, i: number) =>
-        Animated.timing(anim, {
-          toValue: getBarHeight(weeklyData[i].calories, settings.calorieGoal),
-          duration: 600,
-          useNativeDriver: false,
-        }),
-      ),
-    ).start();
-  }, [weeklyData]);
+  // Ensure we have the correct number of animated values
+  if (animatedHeightsRef.current.length !== weeklyData.length) {
+    animatedHeightsRef.current = weeklyData.map(
+      (_, i) => animatedHeightsRef.current[i] || new Animated.Value(0)
+    );
+  }
+  const animatedHeights = animatedHeightsRef.current;
+
+  // Run the animation whenever the screen gains focus OR weeklyData / goals change
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!weeklyData.length) return;
+
+      // Stop any ongoing animations to prevent overlapping timing triggers
+      animatedHeights.forEach((anim) => anim.stopAnimation());
+
+      Animated.parallel(
+        animatedHeights.map((anim: Animated.Value, i: number) =>
+          Animated.timing(anim, {
+            toValue: getBarHeight(weeklyData[i].calories, settings.calorieGoal),
+            duration: 600,
+            useNativeDriver: false,
+          }),
+        ),
+      ).start();
+    }, [weeklyData, settings.calorieGoal])
+  );
 
   const macros = isRTL
     ? [

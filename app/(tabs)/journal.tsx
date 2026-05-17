@@ -22,10 +22,27 @@ import FoodItem from "@/components/FoodItem";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function JournalScreen() {
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseDateString = (dateStr: string) => {
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return new Date(dateStr);
+    return new Date(
+      parseInt(parts[0], 10),
+      parseInt(parts[1], 10) - 1,
+      parseInt(parts[2], 10)
+    );
+  };
+
   const { settings, getTodayLog, removeFoodFromLog } = useNutrition();
   const { getLogByDate } = useNutrition();
-  const [selectedDay, setSelectedDay] = React.useState(
-    new Date().toISOString().split("T")[0],
+  const [selectedDay, setSelectedDay] = React.useState(() =>
+    formatLocalDate(new Date())
   );
   const flatListRef = React.useRef<FlatList>(null);
   const screenWidth = Dimensions.get("window").width;
@@ -207,7 +224,7 @@ export default function JournalScreen() {
               { color: colors.placeholder },
             ]}
           >
-            {new Date(selectedDay).toLocaleDateString(
+            {parseDateString(selectedDay).toLocaleDateString(
               isRTL ? "ar-SA" : "en-US",
               {
                 weekday: "long",
@@ -246,12 +263,12 @@ export default function JournalScreen() {
               );
               const dayNum = item.getDate();
               const isSelected =
-                selectedDay === item.toISOString().split("T")[0];
-
+                selectedDay === formatLocalDate(item);
+ 
               return (
                 <TouchableOpacity
                   onPress={() =>
-                    setSelectedDay(item.toISOString().split("T")[0])
+                    setSelectedDay(formatLocalDate(item))
                   }
                   activeOpacity={0.8}
                   style={{
