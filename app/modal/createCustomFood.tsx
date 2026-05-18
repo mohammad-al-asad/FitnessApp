@@ -149,7 +149,10 @@ export default function CreateCustomFoodScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => router.replace("/(tabs)/home")}
+          onPress={() => {
+            router.dismissAll();
+            router.replace("/(tabs)/home");
+          }}
           activeOpacity={0.7}
         >
           <X size={24} color={colors.text} />
@@ -221,6 +224,32 @@ export default function CreateCustomFoodScreen() {
                 { color: colors.placeholder, textAlign: "left" },
               ]}
             >
+              {t("brand")} *
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                  borderColor: colors.border,
+                  textAlign: isRTL ? "right" : "left",
+                },
+              ]}
+              value={brandName}
+              onChangeText={setBrandName}
+              placeholder={t("brandPlaceholder") as string}
+              placeholderTextColor={colors.placeholder}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text
+              style={[
+                styles.inputLabel,
+                { color: colors.placeholder, textAlign: "left" },
+              ]}
+            >
               {t("foodName")} *
             </Text>
             <TextInput
@@ -236,32 +265,6 @@ export default function CreateCustomFoodScreen() {
               value={foodName}
               onChangeText={setFoodName}
               placeholder={t("foodNamePlaceholder") as string}
-              placeholderTextColor={colors.placeholder}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text
-              style={[
-                styles.inputLabel,
-                { color: colors.placeholder, textAlign: "left" },
-              ]}
-            >
-              {t("brandOptional")}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  color: colors.text,
-                  borderColor: colors.border,
-                  textAlign: isRTL ? "right" : "left",
-                },
-              ]}
-              value={brandName}
-              onChangeText={setBrandName}
-              placeholder={t("brandOptionalPlaceholder") as string}
               placeholderTextColor={colors.placeholder}
             />
           </View>

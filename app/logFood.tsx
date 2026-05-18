@@ -324,15 +324,17 @@ export default function LogFoodScreen() {
           <Text style={styles.headerTitle}>{t("logFood")}</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 20, paddingHorizontal: 20 }}>
           <Text style={{ fontSize: 18, color: colors.text, marginBottom: 20, textAlign: 'center', fontWeight: '500' }}>
             {(t("foodNotFound") as string) || "No food found for this barcode."}
           </Text>
           <TouchableOpacity
             style={[styles.logButton, { width: '100%' }]}
-            onPress={() => router.push(`/modal/createCustomFood?barcode=${barcode}`)}
+            onPress={() => {
+              router.push(`/modal/createCustomFood?barcode=${barcode}`)
+            }}
           >
-            <Text style={styles.logButtonText}>{(t("createCustomFood") as string) || "Create Custom Food"}</Text>
+            <Text style={[styles.logButtonText, isRTL && { letterSpacing: 0 }]}>{(t("createCustomFood") as string) || "Create Custom Food"}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -554,11 +556,11 @@ export default function LogFoodScreen() {
       >
         <View style={styles.foodHeader}>
           <Text style={[styles.foodName, isRTL && styles.rtlText]}>
-            {food.name}
+            {food.brand || food.name}
           </Text>
-          {food.brand && (
+          {!!food.brand && (
             <Text style={[styles.brandName, isRTL && styles.rtlText]}>
-              {food.brand}
+              {food.name}
             </Text>
           )}
         </View>
@@ -893,7 +895,7 @@ export default function LogFoodScreen() {
             {isLogging ? (
               <ActivityIndicator color="#121212" />
             ) : (
-              <Text style={styles.logButtonText}>
+              <Text style={[styles.logButtonText, isRTL && { letterSpacing: 0 }]}>
                 {t("addTo")}{" "}
                 {MEAL_OPTIONS.find((m) => m.key === selectedMeal)?.label}
               </Text>

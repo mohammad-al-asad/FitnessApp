@@ -182,7 +182,7 @@ export default function LogFoodScreen() {
           ]}
           numberOfLines={1}
         >
-          {item.name}
+          {item.brand || item.name}
         </Text>
 
         <View
@@ -195,21 +195,21 @@ export default function LogFoodScreen() {
           ]}
         >
           {!!item.brand && (
-            <Text
-              style={[
-                styles.brand,
-                {
-                  color: colors.placeholder,
-                  textAlign: isRTL ? "right" : "left",
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {item.brand}
-            </Text>
-          )}
-          {!!item.brand && (
-            <Text style={[styles.dot, { color: colors.placeholder }]}>|</Text>
+            <>
+              <Text
+                style={[
+                  styles.brand,
+                  {
+                    color: colors.placeholder,
+                    textAlign: isRTL ? "right" : "left",
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {item.name}
+              </Text>
+              <Text style={[styles.dot, { color: colors.placeholder }]}>|</Text>
+            </>
           )}
           <Text
             style={[

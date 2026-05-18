@@ -18,7 +18,13 @@ import { router, Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
-import { AppState, AppStateStatus, StyleSheet, View } from "react-native";
+import {
+  AppState,
+  AppStateStatus,
+  BackHandler,
+  StyleSheet,
+  View,
+} from "react-native";
 import "react-native-reanimated";
 
 // 🚀 Keep the native splash screen visible until our custom animation is ready to take over.
@@ -37,7 +43,7 @@ function RootNavigator() {
   } = useAuth();
 
   const { profile, isLoading: isProfileLoading } = useUserProfile();
-  
+
   const shouldShowSubscriptionPrompt = Boolean(
     user && firstSignInSubscriptionPromptVisible,
   );
@@ -63,17 +69,15 @@ function RootNavigator() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
         {!user ? (
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false, gestureEnabled: false }} />
         ) : !profile ? (
-          <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+          <Stack.Screen name="(onboarding)" options={{ headerShown: false, gestureEnabled: false }} />
         ) : (
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, gestureEnabled: false }} />
         )}
-        {user && (
-          <Stack.Screen name="logFood" />
-        )}
+        {user && <Stack.Screen name="logFood" options={{ gestureEnabled: false }} />}
       </Stack>
       <FirstSignInSubscriptionModal
         visible={shouldShowSubscriptionPrompt}
@@ -116,9 +120,12 @@ function AppShell() {
     prepare();
 
     // Maintain app state ref for internal tracking
-    const subscription = AppState.addEventListener("change", (nextAppState: AppStateStatus) => {
-      appState.current = nextAppState;
-    });
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        appState.current = nextAppState;
+      },
+    );
 
     return () => {
       subscription.remove();
@@ -126,7 +133,7 @@ function AppShell() {
   }, []);
 
   // 🚀 Native splash hiding is now handled inside SplashScreen component for a smoother transition
-  
+
   if (isLangLoading) {
     return null;
   }
@@ -160,6 +167,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // RootLayout now ONLY wraps AppShell with LanguageProvider
 function RootLayout() {
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        // Return true to prevent default back behavior
+        return true;
+      },
+    );
+    return () => backHandler.remove();
+  }, []);
   return (
     <SafeAreaProvider>
       <LanguageProvider>

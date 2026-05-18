@@ -45,8 +45,8 @@ const getTodayKey = () => {
 
 export default function ScanBarcode() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(true);
+  const [manualCode, setManualCode] = useState<string>("");
   const [dailyLimitReached, setDailyLimitReached] = useState<boolean>(false);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -76,8 +76,6 @@ export default function ScanBarcode() {
       let isMounted = true;
 
       const syncDailyLimit = async () => {
-        setScannedCode(null);
-
         try {
           const status = await backendGetMySubscriptionStatus();
           if (!isMounted) return;
@@ -152,7 +150,6 @@ export default function ScanBarcode() {
 
     try {
       if (isSubscribed) {
-        setScannedCode(cleanedBarcode);
         setIsScanning(false);
         setDailyLimitReached(false);
         navigate();
@@ -179,12 +176,10 @@ export default function ScanBarcode() {
       usage.count += 1;
       await AsyncStorage.setItem(BARCODE_SCAN_USAGE_KEY, JSON.stringify(usage));
 
-      setScannedCode(cleanedBarcode);
       setIsScanning(false);
       setDailyLimitReached(usage.count >= DAILY_SCAN_LIMIT);
       navigate();
     } catch {
-      setScannedCode(cleanedBarcode);
       setIsScanning(false);
       navigate();
     }
@@ -196,15 +191,6 @@ export default function ScanBarcode() {
     setIsScanning(false);
     console.log("Barcode scanned:", data);
     await navigateWithBarcode(data);
-  };
-
-  const handleScanAgain = () => {
-    if (!isSubscribed && dailyLimitReached) {
-      showLimitAlert();
-      return;
-    }
-    setScannedCode(null);
-    setIsScanning(true);
   };
 
   const handleClose = () => {
@@ -326,28 +312,6 @@ export default function ScanBarcode() {
         </View>
       </CameraView>
 
-      {scannedCode && !dailyLimitReached && (
-        <View style={[styles.resultOverlay, { bottom: insets.bottom + 100 }]}>
-          <View style={[styles.resultCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.resultTitle, { color: colors.text }]}>
-              {t("scannedBarcode")}
-            </Text>
-            <Text style={[styles.resultCode, { color: colors.primary }]}>
-              {scannedCode}
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.scanAgainButton,
-                { backgroundColor: colors.primary },
-              ]}
-              onPress={handleScanAgain}
-            >
-              <RefreshCw size={20} color="#FFFFFF" />
-              <Text style={styles.scanAgainButtonText}>{t("scanAgain")}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
 
       {/* ? MANUAL BARCODE INPUT BOX (add this) ? */}
       <View
@@ -385,19 +349,19 @@ export default function ScanBarcode() {
             borderWidth: 1,
           }}
           keyboardType="numeric"
-          value={scannedCode || ""}
-          onChangeText={setScannedCode}
+          value={manualCode}
+          onChangeText={setManualCode}
         />
 
         <TouchableOpacity
           onPress={() => {
             if (isSearching) return;
-            if (!scannedCode) return;
+            if (!manualCode) return;
             if (dailyLimitReached) {
               showLimitAlert();
               return;
             }
-            void navigateWithBarcode(scannedCode);
+            void navigateWithBarcode(manualCode);
           }}
           disabled={isSearching}
           style={{
@@ -462,42 +426,42 @@ const styles = StyleSheet.create({
   cornerTopLeft: {
     position: "absolute",
     top: 0,
-    left: 0,
+    start: 0,
     width: 40,
     height: 40,
     borderTopWidth: 4,
-    borderLeftWidth: 4,
-    borderTopLeftRadius: 8,
+    borderStartWidth: 4,
+    borderTopStartRadius: 8,
   },
   cornerTopRight: {
     position: "absolute",
     top: 0,
-    right: 0,
+    end: 0,
     width: 40,
     height: 40,
     borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderTopRightRadius: 8,
+    borderEndWidth: 4,
+    borderTopEndRadius: 8,
   },
   cornerBottomLeft: {
     position: "absolute",
     bottom: 0,
-    left: 0,
+    start: 0,
     width: 40,
     height: 40,
     borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderBottomLeftRadius: 8,
+    borderStartWidth: 4,
+    borderBottomStartRadius: 8,
   },
   cornerBottomRight: {
     position: "absolute",
     bottom: 0,
-    right: 0,
+    end: 0,
     width: 40,
     height: 40,
     borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderBottomRightRadius: 8,
+    borderEndWidth: 4,
+    borderBottomEndRadius: 8,
   },
   instructionContainer: {
     position: "absolute",
