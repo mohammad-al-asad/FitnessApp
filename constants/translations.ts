@@ -52,6 +52,10 @@ export const translations = {
     dontHaveAccount: "Don't have an account?",
     alreadyHaveAccount: "Already have an account?",
     pleaseWait: "Please wait...",
+    welcomeToFitco: "Welcome to Fitco",
+    makeEveryDayCountWelcome: "Let's make every day count!",
+    getStarted: "Get Started",
+    haveAccountSignIn: "Have an account? Sign in",
 
     // Questionnaire
     personalizeExperience: "Let's personalize your experience",
@@ -547,6 +551,10 @@ export const translations = {
     dontHaveAccount: "ما عندك حساب؟",
     alreadyHaveAccount: "عندك حساب؟",
     pleaseWait: "ثواني بس...",
+    welcomeToFitco: "مرحباً بك في فتكو",
+    makeEveryDayCountWelcome: "لنبدأ بجعل كل يوم يُمثّل فارقاً!",
+    getStarted: "ابدأ الآن",
+    haveAccountSignIn: "لديك حساب؟ تسجيل الدخول",
 
     // Questionnaire
     personalizeExperience: "خلّنا نخصص تجربتك لك",

@@ -1,406 +1,262 @@
-// Controls the login and signup screen UI, handling user authentication (sign in/up), input fields, and navigation to the main app.
-import { translations } from "@/constants/translations";
-import { useAuth } from "@/hooks/auth-context";
-import { useLanguage } from "@/hooks/language-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { router } from "expo-router";
-import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  LogBox,
-  Platform,
-  ScrollView,
+  Animated,
+  Easing,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-LogBox.ignoreLogs(["Text strings must be rendered within a <Text> component"]);
 
-// 🧩 Temporary fallback for removed translation system
-
-const useSafeColors = () => ({
-  background: "#1A1A1A",
-  text: "#FFFFFF",
-  accent: "#4CAF50",
-  card: "#2D2D2D",
-  placeholder: "#999999",
-});
-
-interface AuthScreenProps {
-  onAuthComplete?: () => void;
-}
-
-export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
-  const { signIn, signUp } = useAuth();
-  const { t, isRTL } = useLanguage();
+export default function WelcomeScreen() {
+  const { t } = useLanguage();
   const colors = useSafeColors();
 
-  const [isLogin, setIsLogin] = useState(true);
+  // Animation values for rotation
+  const outerRotateAnim = useRef(new Animated.Value(0)).current;
+  const innerRotateAnim = useRef(new Animated.Value(0)).current;
 
-  const funnyLines = isRTL
-    ? translations.ar.authCyclingTexts
-    : translations.en.authCyclingTexts;
-
-  const [funnyLine, setFunnyLine] = useState("");
+  // Fade-in animation for layout elements
+  const contentFadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const randomIndex = Math.floor(Math.random() * funnyLines.length);
-    setFunnyLine(funnyLines[randomIndex]);
-  }, []);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+    // 🌀 Orbit animations
+    const createLoop = (animValue: Animated.Value, duration: number, isClockwise = true) => {
+      animValue.setValue(0);
+      return Animated.loop(
+        Animated.timing(animValue, {
+          toValue: isClockwise ? 1 : -1,
+          duration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+    };
 
-  const handleAuth = async () => {
-    setIsLoading(true);
-    setErrors({});
-    try {
-      const result = isLogin
-        ? await signIn(email, password)
-        : await signUp(email, password, firstName, lastName);
-      if (result.success) {
-        setTimeout(async () => {
-          try {
-            if (isLogin) {
-              router.replace("/(tabs)/home");
-            } else {
-              await AsyncStorage.removeItem("hasCompletedQuestionnaire");
-              router.replace("/(onboarding)/questionnaire");
-            }
-          } catch {
-            router.replace("/(onboarding)/questionnaire");
-          }
-        }, 300);
-      } else {
-        // handle error
-        Alert.alert(t("error") as string, result.error.message);
-        if (result.error.message.toLowerCase().includes("email")) {
-          setErrors({ email: result.error.message });
-        } else if (result.error.message.toLowerCase().includes("password")) {
-          setErrors({ password: result.error.message });
-        }
-      }
-    } catch (error) {
-      Alert.alert(t("error") as string, t("somethingWentWrong") as string);
-      console.error("Auth Error:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    const outerLoop = createLoop(outerRotateAnim, 38000, true);
+    const innerLoop = createLoop(innerRotateAnim, 30000, false); // Inner rotates counter-clockwise for contrast
+
+    Animated.parallel([outerLoop, innerLoop]).start();
+
+    // ✨ Smooth entrance fade-in
+    Animated.timing(contentFadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    return () => {
+      outerLoop.stop();
+      innerLoop.stop();
+    };
+  }, []);
+
+  // Interpolations for rotations
+  const outerRotate = outerRotateAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ["-360deg", "360deg"],
+  });
+
+  const innerRotate = innerRotateAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ["-360deg", "360deg"],
+  });
+
+  // Interpolations for counter-rotations to keep emojis upright
+  const outerRotateCounter = outerRotateAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ["360deg", "-360deg"],
+  });
+
+  const innerRotateCounter = innerRotateAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ["360deg", "-360deg"],
+  });
+
+  const handleGetStarted = () => {
+    router.push({ pathname: "/(auth)/auth" as any, params: { mode: "signup" } });
   };
 
-  const toggleAuthMode = () => {
-    setIsLogin(!isLogin);
-    setEmail("");
-    setPassword("");
-    setFirstName("");
-    setLastName("");
-    setErrors({});
+  const handleSignIn = () => {
+    router.push({ pathname: "/(auth)/auth" as any, params: { mode: "signin" } });
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardView}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.logo, { color: colors.accent }]}>FITCO</Text>
-            <Text style={[styles.subtitle, { color: colors.text }]}>
-              {isLogin ? t("welcomeBack") : t("readyToStart")}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <Animated.View style={[styles.content, { opacity: contentFadeAnim }]}>
+        
+        {/* Header Section */}
+        <View style={styles.header}>
+          <Text style={[styles.logo, { color: colors.accent }]}>FITCO</Text>
+        </View>
+
+        {/* Animation Orbit Section */}
+        <View style={styles.orbitArea}>
+          {/* Faint Concentric Circles */}
+          <View style={[styles.circleLine, { width: 380, height: 380, borderRadius: 190 }]} />
+          <View style={[styles.circleLine, { width: 280, height: 280, borderRadius: 140 }]} />
+
+          {/* Outer Orbit (🥣 Cereal, 🍎 Apple, 🧀 Cheese) - spaced at 120-degree intervals */}
+          <Animated.View style={[styles.orbitWrapper, { width: 380, height: 380, transform: [{ rotate: outerRotate }] }]}>
+            <Animated.View style={[styles.emojiContainer, { top: -18, left: 190 - 18, transform: [{ rotate: outerRotateCounter }] }]}><Text style={styles.emojiText}>🥣</Text></Animated.View>
+            <Animated.View style={[styles.emojiContainer, { top: 267, left: 8, transform: [{ rotate: outerRotateCounter }] }]}><Text style={styles.emojiText}>🍎</Text></Animated.View>
+            <Animated.View style={[styles.emojiContainer, { top: 267, left: 336, transform: [{ rotate: outerRotateCounter }] }]}><Text style={styles.emojiText}>🧀</Text></Animated.View>
+          </Animated.View>
+
+          {/* Inner Orbit (🍞 Toast, 🥑 Avocado) - opposite sides (180 deg) */}
+          <Animated.View style={[styles.orbitWrapper, { width: 280, height: 280, transform: [{ rotate: innerRotate }] }]}>
+            <Animated.View style={[styles.emojiContainer, { top: 140 - 18, left: -18, transform: [{ rotate: innerRotateCounter }] }]}><Text style={styles.emojiText}>🍞</Text></Animated.View>
+            <Animated.View style={[styles.emojiContainer, { top: 140 - 18, left: 280 - 18, transform: [{ rotate: innerRotateCounter }] }]}><Text style={styles.emojiText}>🥑</Text></Animated.View>
+          </Animated.View>
+
+          {/* Core Center Welcome Text Overlay */}
+          <View style={styles.centerTextOverlay}>
+            <Text style={[styles.welcomeTitle, { color: colors.text }]}>
+              {t("welcomeToFitco")}
             </Text>
-            <Text style={[styles.description, { color: colors.text, letterSpacing: isRTL ? 0 : 0.4 }]}>
-              {isLogin ? funnyLine : t("makeFutureSelfProud")}
+            <Text style={[styles.welcomeSubtitle, { color: colors.placeholder }]}>
+              {t("makeEveryDayCountWelcome")}
             </Text>
           </View>
+        </View>
 
-          {/* Form */}
-          <View style={styles.form}>
-            {!isLogin && (
-              <>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    {
-                      backgroundColor: colors.card,
-                      flexDirection: "row",
-                    },
-                  ]}
-                >
-                  <User
-                    size={20}
-                    color={colors.accent}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        color: colors.text,
-                        textAlign: isRTL ? "right" : "left",
-                      },
-                    ]}
-                    placeholder={t("firstName") as string}
-                    placeholderTextColor={colors.placeholder}
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    autoCapitalize="words"
-                  />
-                </View>
-
-                <View
-                  style={[
-                    styles.inputContainer,
-                    {
-                      backgroundColor: colors.card,
-                      flexDirection: "row",
-                    },
-                  ]}
-                >
-                  <User
-                    size={20}
-                    color={colors.accent}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        color: colors.text,
-                        textAlign: isRTL ? "right" : "left",
-                      },
-                    ]}
-                    placeholder={t("lastName") as any}
-                    placeholderTextColor={colors.placeholder}
-                    value={lastName}
-                    onChangeText={setLastName}
-                    autoCapitalize="words"
-                  />
-                </View>
-              </>
-            )}
-
-            {/* Email */}
-            <View
-              style={[
-                styles.inputContainer,
-                {
-                  backgroundColor: colors.card,
-                  flexDirection: "row",
-                },
-              ]}
-            >
-              <Mail
-                size={20}
-                color={colors.accent}
-                style={{ marginStart: 12, marginEnd: 8 }}
-              />
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: colors.text, textAlign: isRTL ? "right" : "left" },
-                ]}
-                placeholder={t("emailAddress") as string}
-                placeholderTextColor={colors.placeholder}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            {/* Password */}
-            <View
-              style={[
-                styles.inputContainer,
-                {
-                  backgroundColor: colors.card,
-                  flexDirection: "row",
-                },
-              ]}
-            >
-              <Lock
-                size={20}
-                color={colors.accent}
-                style={{ marginStart: 12, marginEnd: 8 }}
-              />
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: colors.text, textAlign: isRTL ? "right" : "left" },
-                ]}
-                placeholder={t("password") as string}
-                placeholderTextColor={colors.placeholder}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={{ padding: 8, marginStart: 8, marginEnd: 12 }}
-              >
-                {showPassword ? (
-                  <EyeOff size={20} color={colors.accent} />
-                ) : (
-                  <Eye size={20} color={colors.accent} />
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* Submit */}
-            <TouchableOpacity
-              style={[
-                styles.authButton,
-                { backgroundColor: colors.accent },
-                isLoading && styles.authButtonDisabled,
-              ]}
-              onPress={handleAuth}
-              disabled={isLoading}
-            >
-              <Text
-                style={[styles.authButtonText, { color: colors.background }]}
-              >
-                {isLoading
-                  ? t("pleaseWait")
-                  : isLogin
-                    ? t("signIn")
-                    : t("createAccount")}
-              </Text>
-            </TouchableOpacity>
-
-            {/* {isLogin && (
-              <TouchableOpacity style={styles.forgotPassword}>
-                <Text
-                  style={[styles.forgotPasswordText, { color: colors.accent }]}
-                >
-                  {t("forgotPassword")}
-                </Text>
-              </TouchableOpacity>
-            )} */}
-          </View>
-
-          {/* Footer */}
-          <View
-            style={[
-              styles.footer,
-              {
-                flexDirection: "row",
-                justifyContent: "center",
-                alignItems: "center",
-              },
-            ]}
+        {/* Buttons / Bottom Actions Section */}
+        <View style={styles.bottomSection}>
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: colors.accent }]}
+            onPress={handleGetStarted}
+            activeOpacity={0.8}
           >
-            <Text
-              style={[
-                styles.switchText,
-                { color: colors.text, textAlign: "left" },
-              ]}
-            >
-              {isLogin ? t("dontHaveAccount") : t("alreadyHaveAccount")}
+            <Text style={[styles.primaryButtonText, { color: colors.background }]}>
+              {t("getStarted")}
             </Text>
-            <TouchableOpacity onPress={toggleAuthMode}>
-              <Text
-                style={[
-                  styles.switchButton,
-                  { color: colors.accent, textAlign: "left" },
-                ]}
-              >
-                {isLogin ? t("signUp") : t("signIn")}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleSignIn} activeOpacity={0.7} style={styles.signInLink}>
+            <Text style={[styles.signInText, { color: colors.text }]}>
+              {t("alreadyHaveAccount")}{" "}
+              <Text style={[styles.signInHighlight, { color: colors.accent }]}>
+                {t("signIn")}
               </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+      </Animated.View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  keyboardView: { flex: 1 },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 40,
+  container: {
+    flex: 1,
   },
-  header: { alignItems: "center", marginBottom: 40 },
+  content: {
+    flex: 1,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  header: {
+    alignItems: "center",
+    marginTop: 16,
+  },
   logo: {
-    fontSize: 72,
+    fontSize: 48,
     fontWeight: "900",
-    letterSpacing: -2,
-    marginBottom: 8,
+    letterSpacing: -1.5,
     includeFontPadding: false,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowColor: "rgba(0, 0, 0, 0.15)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
-
-  subtitle: {
-    fontSize: 24,
-    fontWeight: "600",
-    marginBottom: 8,
-    textAlign: "center",
+  orbitArea: {
+    height: 420,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
   },
-  description: {
-    fontSize: 17,
+  circleLine: {
+    position: "absolute",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderStyle: "solid",
+  },
+  orbitWrapper: {
+    position: "absolute",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emojiContainer: {
+    position: "absolute",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 36,
+    height: 36,
+  },
+  emojiText: {
+    fontSize: 24,
+  },
+  centerTextOverlay: {
+    position: "absolute",
+    width: "70%",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  welcomeTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 8,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
+  welcomeSubtitle: {
+    fontSize: 15,
     fontWeight: "500",
     textAlign: "center",
-    opacity: 0.9,
-    lineHeight: 24,
-    marginTop: 4,
-    color: "#CCCCCC",
+    lineHeight: 20,
+    textShadowColor: "rgba(0, 0, 0, 0.4)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-
-  form: { marginBottom: 32 },
-  inputContainer: {
+  bottomSection: {
+    width: "100%",
     alignItems: "center",
-    borderRadius: 12,
     marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  inputIcon: { marginHorizontal: 12 },
-  input: { flex: 1, fontSize: 16, paddingVertical: 16 },
-  authButton: {
+  primaryButton: {
+    width: "100%",
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
-    marginTop: 8,
+    justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 5,
   },
-  authButtonDisabled: { opacity: 0.7 },
-  authButtonText: { fontSize: 18, fontWeight: "600" },
-  forgotPassword: { alignItems: "center", marginTop: 16 },
-  forgotPasswordText: { fontSize: 14, fontWeight: "500" },
-  footer: { flexDirection: "row", alignItems: "center" },
-  switchText: { fontSize: 16, marginRight: 6 },
-  switchButton: { fontSize: 16, fontWeight: "600" },
+  primaryButtonText: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  signInLink: {
+    marginTop: 18,
+    padding: 8,
+  },
+  signInText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  signInHighlight: {
+    fontWeight: "700",
+  },
 });

@@ -7,31 +7,27 @@ import { getQuestionnaireSettings, useNutrition } from "@/hooks/nutrition-store"
 import { backendUpdateMyCompleteProfile } from "@/services/backend-auth";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { 
-  Activity, 
-  Calendar, 
-  ChevronRight, 
-  Target, 
-  User, 
-  ShieldCheck, 
-  Circle, 
+import {
+  Activity,
+  Calendar,
   CheckCircle2,
-  X,
-  Info
+  ChevronRight,
+  Circle,
+  Info,
+  Target,
+  User,
+  X
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ScrollView, 
-  TextInput, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ActivityIndicator,
+import {
   Linking,
-  Modal
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
