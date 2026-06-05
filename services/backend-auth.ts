@@ -173,6 +173,9 @@ export type CreateSubscriptionResponse = {
 export type VerifyApplePurchasePayload = {
   transactionId: string;
   receipt?: string;
+  productId?: string;
+  purchaseToken?: string;
+  jws?: string;
 };
 
 export type VerifyGooglePurchasePayload = {

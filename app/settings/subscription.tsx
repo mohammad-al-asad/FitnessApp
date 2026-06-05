@@ -33,8 +33,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useIAP, presentCodeRedemptionSheetIOS, getAvailablePurchases as getAvailablePurchasesStandalone } from "expo-iap";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  getAvailablePurchases as getAvailablePurchasesStandalone,
+  getReceiptDataIOS,
+  presentCodeRedemptionSheetIOS,
+  requestReceiptRefreshIOS,
+  restorePurchases as restorePurchasesStandalone,
+  useIAP,
+  type Purchase,
+} from "expo-iap";
 
 /**
  * Safely extracts a numeric value from a price string (e.g., "$9.99" -> 9.99).
@@ -71,7 +78,7 @@ const formatCurrency = (
         currency: code,
       }).format(safeAmount);
     }
-  } catch (e) {
+  } catch {
     // Fallback if Intl fails
   }
   return `${code} ${safeAmount.toFixed(2)}`;
@@ -233,6 +240,123 @@ const IAP_SKUS =
     android: [ANDROID_MAIN_SUB_ID],
   }) || [];
 
+const firstNonEmptyString = (
+  ...values: (string | null | undefined)[]
+): string => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return "";
+};
+
+const getAppleReceiptForPurchase = async (purchase: Purchase) => {
+  const purchaseAny = purchase as any;
+  const embeddedReceipt = firstNonEmptyString(
+    purchaseAny.transactionReceipt,
+    purchaseAny.receipt,
+    purchaseAny.receiptData,
+    purchaseAny.receiptDataIOS,
+  );
+
+  if (embeddedReceipt) return embeddedReceipt;
+
+  try {
+    const receipt = await getReceiptDataIOS();
+    if (receipt) return receipt;
+  } catch (error) {
+    console.warn("Unable to read Apple receipt:", error);
+  }
+
+  try {
+    const refreshedReceipt = await requestReceiptRefreshIOS();
+    if (refreshedReceipt) return refreshedReceipt;
+  } catch (error) {
+    console.warn("Unable to refresh Apple receipt:", error);
+  }
+
+  return firstNonEmptyString(
+    purchase.purchaseToken,
+    purchaseAny.jwsRepresentation,
+    purchaseAny.jwsRepresentationIOS,
+  );
+};
+
+const buildAppleVerificationPayload = async (purchase: Purchase) => {
+  const purchaseAny = purchase as any;
+  const purchaseToken = firstNonEmptyString(
+    purchase.purchaseToken,
+    purchaseAny.jwsRepresentation,
+    purchaseAny.jwsRepresentationIOS,
+  );
+  const transactionId = firstNonEmptyString(
+    (purchase as any).transactionId,
+    purchase.id,
+    purchaseAny.originalTransactionIdentifierIOS,
+  );
+  const receipt = await getAppleReceiptForPurchase(purchase);
+
+  if (!transactionId && !receipt && !purchaseToken) {
+    throw new Error("Apple purchase is missing a transaction id or receipt.");
+  }
+
+  return {
+    transactionId,
+    receipt: receipt || purchaseToken || undefined,
+    productId: purchase.productId,
+    purchaseToken: purchaseToken || undefined,
+    jws: purchaseToken || undefined,
+  };
+};
+
+const buildGoogleVerificationPayload = (purchase: Purchase) => {
+  const purchaseAny = purchase as any;
+  const purchaseToken = firstNonEmptyString(
+    purchase.purchaseToken,
+    purchaseAny.purchaseTokenAndroid,
+  );
+
+  if (!purchaseToken) {
+    throw new Error("Google purchase token is missing.");
+  }
+
+  return {
+    purchaseToken,
+    productId: purchase.productId || ANDROID_MAIN_SUB_ID,
+  };
+};
+
+const verifyStorePurchase = async (purchase: Purchase) => {
+  if (Platform.OS === "ios") {
+    return backendVerifyApplePurchase(
+      await buildAppleVerificationPayload(purchase),
+    );
+  }
+
+  return backendVerifyGooglePurchase(buildGoogleVerificationPayload(purchase));
+};
+
+const isVerifiedSubscriptionActive = (verifyResult: any) =>
+  verifyResult?.success === true &&
+  (verifyResult?.normalized?.isActive === true ||
+    verifyResult?.subscription?.isActive === true);
+
+const isPurchaseCancelledError = (error: any) => {
+  const code = String(error?.code ?? "").toLowerCase();
+  const message = String(error?.message ?? "").toLowerCase();
+
+  return (
+    code.includes("user-cancel") ||
+    message.includes("user cancelled") ||
+    message.includes("user canceled") ||
+    message.includes("cancelled by user") ||
+    message.includes("canceled by user") ||
+    message.includes("purchase was cancelled") ||
+    message.includes("purchase was canceled")
+  );
+};
+
 const UpgradePlanScreen = () => {
   const { t, isRTL } = useLanguage();
   const colors = useSafeColors();
@@ -243,27 +367,12 @@ const UpgradePlanScreen = () => {
     fetchProducts,
     requestPurchase,
     finishTransaction,
-    getAvailablePurchases,
-    availablePurchases,
   } = useIAP({
     onPurchaseSuccess: async (purchase) => {
       try {
         setIsProcessingPurchase(true);
-        let verifyResult;
-        if (Platform.OS === "ios") {
-          verifyResult = await backendVerifyApplePurchase({
-            transactionId: purchase.transactionId || "",
-            receipt: purchase.transactionReceipt || "",
-          });
-        } else {
-          verifyResult = await backendVerifyGooglePurchase({
-            purchaseToken: purchase.purchaseToken!,
-          });
-        }
-        const isActive =
-          verifyResult?.success === true &&
-          (verifyResult?.normalized?.isActive === true ||
-            verifyResult?.subscription?.isActive === true);
+        const verifyResult = await verifyStorePurchase(purchase);
+        const isActive = isVerifiedSubscriptionActive(verifyResult);
 
         if (!isActive) {
           throw new Error(verifyResult?.message || "Subscription verification failed");
@@ -287,14 +396,17 @@ const UpgradePlanScreen = () => {
       }
     },
     onPurchaseError: (error) => {
+      if (isPurchaseCancelledError(error)) {
+        setIsProcessingPurchase(false);
+        return;
+      }
+
       Alert.alert(String(t("error")), error.message);
       setIsProcessingPurchase(false);
     },
   });
 
-  console.log(JSON.stringify(storeSubscriptions, null, 2));
-
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(
+  const [plans] = useState<SubscriptionPlan[]>(
     STATIC_SUBSCRIPTION_PLANS,
   );
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
@@ -348,17 +460,20 @@ const UpgradePlanScreen = () => {
         (s: any) => s.productId === sku || s.id === sku,
       );
       if (sub) {
-        const hasIntroOffer = !!sub.introductoryPrice;
+        const subAsAny = sub as any;
+        const hasIntroOffer = !!subAsAny.introductoryPrice;
         const currencyCode =
-          (sub as any).currency || (sub as any).currencyCode || "USD";
+          subAsAny.currency || subAsAny.currencyCode || "USD";
 
         const baseAmount = extractNumericPrice(sub.price);
         const displayAmount = hasIntroOffer
-          ? extractNumericPrice(sub.introductoryPrice)
+          ? extractNumericPrice(subAsAny.introductoryPrice)
           : baseAmount;
 
         const localized =
-          typeof sub.localizedPrice === "string" ? sub.localizedPrice : "";
+          typeof subAsAny.localizedPrice === "string"
+            ? subAsAny.localizedPrice
+            : "";
         const hasSymbol = /[^\d\s.,]/.test(localized);
 
         return {
@@ -463,6 +578,10 @@ const UpgradePlanScreen = () => {
     if (!selectedPlan || isProcessingPurchase) return;
 
     try {
+      if (!connected || !nativeStoreProduct?.displayPrice) {
+        throw new Error(String(t("iap_not_available")));
+      }
+
       setIsProcessingPurchase(true);
 
       if (Platform.OS === "ios") {
@@ -494,6 +613,11 @@ const UpgradePlanScreen = () => {
         });
       }
     } catch (error: any) {
+      if (isPurchaseCancelledError(error)) {
+        setIsProcessingPurchase(false);
+        return;
+      }
+
       Alert.alert(String(t("error")), error.message);
       setIsProcessingPurchase(false);
     }
@@ -542,7 +666,12 @@ const UpgradePlanScreen = () => {
   const handleRestore = async () => {
     try {
       setIsProcessingPurchase(true);
-      const purchases = await getAvailablePurchasesStandalone();
+      await restorePurchasesStandalone();
+      const purchases = await getAvailablePurchasesStandalone({
+        alsoPublishToEventListenerIOS: false,
+        onlyIncludeActiveItemsIOS: true,
+        includeSuspendedAndroid: false,
+      });
 
       if (!purchases || purchases.length === 0) {
         Alert.alert(
@@ -556,21 +685,8 @@ const UpgradePlanScreen = () => {
       let lastError: any = null;
       for (const purchase of purchases) {
         try {
-          let verifyResult;
-          if (Platform.OS === "ios") {
-            verifyResult = await backendVerifyApplePurchase({
-              transactionId: purchase.transactionId || "",
-              receipt: purchase.transactionReceipt || "",
-            });
-          } else {
-            verifyResult = await backendVerifyGooglePurchase({
-              purchaseToken: purchase.purchaseToken!,
-            });
-          }
-          const isActive =
-            verifyResult?.success === true &&
-            (verifyResult?.normalized?.isActive === true ||
-             verifyResult?.subscription?.isActive === true);
+          const verifyResult = await verifyStorePurchase(purchase);
+          const isActive = isVerifiedSubscriptionActive(verifyResult);
 
           if (!isActive) {
             throw new Error(verifyResult?.message || "Subscription verification failed");
@@ -601,10 +717,15 @@ const UpgradePlanScreen = () => {
   };
 
   const isSubscribed = Boolean(subscriptionStatus?.subscribed);
-  const isReady =
-    !isLoadingPlans && connected && !!nativeStoreProduct?.displayPrice;
+  const canPurchase = Boolean(
+    connected && nativeStoreProduct?.displayPrice && !isSubscribed,
+  );
+  const showInitialSkeleton = isLoadingPlans && !subscriptionStatus;
+  const fallbackPriceText = isLoadingPlans ? String(t("loading")) : "N/A";
+  const priceText = nativeStoreProduct?.displayPrice ?? fallbackPriceText;
+  const basePriceText = nativeStoreProduct?.basePlanPrice ?? fallbackPriceText;
 
-  if (!isReady) {
+  if (showInitialSkeleton) {
     return (
       <View
         style={[styles.container, { backgroundColor: colors.background }]}
@@ -740,7 +861,7 @@ const UpgradePlanScreen = () => {
                     {nativeStoreProduct.basePlanPrice}
                   </Text>
                 )}
-                {nativeStoreProduct?.displayPrice && (
+                {nativeStoreProduct?.displayPrice ? (
                   <Text style={[styles.price, { color: colors.text }]}>
                     {nativeStoreProduct.displayPrice}
                     <Text style={styles.periodText}>
@@ -749,6 +870,10 @@ const UpgradePlanScreen = () => {
                         ? t("perMonthly")
                         : t("perYearly")}
                     </Text>
+                  </Text>
+                ) : (
+                  <Text style={[styles.priceUnavailable, { color: colors.placeholder }]}>
+                    {isLoadingPlans ? t("loading") : t("iap_not_available")}
                   </Text>
                 )}
               </View>
@@ -780,7 +905,7 @@ const UpgradePlanScreen = () => {
           </View>
         )}
 
-        {selectedPeriod !== "yearly" && (
+        {selectedPeriod !== "yearly" && nativeStoreProduct?.displayPrice && (
           <>
             {Platform.OS === "ios" ? (
               <View style={styles.couponSection}>
@@ -853,7 +978,7 @@ const UpgradePlanScreen = () => {
               {t("originalPrice")}
             </Text>
             <Text style={[styles.summaryValue, { color: colors.placeholder }]}>
-              {nativeStoreProduct?.basePlanPrice}
+              {basePriceText}
             </Text>
           </View>
 
@@ -892,17 +1017,17 @@ const UpgradePlanScreen = () => {
                 { color: colors.primary, fontWeight: "bold", fontSize: 20 },
               ]}
             >
-              {nativeStoreProduct?.displayPrice}
+              {priceText}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity
-          disabled={isProcessingPurchase || isSubscribed}
+          disabled={isProcessingPurchase || !canPurchase}
           style={[
             styles.subscribeButton,
             { backgroundColor: colors.primary },
-            (isProcessingPurchase || isSubscribed) && styles.disabledButton,
+            (isProcessingPurchase || !canPurchase) && styles.disabledButton,
           ]}
           onPress={handleSubscribe}
         >
@@ -1024,6 +1149,7 @@ const styles = StyleSheet.create({
   planSubtitle: { fontSize: 14, marginBottom: 24 },
   priceContainer: { alignItems: "baseline", marginBottom: 24 },
   price: { fontSize: 32, fontWeight: "bold" },
+  priceUnavailable: { fontSize: 16, fontWeight: "600", lineHeight: 22 },
   originalPriceText: { fontSize: 16, marginBottom: -4, opacity: 0.7 },
   periodText: { fontSize: 16, fontWeight: "normal", opacity: 0.6 },
   featureItem: { alignItems: "center", marginBottom: 16 },
