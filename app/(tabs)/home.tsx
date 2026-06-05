@@ -466,7 +466,8 @@ export default function HomeScreen() {
           ) : (
             mealRows.map((meal, index) => {
               const mealCalories = meal.items.reduce(
-                (sum, item) => sum + Number(item?.calories ?? 0),
+                (sum: number, item: { calories?: number | null }) =>
+                  sum + Number(item?.calories ?? 0),
                 0,
               );
               const hasFood = meal.items.length > 0;

@@ -1,7 +1,4 @@
-import colors from "@/constants/colors";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
-import {
-} from "@/services/backend-auth";
 import {
   STATIC_SUBSCRIPTION_PLANS,
   type SubscriptionPlan,
@@ -11,15 +8,15 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Linking,
   Modal,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useIAP } from "expo-iap";
+
+const MONTHLY_STORE_SUBSCRIPTION_ID = "com.fitco.subscription.monthly";
 
 type FirstSignInSubscriptionModalProps = {
   visible: boolean;
@@ -55,12 +52,8 @@ export default function FirstSignInSubscriptionModal({
     setStartingPlan(monthlyPlan ?? null);
 
     if (connected) {
-      const sku = Platform.OS === "ios" 
-        ? "com.fitco.subscription.monthly" 
-        : "com.fitco.subscription.monthly";
-      
       setIsLoadingPlan(true);
-      fetchProducts({ skus: [sku], type: "subs" })
+      fetchProducts({ skus: [MONTHLY_STORE_SUBSCRIPTION_ID], type: "subs" })
         .catch(err => console.error("Error fetching modal IAP:", err))
         .finally(() => setIsLoadingPlan(false));
     }
@@ -68,8 +61,13 @@ export default function FirstSignInSubscriptionModal({
 
   useEffect(() => {
     if (storeSubscriptions.length > 0) {
-      const sku = "com.fitco.subscription.monthly";
-      const sub = storeSubscriptions.find(s => s.productId === sku || (s as any).id === sku);
+      const sub = storeSubscriptions.find((subscription) => {
+        const subscriptionAny = subscription as any;
+        return (
+          subscription.id === MONTHLY_STORE_SUBSCRIPTION_ID ||
+          subscriptionAny.productId === MONTHLY_STORE_SUBSCRIPTION_ID
+        );
+      });
       if (sub) {
         setIapPlan(sub);
       }
@@ -292,7 +290,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
-    color: colors.primary,
   },
   actions: {
     gap: 10,
