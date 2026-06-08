@@ -34,6 +34,8 @@ import {
   View,
 } from "react-native";
 import {
+  clearTransactionIOS,
+  getActiveSubscriptions as getActiveSubscriptionsStandalone,
   getAvailablePurchases as getAvailablePurchasesStandalone,
   getReceiptDataIOS,
   presentCodeRedemptionSheetIOS,
@@ -416,6 +418,7 @@ const UpgradePlanScreen = () => {
     useState<MySubscriptionStatus | null>(null);
   const [couponText, setCouponText] = useState("");
   const [appliedOfferCode, setAppliedOfferCode] = useState("");
+  const productsFetchedRef = useRef(false);
 
   const features = useMemo(
     () => [
@@ -434,15 +437,16 @@ const UpgradePlanScreen = () => {
       const statusResult = await backendGetMySubscriptionStatus();
       setSubscriptionStatus(statusResult);
 
-      if (connected) {
+      if (connected && !productsFetchedRef.current) {
         await fetchProducts({ skus: IAP_SKUS, type: "subs" });
+        productsFetchedRef.current = true;
       }
     } catch (err) {
       console.error("Error loading IAP data:", err);
     } finally {
       setIsLoadingPlans(false);
     }
-  }, [connected, fetchProducts]);
+  }, [connected]);
 
   useEffect(() => {
     loadInitialData();
@@ -588,6 +592,12 @@ const UpgradePlanScreen = () => {
         const sku = selectedPlan.apple_sku;
         if (!sku) throw new Error("Apple Store ID not found for this plan");
 
+        try {
+          await clearTransactionIOS();
+        } catch (clearErr) {
+          console.warn("Failed to clear stuck transactions:", clearErr);
+        }
+
         await requestPurchase({
           request: {
             apple: { sku },
@@ -667,11 +677,48 @@ const UpgradePlanScreen = () => {
     try {
       setIsProcessingPurchase(true);
       await restorePurchasesStandalone();
-      const purchases = await getAvailablePurchasesStandalone({
-        alsoPublishToEventListenerIOS: false,
-        onlyIncludeActiveItemsIOS: true,
-        includeSuspendedAndroid: false,
-      });
+
+      let purchases: any[] = [];
+
+      if (Platform.OS === "ios") {
+        try {
+          // Try local receipt purchases first - very lightweight, usually no login prompt if synced
+          const availablePurchases = await getAvailablePurchasesStandalone({
+            alsoPublishToEventListenerIOS: false,
+            onlyIncludeActiveItemsIOS: false, // Check all purchases (active or inactive)
+            includeSuspendedAndroid: false,
+          });
+          if (availablePurchases && availablePurchases.length > 0) {
+            purchases = availablePurchases;
+          }
+        } catch (err) {
+          console.warn("Failed to get available purchases:", err);
+        }
+
+        // Only if local receipt didn't return anything, fall back to StoreKit 2 entitlements check
+        if (purchases.length === 0) {
+          try {
+            const activeSubs = await getActiveSubscriptionsStandalone();
+            if (activeSubs && activeSubs.length > 0) {
+              purchases = activeSubs.map((sub) => ({
+                ...sub,
+                id: sub.transactionId,
+                purchaseToken: sub.purchaseToken || (sub as any).jwsRepresentation || (sub as any).jwsRepresentationIOS,
+              }));
+            }
+          } catch (err) {
+            console.warn("Failed to get active subscriptions:", err);
+          }
+        }
+      } else {
+        const availablePurchases = await getAvailablePurchasesStandalone({
+          alsoPublishToEventListenerIOS: false,
+          includeSuspendedAndroid: false,
+        });
+        if (availablePurchases && availablePurchases.length > 0) {
+          purchases = availablePurchases;
+        }
+      }
 
       if (!purchases || purchases.length === 0) {
         Alert.alert(
