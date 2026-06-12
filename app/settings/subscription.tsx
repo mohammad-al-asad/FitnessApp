@@ -6,8 +6,7 @@ import { TranslationKey } from "@/constants/translations";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import {
   backendGetMySubscriptionStatus,
-  backendVerifyApplePurchase,
-  backendVerifyGooglePurchase,
+  backendSyncRevenueCat,
   type MySubscriptionStatus,
 } from "@/services/backend-auth";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,17 +32,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  clearTransactionIOS,
-  getActiveSubscriptions as getActiveSubscriptionsStandalone,
-  getAvailablePurchases as getAvailablePurchasesStandalone,
-  getReceiptDataIOS,
-  presentCodeRedemptionSheetIOS,
-  requestReceiptRefreshIOS,
-  restorePurchases as restorePurchasesStandalone,
-  useIAP,
-  type Purchase,
-} from "expo-iap";
+import Purchases from "react-native-purchases";
 
 /**
  * Safely extracts a numeric value from a price string (e.g., "$9.99" -> 9.99).
@@ -231,16 +220,27 @@ const SubscriptionSkeleton = () => {
   );
 };
 
-// Updated Product IDs from App Store Connect
-// On Android, we only query the main Subscription ID (which contains multiple base plans).
-// On iOS, we still query both individual SKUs as separate products.
-const ANDROID_MAIN_SUB_ID = "com.fitco.subscription.monthly";
+// Verified subscription active helper
 
-const IAP_SKUS =
-  Platform.select({
-    ios: ["com.fitco.subscription.monthly", "com.fitco.subscription.yearly"],
-    android: [ANDROID_MAIN_SUB_ID],
-  }) || [];
+const isVerifiedSubscriptionActive = (verifyResult: any) =>
+  verifyResult?.success === true &&
+  (verifyResult?.normalized?.isActive === true ||
+    verifyResult?.subscription?.isActive === true);
+
+const isPurchaseCancelledError = (error: any) => {
+  const code = String(error?.code ?? "").toLowerCase();
+  const message = String(error?.message ?? "").toLowerCase();
+
+  return (
+    code.includes("user-cancel") ||
+    message.includes("user cancelled") ||
+    message.includes("user canceled") ||
+    message.includes("cancelled by user") ||
+    message.includes("canceled by user") ||
+    message.includes("purchase was cancelled") ||
+    message.includes("purchase was canceled")
+  );
+};
 
 const firstNonEmptyString = (
   ...values: (string | null | undefined)[]
@@ -339,74 +339,14 @@ const verifyStorePurchase = async (purchase: Purchase) => {
   return backendVerifyGooglePurchase(buildGoogleVerificationPayload(purchase));
 };
 
-const isVerifiedSubscriptionActive = (verifyResult: any) =>
-  verifyResult?.success === true &&
-  (verifyResult?.normalized?.isActive === true ||
-    verifyResult?.subscription?.isActive === true);
-
-const isPurchaseCancelledError = (error: any) => {
-  const code = String(error?.code ?? "").toLowerCase();
-  const message = String(error?.message ?? "").toLowerCase();
-
-  return (
-    code.includes("user-cancel") ||
-    message.includes("user cancelled") ||
-    message.includes("user canceled") ||
-    message.includes("cancelled by user") ||
-    message.includes("canceled by user") ||
-    message.includes("purchase was cancelled") ||
-    message.includes("purchase was canceled")
-  );
-};
-
 const UpgradePlanScreen = () => {
   const { t, isRTL } = useLanguage();
   const colors = useSafeColors();
   const router = useRouter();
-  const {
-    connected,
-    subscriptions: storeSubscriptions,
-    fetchProducts,
-    requestPurchase,
-    finishTransaction,
-  } = useIAP({
-    onPurchaseSuccess: async (purchase) => {
-      try {
-        setIsProcessingPurchase(true);
-        const verifyResult = await verifyStorePurchase(purchase);
-        const isActive = isVerifiedSubscriptionActive(verifyResult);
 
-        if (!isActive) {
-          throw new Error(verifyResult?.message || "Subscription verification failed");
-        }
-
-        await finishTransaction({ purchase, isConsumable: false });
-        Alert.alert(
-          String(t("success")),
-          verifyResult?.message && verifyResult.message !== "Success"
-            ? verifyResult.message
-            : String(t("subscriptionActivated")),
-        );
-        loadInitialData();
-      } catch (error: any) {
-        Alert.alert(
-          String(t("error")),
-          error.message || "Failed to verify purchase",
-        );
-      } finally {
-        setIsProcessingPurchase(false);
-      }
-    },
-    onPurchaseError: (error) => {
-      if (isPurchaseCancelledError(error)) {
-        setIsProcessingPurchase(false);
-        return;
-      }
-
-      Alert.alert(String(t("error")), error.message);
-      setIsProcessingPurchase(false);
-    },
-  });
+  const [connected, setConnected] = useState(false);
+  const [monthlyPackage, setMonthlyPackage] = useState<any>(null);
+  const [yearlyPackage, setYearlyPackage] = useState<any>(null);
 
   const [plans] = useState<SubscriptionPlan[]>(
     STATIC_SUBSCRIPTION_PLANS,
@@ -437,16 +377,22 @@ const UpgradePlanScreen = () => {
       const statusResult = await backendGetMySubscriptionStatus();
       setSubscriptionStatus(statusResult);
 
-      if (connected && !productsFetchedRef.current) {
-        await fetchProducts({ skus: IAP_SKUS, type: "subs" });
-        productsFetchedRef.current = true;
+      const offerings = await Purchases.getOfferings();
+      if (offerings.current) {
+        setConnected(true);
+        if (offerings.current.monthly) {
+          setMonthlyPackage(offerings.current.monthly);
+        }
+        if (offerings.current.annual) {
+          setYearlyPackage(offerings.current.annual);
+        }
       }
     } catch (err) {
-      console.error("Error loading IAP data:", err);
+      console.error("Error loading RevenueCat offerings:", err);
     } finally {
       setIsLoadingPlans(false);
     }
-  }, [connected]);
+  }, []);
 
   useEffect(() => {
     loadInitialData();
@@ -456,130 +402,25 @@ const UpgradePlanScreen = () => {
     plans.find((p) => p.planType === selectedPeriod) ?? plans[0];
 
   const nativeStoreProduct = useMemo(() => {
-    if (!selectedPlan) return null;
+    const selectedPack = selectedPeriod === "monthly" ? monthlyPackage : yearlyPackage;
+    if (!selectedPack) return null;
 
-    if (Platform.OS === "ios") {
-      const sku = selectedPlan.apple_sku;
-      const sub = storeSubscriptions.find(
-        (s: any) => s.productId === sku || s.id === sku,
-      );
-      if (sub) {
-        const subAsAny = sub as any;
-        const hasIntroOffer = !!subAsAny.introductoryPrice;
-        const currencyCode =
-          subAsAny.currency || subAsAny.currencyCode || "USD";
+    const prod = selectedPack.product;
+    if (!prod) return null;
 
-        const baseAmount = extractNumericPrice(sub.price);
-        const displayAmount = hasIntroOffer
-          ? extractNumericPrice(subAsAny.introductoryPrice)
-          : baseAmount;
-
-        const localized =
-          typeof subAsAny.localizedPrice === "string"
-            ? subAsAny.localizedPrice
-            : "";
-        const hasSymbol = /[^\d\s.,]/.test(localized);
-
-        return {
-          ...sub,
-          basePlanPrice: hasSymbol
-            ? localized
-            : formatCurrency(baseAmount, currencyCode),
-          displayPrice:
-            hasIntroOffer && !hasSymbol
-              ? formatCurrency(displayAmount, currencyCode)
-              : localized || formatCurrency(displayAmount, currencyCode),
-          baseAmount: baseAmount,
-          displayAmount: displayAmount,
-          currencyCode: currencyCode,
-          isDiscounted: hasIntroOffer,
-        };
-      }
-      return null;
-    } else {
-      // Android logic
-      const mainSub = storeSubscriptions.find(
-        (s: any) =>
-          s.productId === ANDROID_MAIN_SUB_ID || s.id === ANDROID_MAIN_SUB_ID,
-      );
-
-      const subAsAny = mainSub as any;
-      const offers = subAsAny
-        ? subAsAny.subscriptionOffers ||
-          subAsAny.subscriptionOfferDetailsAndroid
-        : null;
-
-      if (mainSub && offers && Array.isArray(offers)) {
-        const targetBasePlanId = selectedPlan.google_sku;
-        const basePlanOffers = offers.filter(
-          (o) =>
-            o.basePlanId === targetBasePlanId ||
-            o.basePlanIdAndroid === targetBasePlanId,
-        );
-        const basePlanOffer =
-          basePlanOffers.find((o) => o.id === targetBasePlanId) ||
-          basePlanOffers.find((o) => !o.offerId && !o.offerIdAndroid) ||
-          basePlanOffers[0];
-
-        let specificOffer = null;
-        if (appliedOfferCode) {
-          specificOffer = offers.find(
-            (offer) =>
-              (offer.basePlanId === targetBasePlanId ||
-                offer.basePlanIdAndroid === targetBasePlanId) &&
-              (offer.offerId === appliedOfferCode ||
-                offer.offerIdAndroid === appliedOfferCode ||
-                offer.id === appliedOfferCode),
-          );
-        }
-
-        if (!specificOffer) {
-          specificOffer = basePlanOffer;
-        }
-
-        const pricingPhases =
-          specificOffer?.pricingPhases?.pricingPhaseList ||
-          specificOffer?.pricingPhasesAndroid?.pricingPhaseList;
-        const basePricingPhases =
-          basePlanOffer?.pricingPhases?.pricingPhaseList ||
-          basePlanOffer?.pricingPhasesAndroid?.pricingPhaseList;
-
-        return {
-          ...mainSub,
-          basePlanPrice:
-            basePricingPhases?.[0]?.formattedPrice || mainSub.displayPrice,
-          displayPrice:
-            pricingPhases?.[0]?.formattedPrice || mainSub.displayPrice,
-          baseAmount:
-            Math.round(
-              ((Number(basePricingPhases?.[0]?.priceAmountMicros) || 0) /
-                1000000) *
-                100,
-            ) / 100,
-          displayAmount:
-            Math.round(
-              ((Number(pricingPhases?.[0]?.priceAmountMicros) || 0) / 1000000) *
-                100,
-            ) / 100,
-          currencyCode:
-            pricingPhases?.[0]?.priceCurrencyCode ||
-            basePricingPhases?.[0]?.priceCurrencyCode ||
-            "USD",
-          offerTokenToUse:
-            specificOffer?.offerToken || specificOffer?.offerTokenAndroid,
-          isDiscounted: Boolean(
-            specificOffer?.offerId ||
-            specificOffer?.offerIdAndroid ||
-            (specificOffer?.id && specificOffer?.id !== targetBasePlanId),
-          ),
-        } as any;
-      }
-      return mainSub;
-    }
-  }, [storeSubscriptions, selectedPlan, appliedOfferCode]);
+    return {
+      basePlanPrice: prod.priceString,
+      displayPrice: prod.priceString,
+      baseAmount: prod.price,
+      displayAmount: prod.price,
+      currencyCode: prod.currencyCode,
+      isDiscounted: false,
+    };
+  }, [selectedPeriod, monthlyPackage, yearlyPackage]);
 
   const handleSubscribe = async () => {
-    if (!selectedPlan || isProcessingPurchase) return;
+    const selectedPack = selectedPeriod === "monthly" ? monthlyPackage : yearlyPackage;
+    if (!selectedPack || isProcessingPurchase) return;
 
     try {
       if (!connected || !nativeStoreProduct?.displayPrice) {
@@ -588,139 +429,62 @@ const UpgradePlanScreen = () => {
 
       setIsProcessingPurchase(true);
 
-      if (Platform.OS === "ios") {
-        const sku = selectedPlan.apple_sku;
-        if (!sku) throw new Error("Apple Store ID not found for this plan");
+      const purchaseResult = await Purchases.purchasePackage(selectedPack);
 
-        try {
-          await clearTransactionIOS();
-        } catch (clearErr) {
-          console.warn("Failed to clear stuck transactions:", clearErr);
-        }
+      const verifyResult = await backendSyncRevenueCat();
+      const isActive = isVerifiedSubscriptionActive(verifyResult);
 
-        await requestPurchase({
-          request: {
-            apple: { sku },
-          },
-          type: "subs",
-        });
-      } else {
-        const targetBasePlanId = selectedPlan.google_sku;
-        if (!targetBasePlanId) throw new Error("Google Base Plan ID not found");
-
-        const offerToken = (nativeStoreProduct as any)?.offerTokenToUse;
-
-        await requestPurchase({
-          request: {
-            google: {
-              skus: [ANDROID_MAIN_SUB_ID],
-              subscriptionOffers: offerToken
-                ? [{ sku: ANDROID_MAIN_SUB_ID, offerToken }]
-                : [],
-            },
-          },
-          type: "subs",
-        });
+      if (!isActive) {
+        throw new Error(verifyResult?.message || "Subscription verification failed");
       }
+
+      Alert.alert(
+        String(t("success")),
+        verifyResult?.message && verifyResult.message !== "Success"
+          ? verifyResult.message
+          : String(t("subscriptionActivated")),
+      );
+      loadInitialData();
     } catch (error: any) {
-      if (isPurchaseCancelledError(error)) {
-        setIsProcessingPurchase(false);
+      if (error.userCancelled) {
         return;
       }
-
-      Alert.alert(String(t("error")), error.message);
+      Alert.alert(
+        String(t("error")),
+        error.message || "Failed to process purchase",
+      );
+    } finally {
       setIsProcessingPurchase(false);
     }
   };
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
+    console.log("cupon");
     if (Platform.OS === "ios") {
-      if (presentCodeRedemptionSheetIOS) {
-        presentCodeRedemptionSheetIOS();
-      } else {
+      try {
+        await Purchases.presentCodeRedemptionSheet();
+      } catch (error: any) {
         Alert.alert(
           String(t("error")),
-          "Code redemption is not available on this device.",
+          error.message || "Code redemption sheet could not be opened.",
         );
       }
     } else {
-      const code = couponText.trim().toLowerCase();
-      if (!code) return;
-
-      const subAsAny = nativeStoreProduct as any;
-      const offers = (subAsAny?.subscriptionOffers ||
-        subAsAny?.subscriptionOfferDetailsAndroid) as any[];
-
-      const offerExists = offers?.some((off) => {
-        const isCorrectBasePlan =
-          off.basePlanId === selectedPlan?.google_sku ||
-          off.basePlanIdAndroid === selectedPlan?.google_sku;
-
-        const isCorrectOfferCode =
-          off.offerId === code ||
-          off.offerIdAndroid === code ||
-          off.id === code;
-
-        return isCorrectBasePlan && isCorrectOfferCode;
-      });
-
-      if (offerExists) {
-        setAppliedOfferCode(code);
-        Alert.alert(String(t("success")), String(t("couponApplied")));
-      } else {
-        Alert.alert(String(t("error")), String(t("invalidCoupon")));
-      }
+      Alert.alert(
+        "Info",
+        "Promo codes can be entered directly in the Google Play billing screen when you click Subscribe.",
+      );
     }
   };
 
   const handleRestore = async () => {
     try {
       setIsProcessingPurchase(true);
-      await restorePurchasesStandalone();
+      const restoreResult = await Purchases.restorePurchases();
+      const entitlements = restoreResult.entitlements.active;
+      const isEntitled = Object.keys(entitlements).length > 0;
 
-      let purchases: any[] = [];
-
-      if (Platform.OS === "ios") {
-        try {
-          // Try local receipt purchases first - very lightweight, usually no login prompt if synced
-          const availablePurchases = await getAvailablePurchasesStandalone({
-            alsoPublishToEventListenerIOS: false,
-            onlyIncludeActiveItemsIOS: false, // Check all purchases (active or inactive)
-            includeSuspendedAndroid: false,
-          });
-          if (availablePurchases && availablePurchases.length > 0) {
-            purchases = availablePurchases;
-          }
-        } catch (err) {
-          console.warn("Failed to get available purchases:", err);
-        }
-
-        // Only if local receipt didn't return anything, fall back to StoreKit 2 entitlements check
-        if (purchases.length === 0) {
-          try {
-            const activeSubs = await getActiveSubscriptionsStandalone();
-            if (activeSubs && activeSubs.length > 0) {
-              purchases = activeSubs.map((sub) => ({
-                ...sub,
-                id: sub.transactionId,
-                purchaseToken: sub.purchaseToken || (sub as any).jwsRepresentation || (sub as any).jwsRepresentationIOS,
-              }));
-            }
-          } catch (err) {
-            console.warn("Failed to get active subscriptions:", err);
-          }
-        }
-      } else {
-        const availablePurchases = await getAvailablePurchasesStandalone({
-          alsoPublishToEventListenerIOS: false,
-          includeSuspendedAndroid: false,
-        });
-        if (availablePurchases && availablePurchases.length > 0) {
-          purchases = availablePurchases;
-        }
-      }
-
-      if (!purchases || purchases.length === 0) {
+      if (!isEntitled) {
         Alert.alert(
           String(t("error")),
           String(t("no_active_subscription_found")),
@@ -728,30 +492,14 @@ const UpgradePlanScreen = () => {
         return;
       }
 
-      let restoredCount = 0;
-      let lastError: any = null;
-      for (const purchase of purchases) {
-        try {
-          const verifyResult = await verifyStorePurchase(purchase);
-          const isActive = isVerifiedSubscriptionActive(verifyResult);
+      const verifyResult = await backendSyncRevenueCat();
+      const isActive = isVerifiedSubscriptionActive(verifyResult);
 
-          if (!isActive) {
-            throw new Error(verifyResult?.message || "Subscription verification failed");
-          }
-
-          await finishTransaction({ purchase, isConsumable: false });
-          restoredCount++;
-        } catch (e: any) {
-          console.error("Failed to restore a specific purchase:", e);
-          lastError = e;
-        }
-      }
-
-      if (restoredCount > 0) {
+      if (isActive) {
         Alert.alert(String(t("success")), String(t("subscription_restored")));
         loadInitialData();
       } else {
-        Alert.alert(String(t("error")), lastError?.message || String(t("failed_to_restore")));
+        Alert.alert(String(t("error")), verifyResult?.message || String(t("failed_to_restore")));
       }
     } catch (error: any) {
       Alert.alert(

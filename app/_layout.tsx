@@ -22,10 +22,12 @@ import {
   AppState,
   AppStateStatus,
   BackHandler,
+  Platform,
   StyleSheet,
   View,
 } from "react-native";
 import "react-native-reanimated";
+import Purchases from "react-native-purchases";
 
 // 🚀 Keep the native splash screen visible until our custom animation is ready to take over.
 // Calling this at the top level is best practice to prevent early auto-hiding.
@@ -167,6 +169,24 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // RootLayout now ONLY wraps AppShell with LanguageProvider
 function RootLayout() {
+  useEffect(() => {
+    if (Platform.OS === "ios") {
+      Purchases.configure({
+        apiKey: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY || "",
+      });
+    } else if (Platform.OS === "android") {
+      Purchases.configure({
+        apiKey: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY || "",
+      });
+    }
+
+    // Safely redirect RevenueCat logs to console.log.
+    // This avoids console.error/console.warn which trigger Metro developer tool crashes in RN 0.81+.
+    Purchases.setLogHandler((logLevel, message) => {
+      console.log(`[RevenueCat] [${logLevel}] ${message}`);
+    });
+  }, []);
+
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",

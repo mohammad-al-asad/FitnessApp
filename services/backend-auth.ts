@@ -754,6 +754,33 @@ export async function backendVerifyApplePurchase(
   };
 }
 
+export async function backendSyncRevenueCat(): Promise<VerifyIapResponse> {
+  const { token } = await readStoredSession();
+  if (!token) throw new Error("No auth token");
+
+  const json = await request("/api/v1/subscription/revenuecat/sync", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const root = json?.data ?? json;
+  if (root?.user) {
+    await saveSession(toBackendUser(root.user));
+  }
+
+  const success = root?.success ?? (root?.normalized?.isActive === true || root?.subscription?.isActive === true);
+
+  return {
+    success: Boolean(success),
+    message: String(root?.message ?? (success ? "Success" : "Subscription not active")),
+    user: root?.user ? toBackendUser(root.user) : undefined,
+    normalized: root?.normalized,
+    subscription: root?.subscription,
+  };
+}
+
 export async function backendVerifyGooglePurchase(
   payload: VerifyGooglePurchasePayload,
 ): Promise<VerifyIapResponse> {
