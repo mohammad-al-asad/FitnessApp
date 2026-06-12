@@ -46,8 +46,7 @@
         {
           "cameraPermission": "Fitco uses your camera to scan food barcodes. This allows us to instantly identify products and log their nutritional information to your daily diary."
         }
-      ],
-      "expo-iap"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

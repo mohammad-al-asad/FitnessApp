@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useIAP } from "expo-iap";
+import Purchases from "react-native-purchases";
 
 const MONTHLY_STORE_SUBSCRIPTION_ID = "com.fitco.subscription.monthly";
 
@@ -36,8 +36,6 @@ export default function FirstSignInSubscriptionModal({
     null,
   );
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
-
-  const { connected, subscriptions: storeSubscriptions, fetchProducts } = useIAP();
   const [iapPlan, setIapPlan] = useState<any>(null);
 
   useEffect(() => {
@@ -51,40 +49,38 @@ export default function FirstSignInSubscriptionModal({
 
     setStartingPlan(monthlyPlan ?? null);
 
-    if (connected) {
-      setIsLoadingPlan(true);
-      fetchProducts({ skus: [MONTHLY_STORE_SUBSCRIPTION_ID], type: "subs" })
-        .catch(err => console.error("Error fetching modal IAP:", err))
-        .finally(() => setIsLoadingPlan(false));
-    }
-  }, [visible, connected, fetchProducts]);
-
-  useEffect(() => {
-    if (storeSubscriptions.length > 0) {
-      const sub = storeSubscriptions.find((subscription) => {
-        const subscriptionAny = subscription as any;
-        return (
-          subscription.id === MONTHLY_STORE_SUBSCRIPTION_ID ||
-          subscriptionAny.productId === MONTHLY_STORE_SUBSCRIPTION_ID
-        );
-      });
-      if (sub) {
-        setIapPlan(sub);
+    const fetchRcPlan = async () => {
+      try {
+        setIsLoadingPlan(true);
+        const offerings = await Purchases.getOfferings();
+        if (offerings.current?.monthly) {
+          setIapPlan(offerings.current.monthly.product);
+        }
+      } catch (err) {
+        console.error("Error fetching modal RC offering:", err);
+      } finally {
+        setIsLoadingPlan(false);
       }
-    }
-  }, [storeSubscriptions]);
+    };
 
+    fetchRcPlan();
+  }, [visible]);
 
   const startingPriceText = useMemo(() => {
     if (!startingPlan && !iapPlan) return null;
 
-    const displayPrice = iapPlan 
-      ? (iapPlan.localizedPrice || iapPlan.formattedPrice || iapPlan.price) 
-      : startingPlan?.price;
-    
-    // If we have iapPlan, we can use its formatting, but we still need the localized labels
-    const currencyLabel = iapPlan ? "" : (startingPlan?.currency?.toLowerCase() === "sar" ? (currentLanguage === "ar" ? "ريال" : "sr") : startingPlan?.currency);
-    const intervalLabel = (iapPlan?.subscriptionPeriodNumberIOS === 1 || Object.is(startingPlan?.interval?.toLowerCase(), "month")) 
+    if (iapPlan) {
+      const displayPrice = iapPlan.priceString;
+      const intervalLabel = currentLanguage === "ar" ? "شهر" : "month";
+      const onlyLabel = currentLanguage === "ar" ? "فقط" : "only";
+      return `${t("firstSignInSubscriptionStartingFrom") as string} ${onlyLabel} ${displayPrice}/${intervalLabel}`;
+    }
+
+    const displayPrice = startingPlan?.price;
+    const currencyLabel = startingPlan?.currency?.toLowerCase() === "sar" 
+      ? (currentLanguage === "ar" ? "ريال" : "sr") 
+      : startingPlan?.currency;
+    const intervalLabel = Object.is(startingPlan?.interval?.toLowerCase(), "month") 
       ? (currentLanguage === "ar" ? "شهر" : "month") 
       : (currentLanguage === "ar" ? "سنة" : "year");
     

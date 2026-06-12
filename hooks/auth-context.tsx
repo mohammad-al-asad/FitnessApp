@@ -16,6 +16,7 @@ import {
   backendSignUp,
   readStoredSession,
 } from "@/services/backend-auth";
+import Purchases from "react-native-purchases";
 
 const USER_STORAGE_KEY = "fitco_auth_user";
 const FIRST_SIGN_IN_SUBSCRIPTION_PROMPT_SEEN_PREFIX =
@@ -111,6 +112,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (user?.uid) {
+      Purchases.logIn(user.uid).catch((err) =>
+        console.error("RevenueCat logIn error:", err),
+      );
+    } else {
+      Purchases.logOut().catch((err) =>
+        console.error("RevenueCat logOut error:", err),
+      );
+    }
+  }, [user]);
 
   const signIn = async (
     email: string,

@@ -3,10 +3,60 @@ import { useLanguage } from "@/hooks/language-context";
 import { Stack, useRouter } from "expo-router";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SettingsLayout() {
   const router = useRouter();
   const { t, isRTL } = useLanguage();
+  const insets = useSafeAreaInsets();
+
+  const CustomHeader = (props: any) => {
+    const title = props.options.title || "Fitco";
+
+    return (
+      <View
+        style={{
+          backgroundColor: "#121212",
+          paddingTop: insets.top,
+          height: 56 + insets.top,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 16,
+          flexDirection: "row",
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            position: "absolute",
+            left: 16,
+            bottom: 0,
+            height: 56,
+            justifyContent: "center",
+            zIndex: 10,
+          }}
+        >
+          {isRTL ? (
+            <ArrowRight size={24} color="#fff" />
+          ) : (
+            <ArrowLeft size={24} color="#fff" />
+          )}
+        </Pressable>
+
+        {/* 🎯 Center Section: Title */}
+        <Text
+          style={{
+            color: "#fff",
+            fontWeight: "600",
+            fontSize: 18,
+            textAlign: "center",
+          }}
+        >
+          {title}
+        </Text>
+      </View>
+    );
+  };
 
   const getTitleKey = (name: string): TranslationKey => {
     switch (name) {
@@ -30,11 +80,8 @@ export default function SettingsLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: "#121212" },
-        headerTintColor: "#fff",
-        headerTitleStyle: { fontWeight: "600" },
-        headerTitleAlign: "center",
         headerShown: true,
+        header: (props) => <CustomHeader {...props} />,
         presentation: "card",
       }}
     >
@@ -51,27 +98,7 @@ export default function SettingsLayout() {
           name={name}
           options={{
             headerShown: name === "account" ? false : true,
-            headerTitle: String(t(getTitleKey(name))),
-            headerBackVisible: false,
-
-            headerLeft: () => (
-              <Pressable
-                onPress={() => router.back()}
-                style={{
-                  width: 38,
-                  height: 38,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginLeft: 10,
-                }}
-              >
-                {isRTL ? (
-                  <ArrowRight size={22} color="#fff" />
-                ) : (
-                  <ArrowLeft size={22} color="#fff" />
-                )}
-              </Pressable>
-            ),
+            title: String(t(getTitleKey(name))),
           }}
         />
       ))}

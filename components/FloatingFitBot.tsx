@@ -200,8 +200,8 @@ export default function FloatingFitBot({
     !chatLimit.isUnlimited &&
     (isPremium
       ? chatLimit.messagesLeftThisMonth !== null &&
-        chatLimit.messagesLeftThisMonth !== undefined &&
-        chatLimit.messagesLeftThisMonth <= 0
+      chatLimit.messagesLeftThisMonth !== undefined &&
+      chatLimit.messagesLeftThisMonth <= 0
       : chatLimit.messagesLeftToday <= 0);
   const prevChatLimitReachedRef = useRef(false);
 
@@ -430,7 +430,7 @@ export default function FloatingFitBot({
         style={[
           styles.floatingButton,
           {
-            bottom: bottom + (Platform.OS === "ios" ? insets.bottom : 0),
+            bottom: bottom,
             right: right,
             transform: [{ scale: scaleAnim }],
           },
@@ -568,14 +568,14 @@ export default function FloatingFitBot({
                       isRTL
                         ? m.isUser
                           ? {
-                              borderBottomLeftRadius: 4,
-                              borderBottomRightRadius: 20,
-                            }
+                            borderBottomLeftRadius: 4,
+                            borderBottomRightRadius: 20,
+                          }
                           : {
-                              borderBottomLeftRadius: 20,
-                              borderBottomRightRadius: 4,
-                              marginRight: 6,
-                            }
+                            borderBottomLeftRadius: 20,
+                            borderBottomRightRadius: 4,
+                            marginRight: 6,
+                          }
                         : {},
                     ]}
                   >
@@ -666,7 +666,7 @@ export default function FloatingFitBot({
                       isLoading ||
                       isLoadingLimit ||
                       isChatLimitReached) &&
-                      styles.sendButtonDisabled,
+                    styles.sendButtonDisabled,
                   ]}
                   onPress={sendMessage}
                   disabled={
