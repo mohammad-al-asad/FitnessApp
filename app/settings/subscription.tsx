@@ -32,24 +32,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Purchases from "react-native-purchases";
-
-/**
- * Safely extracts a numeric value from a price string (e.g., "$9.99" -> 9.99).
- * Returns 0 if extraction fails.
- */
-const extractNumericPrice = (
-  val: string | number | null | undefined,
-): number => {
-  if (val === null || val === undefined) return 0;
-  if (typeof val === "number") return val;
-  // Support both dot and comma locales, then keep only digits and first decimal
-  const normalized = String(val)
-    .replace(/,/g, ".")
-    .replace(/[^0-9.]/g, "");
-  const parsed = parseFloat(normalized);
-  return isNaN(parsed) ? 0 : parsed;
-};
+import Purchases, {
+  type PricingPhase,
+  type PurchasesPackage,
+  type SubscriptionOption,
+} from "react-native-purchases";
 
 /**
  * Formats a number as a currency string.
@@ -227,6 +214,68 @@ const isVerifiedSubscriptionActive = (verifyResult: any) =>
   (verifyResult?.normalized?.isActive === true ||
     verifyResult?.subscription?.isActive === true);
 
+const normalizeOfferCode = (code: string) => code.trim().toLowerCase();
+
+const getAndroidSubscriptionOptions = (
+  selectedPack: PurchasesPackage | null,
+) => {
+  const options = selectedPack?.product.subscriptionOptions ?? [];
+  const defaultOption = selectedPack?.product.defaultOption;
+
+  if (!defaultOption) return options;
+
+  return [
+    defaultOption,
+    ...options.filter((option) => option.id !== defaultOption.id),
+  ];
+};
+
+const findAndroidOfferOption = (
+  selectedPack: PurchasesPackage | null,
+  code: string,
+): SubscriptionOption | null => {
+  const normalizedCode = normalizeOfferCode(code);
+  if (!normalizedCode) return null;
+
+  const options = getAndroidSubscriptionOptions(selectedPack);
+  return (
+    options.find((option) => {
+      if (option.isBasePlan) return false;
+
+      const id = normalizeOfferCode(option.id);
+      const offerId = normalizeOfferCode(id.split(":").pop() ?? "");
+      const tags = option.tags.map(normalizeOfferCode);
+
+      return (
+        id === normalizedCode ||
+        id.includes(normalizedCode) ||
+        offerId === normalizedCode ||
+        tags.includes(normalizedCode)
+      );
+    }) ?? null
+  );
+};
+
+const getPhasePrice = (phase: PricingPhase | null | undefined) => {
+  if (!phase?.price) return null;
+
+  return {
+    amount: phase.price.amountMicros / 1_000_000,
+    currencyCode: phase.price.currencyCode,
+    priceString: phase.price.formatted,
+  };
+};
+
+const getOfferDisplayPrice = (option: SubscriptionOption) =>
+  getPhasePrice(option.freePhase) ??
+  getPhasePrice(option.introPhase) ??
+  getPhasePrice(option.fullPricePhase) ??
+  getPhasePrice(option.pricingPhases[0]);
+
+const getOfferBasePrice = (option: SubscriptionOption) =>
+  getPhasePrice(option.fullPricePhase) ??
+  getPhasePrice(option.pricingPhases[option.pricingPhases.length - 1]);
+
 const UpgradePlanScreen = () => {
   const { t, isRTL } = useLanguage();
   const colors = useSafeColors();
@@ -246,7 +295,6 @@ const UpgradePlanScreen = () => {
     useState<MySubscriptionStatus | null>(null);
   const [couponText, setCouponText] = useState("");
   const [appliedOfferCode, setAppliedOfferCode] = useState("");
-  const productsFetchedRef = useRef(false);
 
   const features = useMemo(
     () => [
@@ -286,29 +334,50 @@ const UpgradePlanScreen = () => {
     loadInitialData();
   }, [loadInitialData]);
 
+  useEffect(() => {
+    setCouponText("");
+    setAppliedOfferCode("");
+  }, [selectedPeriod]);
+
   const selectedPlan =
     plans.find((p) => p.planType === selectedPeriod) ?? plans[0];
 
-  const nativeStoreProduct = useMemo(() => {
-    const selectedPack = selectedPeriod === "monthly" ? monthlyPackage : yearlyPackage;
-    if (!selectedPack) return null;
+  const selectedStorePackage =
+    selectedPeriod === "monthly" ? monthlyPackage : yearlyPackage;
 
-    const prod = selectedPack.product;
+  const appliedAndroidOfferOption = useMemo(() => {
+    if (Platform.OS !== "android" || !appliedOfferCode) return null;
+    return findAndroidOfferOption(selectedStorePackage, appliedOfferCode);
+  }, [appliedOfferCode, selectedStorePackage]);
+
+  const nativeStoreProduct = useMemo(() => {
+    if (!selectedStorePackage) return null;
+
+    const prod = selectedStorePackage.product;
     if (!prod) return null;
 
+    const offerDisplayPrice = appliedAndroidOfferOption
+      ? getOfferDisplayPrice(appliedAndroidOfferOption)
+      : null;
+    const offerBasePrice = appliedAndroidOfferOption
+      ? getOfferBasePrice(appliedAndroidOfferOption)
+      : null;
+
     return {
-      basePlanPrice: prod.priceString,
-      displayPrice: prod.priceString,
-      baseAmount: prod.price,
-      displayAmount: prod.price,
-      currencyCode: prod.currencyCode,
-      isDiscounted: false,
+      basePlanPrice: offerBasePrice?.priceString ?? prod.priceString,
+      displayPrice: offerDisplayPrice?.priceString ?? prod.priceString,
+      baseAmount: offerBasePrice?.amount ?? prod.price,
+      displayAmount: offerDisplayPrice?.amount ?? prod.price,
+      currencyCode:
+        offerDisplayPrice?.currencyCode ??
+        offerBasePrice?.currencyCode ??
+        prod.currencyCode,
+      isDiscounted: Boolean(appliedAndroidOfferOption),
     };
-  }, [selectedPeriod, monthlyPackage, yearlyPackage]);
+  }, [appliedAndroidOfferOption, selectedStorePackage]);
 
   const handleSubscribe = async () => {
-    const selectedPack = selectedPeriod === "monthly" ? monthlyPackage : yearlyPackage;
-    if (!selectedPack || isProcessingPurchase) return;
+    if (!selectedStorePackage || isProcessingPurchase) return;
 
     try {
       if (!connected || !nativeStoreProduct?.displayPrice) {
@@ -317,7 +386,18 @@ const UpgradePlanScreen = () => {
 
       setIsProcessingPurchase(true);
 
-      const purchaseResult = await Purchases.purchasePackage(selectedPack);
+      if (Platform.OS === "android" && appliedOfferCode) {
+        const offerOption = findAndroidOfferOption(
+          selectedStorePackage,
+          appliedOfferCode,
+        );
+        if (!offerOption) {
+          throw new Error(String(t("invalidCoupon")));
+        }
+        await Purchases.purchaseSubscriptionOption(offerOption);
+      } else {
+        await Purchases.purchasePackage(selectedStorePackage);
+      }
 
       const verifyResult = await backendSyncRevenueCat();
       const isActive = isVerifiedSubscriptionActive(verifyResult);
@@ -347,22 +427,33 @@ const UpgradePlanScreen = () => {
   };
 
   const handleApplyCoupon = async () => {
-    console.log("cupon");
     if (Platform.OS === "ios") {
       try {
         await Purchases.presentCodeRedemptionSheet();
+        return;
       } catch (error: any) {
         Alert.alert(
           String(t("error")),
           error.message || "Code redemption sheet could not be opened.",
         );
       }
-    } else {
-      Alert.alert(
-        "Info",
-        "Promo codes can be entered directly in the Google Play billing screen when you click Subscribe.",
-      );
+      return;
     }
+
+    const code = normalizeOfferCode(couponText);
+    const offerOption = findAndroidOfferOption(selectedStorePackage, code);
+
+    if (!offerOption) {
+      Alert.alert(
+        String(t("error")),
+        String(t("invalidCoupon")),
+      );
+      return;
+    }
+
+    setCouponText(code);
+    setAppliedOfferCode(code);
+    Alert.alert(String(t("success")), String(t("couponApplied")));
   };
 
   const handleRestore = async () => {

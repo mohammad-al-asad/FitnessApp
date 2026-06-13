@@ -114,16 +114,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    if (!isInitialized) return;
+
     if (user?.uid) {
       Purchases.logIn(user.uid).catch((err) =>
         console.error("RevenueCat logIn error:", err),
       );
-    } else {
-      Purchases.logOut().catch((err) =>
-        console.error("RevenueCat logOut error:", err),
-      );
+      return;
     }
-  }, [user]);
+
+    let isCancelled = false;
+
+    const logOutIdentifiedRevenueCatUser = async () => {
+      try {
+        const isAnonymous = await Purchases.isAnonymous();
+        if (isCancelled || isAnonymous) return;
+        await Purchases.logOut();
+      } catch (err) {
+        console.error("RevenueCat logOut error:", err);
+      }
+    };
+
+    logOutIdentifiedRevenueCatUser();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isInitialized, user?.uid]);
 
   const signIn = async (
     email: string,
