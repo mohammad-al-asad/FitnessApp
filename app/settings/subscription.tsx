@@ -214,6 +214,9 @@ const isVerifiedSubscriptionActive = (verifyResult: any) =>
   (verifyResult?.normalized?.isActive === true ||
     verifyResult?.subscription?.isActive === true);
 
+const hasActiveRevenueCatEntitlement = (customerInfo: any) =>
+  Object.keys(customerInfo?.entitlements?.active ?? {}).length > 0;
+
 const normalizeOfferCode = (code: string) => code.trim().toLowerCase();
 
 const getAndroidSubscriptionOptions = (
@@ -459,9 +462,14 @@ const UpgradePlanScreen = () => {
   const handleRestore = async () => {
     try {
       setIsProcessingPurchase(true);
-      const restoreResult = await Purchases.restorePurchases();
-      const entitlements = restoreResult.entitlements.active;
-      const isEntitled = Object.keys(entitlements).length > 0;
+      let customerInfo = await Purchases.restorePurchases();
+      let isEntitled = hasActiveRevenueCatEntitlement(customerInfo);
+
+      if (!isEntitled && Platform.OS === "ios") {
+        const syncResult = await Purchases.syncPurchasesForResult();
+        customerInfo = syncResult.customerInfo;
+        isEntitled = hasActiveRevenueCatEntitlement(customerInfo);
+      }
 
       if (!isEntitled) {
         Alert.alert(
