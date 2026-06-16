@@ -3,12 +3,14 @@ import {
   type SubscriptionPlan,
 } from "@/constants/subscriptions";
 import { TranslationKey } from "@/constants/translations";
+import { useAuth } from "@/hooks/auth-context";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import {
   backendGetMySubscriptionStatus,
   backendSyncRevenueCat,
   type MySubscriptionStatus,
 } from "@/services/backend-auth";
+import { ensureRevenueCatConfigured } from "@/services/revenuecat";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, {
@@ -281,6 +283,7 @@ const getOfferBasePrice = (option: SubscriptionOption) =>
 
 const UpgradePlanScreen = () => {
   const { t, isRTL } = useLanguage();
+  const { user } = useAuth();
   const colors = useSafeColors();
   const router = useRouter();
 
@@ -316,6 +319,7 @@ const UpgradePlanScreen = () => {
       const statusResult = await backendGetMySubscriptionStatus();
       setSubscriptionStatus(statusResult);
 
+      await ensureRevenueCatConfigured(user?.uid);
       const offerings = await Purchases.getOfferings();
       if (offerings.current) {
         setConnected(true);
@@ -331,7 +335,7 @@ const UpgradePlanScreen = () => {
     } finally {
       setIsLoadingPlans(false);
     }
-  }, []);
+  }, [user?.uid]);
 
   useEffect(() => {
     loadInitialData();
@@ -388,6 +392,7 @@ const UpgradePlanScreen = () => {
       }
 
       setIsProcessingPurchase(true);
+      await ensureRevenueCatConfigured(user?.uid);
 
       if (Platform.OS === "android" && appliedOfferCode) {
         const offerOption = findAndroidOfferOption(
@@ -432,6 +437,7 @@ const UpgradePlanScreen = () => {
   const handleApplyCoupon = async () => {
     if (Platform.OS === "ios") {
       try {
+        await ensureRevenueCatConfigured(user?.uid);
         await Purchases.presentCodeRedemptionSheet();
         return;
       } catch (error: any) {
@@ -462,6 +468,7 @@ const UpgradePlanScreen = () => {
   const handleRestore = async () => {
     try {
       setIsProcessingPurchase(true);
+      await ensureRevenueCatConfigured(user?.uid);
       let customerInfo = await Purchases.restorePurchases();
       let isEntitled = hasActiveRevenueCatEntitlement(customerInfo);
 

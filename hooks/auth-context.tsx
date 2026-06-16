@@ -16,7 +16,10 @@ import {
   backendSignUp,
   readStoredSession,
 } from "@/services/backend-auth";
-import Purchases from "react-native-purchases";
+import {
+  ensureRevenueCatConfigured,
+  logOutRevenueCatUser,
+} from "@/services/revenuecat";
 
 const USER_STORAGE_KEY = "fitco_auth_user";
 const FIRST_SIGN_IN_SUBSCRIPTION_PROMPT_SEEN_PREFIX =
@@ -116,31 +119,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!isInitialized) return;
 
-    if (user?.uid) {
-      Purchases.logIn(user.uid).catch((err) =>
-        console.error("RevenueCat logIn error:", err),
-      );
-      return;
-    }
-
     let isCancelled = false;
 
-    const logOutIdentifiedRevenueCatUser = async () => {
+    const syncRevenueCatUser = async () => {
       try {
-        const isAnonymous = await Purchases.isAnonymous();
-        if (isCancelled || isAnonymous) return;
-        await Purchases.logOut();
+        if (user?.uid) {
+          await ensureRevenueCatConfigured(user.uid);
+          return;
+        }
+
+        if (isCancelled) return;
+        await logOutRevenueCatUser();
       } catch (err) {
-        console.error("RevenueCat logOut error:", err);
+        console.error("RevenueCat auth sync error:", err);
       }
     };
 
-    logOutIdentifiedRevenueCatUser();
+    syncRevenueCatUser();
 
     return () => {
       isCancelled = true;
     };
-  }, [isInitialized, user?.uid]);
+  }, [
+    isInitialized,
+    user?.uid,
+    user?.email,
+    user?.firstName,
+    user?.lastName,
+    user?.displayName,
+  ]);
 
   const signIn = async (
     email: string,
@@ -151,6 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSubscriptionPromptUserId(null);
 
       const signedInUser = await backendSignIn(email, password);
+      await ensureRevenueCatConfigured(signedInUser.uid);
       setUser(signedInUser);
       await clearFitcoData();
 
@@ -184,6 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       await clearFitcoData();
+      await ensureRevenueCatConfigured(createdUser.uid);
 
       const blankProfile = {
         userId: createdUser.uid,

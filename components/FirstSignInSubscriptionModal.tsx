@@ -3,9 +3,11 @@ import {
   STATIC_SUBSCRIPTION_PLANS,
   type SubscriptionPlan,
 } from "@/constants/subscriptions";
+import { ensureRevenueCatConfigured } from "@/services/revenuecat";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/hooks/auth-context";
 import {
   ActivityIndicator,
   Modal,
@@ -15,8 +17,6 @@ import {
   View,
 } from "react-native";
 import Purchases from "react-native-purchases";
-
-const MONTHLY_STORE_SUBSCRIPTION_ID = "com.fitco.subscription.monthly";
 
 type FirstSignInSubscriptionModalProps = {
   visible: boolean;
@@ -30,6 +30,7 @@ export default function FirstSignInSubscriptionModal({
   onDismiss,
 }: FirstSignInSubscriptionModalProps) {
   const { t, tArray, currentLanguage } = useLanguage();
+  const { user } = useAuth();
   const router = useRouter();
   const colors = useSafeColors();
   const [startingPlan, setStartingPlan] = useState<SubscriptionPlan | null>(
@@ -52,6 +53,7 @@ export default function FirstSignInSubscriptionModal({
     const fetchRcPlan = async () => {
       try {
         setIsLoadingPlan(true);
+        await ensureRevenueCatConfigured(user?.uid);
         const offerings = await Purchases.getOfferings();
         if (offerings.current?.monthly) {
           setIapPlan(offerings.current.monthly.product);
@@ -64,7 +66,7 @@ export default function FirstSignInSubscriptionModal({
     };
 
     fetchRcPlan();
-  }, [visible]);
+  }, [visible, user?.uid]);
 
   const startingPriceText = useMemo(() => {
     if (!startingPlan && !iapPlan) return null;
