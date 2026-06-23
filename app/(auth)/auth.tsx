@@ -2,7 +2,6 @@
 import { translations } from "@/constants/translations";
 import { useAuth } from "@/hooks/auth-context";
 import { useLanguage } from "@/hooks/language-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -80,17 +79,9 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
         ? await signIn(email, password)
         : await signUp(email, password, firstName, lastName);
       if (result.success) {
-        setTimeout(async () => {
-          try {
-            if (isLogin) {
-              router.replace("/(tabs)/home");
-            } else {
-              await AsyncStorage.removeItem("hasCompletedQuestionnaire");
-              router.replace("/(onboarding)/questionnaire");
-            }
-          } catch {
-            router.replace("/(onboarding)/questionnaire");
-          }
+        setTimeout(() => {
+          onAuthComplete?.();
+          router.replace("/(tabs)/home");
         }, 300);
       } else {
         // handle error

@@ -90,18 +90,17 @@ export const ensureRevenueCatConfigured = async (
         return;
       }
 
-      const initialAppUserID = requestedAppUserID ?? (await getStoredAppUserID());
-      if (!initialAppUserID) {
-        console.warn(
-          "RevenueCat configuration skipped because no app user ID is available.",
-        );
-        return;
-      }
+      const initialAppUserID =
+        requestedAppUserID ?? (await getStoredAppUserID());
 
-      Purchases.configure({
-        apiKey,
-        appUserID: initialAppUserID,
-      });
+      Purchases.configure(
+        initialAppUserID
+          ? {
+              apiKey,
+              appUserID: initialAppUserID,
+            }
+          : { apiKey },
+      );
 
       isConfigured = true;
       configuredAppUserID = initialAppUserID;
@@ -121,12 +120,7 @@ export const ensureRevenueCatConfigured = async (
 
 export const configureRevenueCatForStoredUser = async () => {
   const storedAppUserID = await getStoredAppUserID();
-  if (storedAppUserID) {
-    await ensureRevenueCatConfigured(storedAppUserID);
-    return;
-  }
-
-  configureLogHandler();
+  await ensureRevenueCatConfigured(storedAppUserID);
 };
 
 export const logOutRevenueCatUser = async () => {

@@ -134,21 +134,6 @@ export default function AccountScreen() {
 
   const { t, isRTL } = useLanguage();
 
-  useEffect(() => {
-    (async () => {
-      const keys = await AsyncStorage.getAllKeys();
-      console.log("ðŸ”‘ All AsyncStorage keys:", keys);
-
-      const userId = user?.uid;
-      if (userId) {
-        const q = await AsyncStorage.getItem(`questionnaireData_${userId}`);
-        const p = await AsyncStorage.getItem(`fitco_user_profile_${userId}`);
-        console.log("ðŸ§  questionnaireData:", q);
-        console.log("ðŸ‘¤ fitco_user_profile:", p);
-      }
-    })();
-  }, [user]);
-
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSavingQuickUpdate, setIsSavingQuickUpdate] = useState(false);

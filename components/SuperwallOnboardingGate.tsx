@@ -1,0 +1,663 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as StoreReview from "expo-store-review";
+import {
+  usePlacement,
+  useSuperwall,
+  useSuperwallEvents,
+  useUser as useSuperwallUser,
+} from "expo-superwall";
+import React, {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import Purchases, { type CustomerInfo } from "react-native-purchases";
+
+import { useAuth } from "@/hooks/auth-context";
+import { ensureRevenueCatConfigured } from "@/services/revenuecat";
+
+const ONBOARDING_COMPLETED_KEY = "fitco_superwall_onboarding_v1_completed";
+const ONBOARDING_PLACEMENT =
+  process.env.EXPO_PUBLIC_SUPERWALL_ONBOARDING_PLACEMENT?.trim() ||
+  "onboarding";
+const ONBOARDING_COMPLETE_CALLBACK = "onboarding_complete";
+const APP_REVIEW_CALLBACK = "request_app_review";
+const APP_REVIEW_REQUESTED_KEY = "fitco_app_review_prompt_requested_v1";
+const ONBOARDING_PRELOAD_TIMEOUT_MS = 8000;
+
+const isAppReviewAction = (name: string | undefined) => {
+  const normalized = String(name ?? "").trim();
+  return (
+    normalized === APP_REVIEW_CALLBACK ||
+    normalized.startsWith(`${APP_REVIEW_CALLBACK}:`) ||
+    normalized.startsWith(`${APP_REVIEW_CALLBACK}|`)
+  );
+};
+
+type GateState = "checking" | "waiting" | "presenting" | "ready";
+type SuperwallVariables = Record<string, unknown>;
+
+const firstPresentValue = (
+  variables: SuperwallVariables | undefined,
+  keys: string[],
+) => {
+  if (!variables) return null;
+
+  for (const key of keys) {
+    const value = variables[key];
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const asText = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return null;
+};
+
+const asNumber = (value: unknown) => {
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return null;
+
+  const numberValue = Number(value.replace(/[^\d.-]/g, ""));
+  return Number.isFinite(numberValue) ? numberValue : null;
+};
+
+const asMeasurement = (value: unknown, fallbackUnit: string) => {
+  const raw = asText(value);
+  if (!raw) return null;
+
+  const unitMatch = raw.match(/[a-zA-Z]+/);
+  return {
+    raw,
+    value: asNumber(value),
+    unit: unitMatch?.[0] ?? fallbackUnit,
+  };
+};
+
+const arrangedOnboardingAnswersFromVariables = (
+  variables: SuperwallVariables | undefined,
+) => {
+  const height = firstPresentValue(variables, [
+    "node.1JGskKQ2fnLpTqo2IxNlX.value",
+    "state.userHeight",
+  ]);
+  const currentWeight = firstPresentValue(variables, [
+    "node.E_73MdvSkH91mFmei3m9y.value",
+    "state.userWeight",
+  ]);
+  const desiredWeight = firstPresentValue(variables, [
+    "node.gPSl3sfvWO-ms4SmWig8L.value",
+    "state.userDesiredWeight",
+  ]);
+  const weeklyPace = firstPresentValue(variables, [
+    "node.DN1YwTL1JIGoX5qC_yaPl.value",
+    "state.selectedWeeklyPace",
+    "state.node.DN1YwTL1JIGoX5qC_yaPl.value",
+  ]);
+  const isMale = firstPresentValue(variables, ["state.sexMale"]);
+  const isFemale = firstPresentValue(variables, ["state.sexFemale"]);
+
+  return {
+    profile: {
+      language: asText(firstPresentValue(variables, ["state.language"])),
+      sex: isMale === true ? "Male" : isFemale === true ? "Female" : null,
+      birthday: asText(
+        firstPresentValue(variables, [
+          "node.WyxL7C8EArtT8IawRNYP3.label",
+          "state.userBirthday",
+        ]),
+      ),
+      referralCode: asText(
+        firstPresentValue(variables, [
+          "node.BiD613fc656gmoGLmv6oF.value",
+          "state.referralCode",
+        ]),
+      ),
+    },
+    body: {
+      height: asMeasurement(height, "cm"),
+      currentWeight: asMeasurement(currentWeight, "kg"),
+      desiredWeight: asMeasurement(desiredWeight, "kg"),
+    },
+    goals: {
+      goal: asText(firstPresentValue(variables, ["state.selectedGoal"])),
+      workoutsPerWeek: asText(
+        firstPresentValue(variables, ["state.preferedWeek"]),
+      ),
+      weeklyPace: asNumber(weeklyPace),
+      accomplish: asText(
+        firstPresentValue(variables, ["state.selectedAccomplish"]),
+      ),
+      challenge: asText(
+        firstPresentValue(variables, ["state.selectedChallenge"]),
+      ),
+    },
+    acquisition: {
+      discovery: asText(
+        firstPresentValue(variables, ["state.selectedDiscovery"]),
+      ),
+      usedPriorApps: asText(
+        firstPresentValue(variables, ["state.selectedPriorApps"]),
+      ),
+    },
+  };
+};
+
+const subscriptionStatusFromCustomerInfo = (customerInfo: CustomerInfo) => {
+  const entitlementIds = Object.keys(customerInfo.entitlements.active);
+
+  if (entitlementIds.length === 0) {
+    return { status: "INACTIVE" as const };
+  }
+
+  return {
+    status: "ACTIVE" as const,
+    entitlements: entitlementIds.map((id) => ({
+      id,
+      type: "SERVICE_LEVEL" as const,
+    })),
+  };
+};
+
+function SuperwallUserSync() {
+  const { user, isInitialized } = useAuth();
+  const { identify, update, signOut, setSubscriptionStatus } =
+    useSuperwallUser();
+  const isConfigured = useSuperwall((state) => state.isConfigured);
+  const previousUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isConfigured || !isInitialized) return;
+
+    if (user?.uid) {
+      const attributes = {
+        email: user.email || null,
+        firstName: user.firstName || null,
+        lastName: user.lastName || null,
+        displayName: user.displayName || null,
+      };
+
+      identify(user.uid)
+        .then(() => update(attributes))
+        .catch((error) => {
+          console.error("[Superwall] Failed to identify user:", error);
+        });
+      previousUserId.current = user.uid;
+      return;
+    }
+
+    if (previousUserId.current) {
+      signOut().catch((error) => {
+        console.error("[Superwall] Failed to sign out user:", error);
+      });
+      previousUserId.current = null;
+    }
+  }, [
+    identify,
+    isConfigured,
+    isInitialized,
+    signOut,
+    update,
+    user?.displayName,
+    user?.email,
+    user?.firstName,
+    user?.lastName,
+    user?.uid,
+  ]);
+
+  useEffect(() => {
+    if (!isConfigured) return;
+
+    let isActive = true;
+    const sync = (customerInfo: CustomerInfo) => {
+      if (!isActive) return;
+      setSubscriptionStatus(
+        subscriptionStatusFromCustomerInfo(customerInfo),
+      ).catch((error) => {
+        console.error(
+          "[Superwall] Failed to sync subscription status:",
+          error,
+        );
+      });
+    };
+
+    const listener = (customerInfo: CustomerInfo) => sync(customerInfo);
+
+    ensureRevenueCatConfigured()
+      .then(() => {
+        if (!isActive) return;
+        Purchases.addCustomerInfoUpdateListener(listener);
+        return Purchases.getCustomerInfo();
+      })
+      .then((customerInfo) => {
+        if (customerInfo) sync(customerInfo);
+      })
+      .catch((error) => {
+        console.error(
+          "[Superwall] RevenueCat subscription sync failed:",
+          error,
+        );
+      });
+
+    return () => {
+      isActive = false;
+      Purchases.removeCustomerInfoUpdateListener(listener);
+    };
+  }, [isConfigured, setSubscriptionStatus]);
+
+  return null;
+}
+
+export default function SuperwallOnboardingGate({
+  children,
+  enabled,
+}: {
+  children: ReactNode;
+  enabled: boolean;
+}) {
+  const { user, isInitialized } = useAuth();
+  const [gateState, setGateState] = useState<GateState>("checking");
+  const hasStarted = useRef(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasReleasedGate = useRef(false);
+  const hasCompletedOnboarding = useRef(false);
+  const hasLoggedOnboardingAnswers = useRef(false);
+  const hasPresentedOnboarding = useRef(false);
+  const hasPreloadedOnboarding = useRef(false);
+  const isOnboardingActive = useRef(false);
+  const hasSeenAuthenticatedUser = useRef(false);
+  const isRequestingReview = useRef(false);
+  const { isConfigured, configurationError, dismiss, preloadPaywalls } =
+    useSuperwall(
+      (state) => ({
+        isConfigured: state.isConfigured,
+        configurationError: state.configurationError,
+        dismiss: state.dismiss,
+        preloadPaywalls: state.preloadPaywalls,
+      }),
+    );
+
+  const releaseGate = useCallback(() => {
+    if (hasReleasedGate.current) return;
+    hasReleasedGate.current = true;
+    setGateState("ready");
+  }, []);
+
+  const continueWithoutCompletion = useCallback(() => {
+    if (hasCompletedOnboarding.current) {
+      releaseGate();
+      return;
+    }
+
+    isOnboardingActive.current = false;
+    setGateState("presenting");
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current);
+    }
+    retryTimer.current = setTimeout(() => {
+      hasStarted.current = false;
+      setGateState("waiting");
+    }, 3000);
+  }, [releaseGate]);
+
+  const completeOnboarding = useCallback(async () => {
+    if (hasCompletedOnboarding.current) {
+      releaseGate();
+      return;
+    }
+
+    hasCompletedOnboarding.current = true;
+    isOnboardingActive.current = false;
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+    }
+
+    try {
+      console.log("[Superwall] Marking onboarding complete.");
+      await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, "true");
+    } catch (error) {
+      console.error(
+        "[Superwall] Failed to save onboarding completion:",
+        error,
+      );
+    } finally {
+      releaseGate();
+    }
+  }, [releaseGate]);
+
+  const logArrangedOnboardingAnswers = useCallback(
+    (variables: SuperwallVariables | undefined) => {
+      if (hasLoggedOnboardingAnswers.current) return;
+
+      hasLoggedOnboardingAnswers.current = true;
+      const arrangedAnswers =
+        arrangedOnboardingAnswersFromVariables(variables);
+      console.log(
+        `[Superwall] Arranged onboarding answers:\n${JSON.stringify(
+          arrangedAnswers,
+          null,
+          2,
+        )}`,
+      );
+    },
+    [],
+  );
+
+  const requestAppReview = useCallback(async () => {
+    if (isRequestingReview.current) {
+      console.log("[StoreReview] Skipping app review; request already active.");
+      return;
+    }
+
+    isRequestingReview.current = true;
+    try {
+      console.log("[StoreReview] Checking native app review availability.");
+
+      if (!__DEV__) {
+        const hasAlreadyRequested = await AsyncStorage.getItem(
+          APP_REVIEW_REQUESTED_KEY,
+        );
+        if (hasAlreadyRequested === "true") {
+          console.log(
+            "[StoreReview] Skipping app review prompt; already requested on this install.",
+          );
+          return;
+        }
+      }
+
+      const [isAvailable, hasAction] = await Promise.all([
+        StoreReview.isAvailableAsync(),
+        StoreReview.hasAction(),
+      ]);
+
+      console.log(
+        `[StoreReview] Availability result: isAvailable=${isAvailable}, hasAction=${hasAction}`,
+      );
+
+      if (!isAvailable || !hasAction) {
+        console.warn(
+          `[StoreReview] In-app review is not available on this device/build. isAvailable=${isAvailable}, hasAction=${hasAction}`,
+        );
+        return;
+      }
+
+      console.log("[StoreReview] Requesting native app review prompt.");
+      await StoreReview.requestReview();
+      console.log(
+        "[StoreReview] Native app review request completed. The OS may still choose not to show UI.",
+      );
+
+      if (!__DEV__) {
+        await AsyncStorage.setItem(APP_REVIEW_REQUESTED_KEY, "true");
+      }
+    } catch (error) {
+      console.error("[StoreReview] Failed to request app review:", error);
+    } finally {
+      isRequestingReview.current = false;
+    }
+  }, []);
+
+  const preloadOnboarding = useCallback(async () => {
+    if (hasPreloadedOnboarding.current) return;
+
+    try {
+      console.log(
+        `[Superwall] Preloading onboarding paywall for ${ONBOARDING_PLACEMENT}.`,
+      );
+
+      await Promise.race([
+        preloadPaywalls([ONBOARDING_PLACEMENT]),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, ONBOARDING_PRELOAD_TIMEOUT_MS);
+        }),
+      ]);
+    } catch (error) {
+      console.warn("[Superwall] Onboarding preload failed:", error);
+    } finally {
+      hasPreloadedOnboarding.current = true;
+      console.log("[Superwall] Onboarding preload finished.");
+    }
+  }, [preloadPaywalls]);
+
+  const { registerPlacement } = usePlacement({
+    onPresent: () => {
+      hasPresentedOnboarding.current = true;
+      releaseGate();
+    },
+    onDismiss: () => {
+      void completeOnboarding();
+    },
+    onSkip: (reason) => {
+      console.warn(
+        `[Superwall] Onboarding placement was skipped: ${reason.type}`,
+      );
+      continueWithoutCompletion();
+    },
+    onError: (error) => {
+      console.error("[Superwall] Onboarding presentation failed:", error);
+      continueWithoutCompletion();
+    },
+    onCustomCallback: async (callback) => {
+      console.log(
+        "[Superwall] Onboarding placement custom callback:",
+        callback.name,
+        callback.variables ?? {},
+      );
+
+      if (callback.name === ONBOARDING_COMPLETE_CALLBACK) {
+        logArrangedOnboardingAnswers(callback.variables);
+        await completeOnboarding();
+        await dismiss().catch(() => undefined);
+      }
+      if (isAppReviewAction(callback.name)) {
+        console.log(
+          "[StoreReview] request_app_review custom callback received from Superwall.",
+        );
+        await requestAppReview();
+      }
+      return { status: "success" };
+    },
+  });
+
+  useSuperwallEvents({
+    onPaywallPresent: () => {
+      if (isOnboardingActive.current) {
+        hasPresentedOnboarding.current = true;
+        releaseGate();
+      }
+    },
+    onPaywallDismiss: () => {
+      if (isOnboardingActive.current) {
+        void completeOnboarding();
+      }
+    },
+    onPaywallSkip: (reason) => {
+      if (!isOnboardingActive.current) return;
+      console.warn(
+        `[Superwall] Automatic onboarding was skipped: ${reason.type}`,
+      );
+      continueWithoutCompletion();
+    },
+    onPaywallError: (error) => {
+      if (!isOnboardingActive.current) return;
+      console.error("[Superwall] Automatic onboarding failed:", error);
+      continueWithoutCompletion();
+    },
+    onCustomCallback: async (callback) => {
+      console.log(
+        "[Superwall] Onboarding custom callback:",
+        callback.name,
+        callback.variables ?? {},
+      );
+
+      if (
+        isOnboardingActive.current &&
+        callback.name === ONBOARDING_COMPLETE_CALLBACK
+      ) {
+        logArrangedOnboardingAnswers(callback.variables);
+        await completeOnboarding();
+        await dismiss().catch(() => undefined);
+      }
+      if (isAppReviewAction(callback.name)) {
+        console.log(
+          "[StoreReview] request_app_review custom callback received from Superwall.",
+        );
+        await requestAppReview();
+      }
+      return { status: "success" };
+    },
+    onCustomPaywallAction: (name) => {
+      console.log("[Superwall] Onboarding custom paywall action:", name);
+    },
+  }); 
+
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    if (user) {
+      hasSeenAuthenticatedUser.current = true;
+      hasReleasedGate.current = true;
+      isOnboardingActive.current = false;
+      setGateState("ready");
+      return;
+    }
+
+    if (hasSeenAuthenticatedUser.current) {
+      setGateState("ready");
+      return;
+    }
+
+    let isCancelled = false;
+    AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY)
+      .then((value) => {
+        if (isCancelled) return;
+        if (value === "true") {
+          hasCompletedOnboarding.current = true;
+          isOnboardingActive.current = false;
+          releaseGate();
+          return;
+        }
+
+        isOnboardingActive.current = true;
+        setGateState("waiting");
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          isOnboardingActive.current = true;
+          setGateState("waiting");
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isInitialized, releaseGate, user]);
+
+  useEffect(() => {
+    if (!enabled || gateState !== "waiting") return;
+
+    if (configurationError) {
+      console.error(
+        "[Superwall] Onboarding unavailable because configuration failed:",
+        configurationError,
+      );
+      continueWithoutCompletion();
+      return;
+    }
+
+    if (!isConfigured || hasStarted.current) return;
+
+    hasStarted.current = true;
+    isOnboardingActive.current = true;
+    setGateState("presenting");
+    let isCancelled = false;
+
+    const presentOnboarding = async () => {
+      await preloadOnboarding();
+      if (isCancelled) return;
+
+      await registerPlacement({
+        placement: ONBOARDING_PLACEMENT,
+        feature: () => {
+          if (
+            hasCompletedOnboarding.current ||
+            hasPresentedOnboarding.current
+          ) {
+            console.log(
+              "[Superwall] Onboarding feature continued after presentation.",
+            );
+            void completeOnboarding();
+            return;
+          }
+
+          console.warn(
+            "[Superwall] Onboarding placement did not present; retrying.",
+          );
+          continueWithoutCompletion();
+        },
+      });
+    };
+
+    presentOnboarding().catch((error) => {
+      console.error("[Superwall] Failed to register onboarding:", error);
+      continueWithoutCompletion();
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    configurationError,
+    completeOnboarding,
+    continueWithoutCompletion,
+    enabled,
+    gateState,
+    isConfigured,
+    logArrangedOnboardingAnswers,
+    preloadOnboarding,
+    registerPlacement,
+  ]);
+
+  useEffect(
+    () => () => {
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+      }
+    },
+    [],
+  );
+
+  return (
+    <>
+      <SuperwallUserSync />
+      {gateState === "ready" ? (
+        children
+      ) : (
+        <View style={styles.loading}>
+          <ActivityIndicator color="#4CAF50" size="large" />
+        </View>
+      )}
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#000000",
+  },
+});

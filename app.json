@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fitco",
     "slug": "FitcoV3",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "fitcov3",
@@ -45,6 +45,17 @@
         "expo-camera",
         {
           "cameraPermission": "Fitco uses your camera to scan food barcodes. This allows us to instantly identify products and log their nutritional information to your daily diary."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
         }
       ]
     ],

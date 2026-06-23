@@ -71,7 +71,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         "cachedFoodDatabase",
         "fitco_food_cache",
         "testKey",
-        "hasCompletedQuestionnaire",
       ];
       const removable = keys.filter((k) => removableKeys.includes(k));
       if (removable.length > 0) {
@@ -199,10 +198,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         firstName,
         lastName,
         email,
+        age: 25,
         weight: 70,
         height: 170,
+        gender: "male",
         goal: "maintain_weight",
         activityLevel: "moderately_active",
+        targetWeight: 70,
+        medicalConditions: "",
+        allergies: "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       const existingProfile = await AsyncStorage.getItem(
@@ -318,7 +324,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         "cachedFoodDatabase",
         "fitco_food_cache",
         "testKey",
-        "hasCompletedQuestionnaire",
       ];
       const removable = keys.filter((k) => removableKeys.includes(k));
       if (removable.length > 0) {
@@ -332,7 +337,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setFirstSignInSubscriptionPromptVisible(false);
       setSubscriptionPromptUserId(null);
-      router.replace("/(auth)");
+      router.replace("/(auth)/auth");
       if (hasError) {
         // Keep this non-blocking and visible for debugging only.
         console.warn("[Auth] Forced local logout after cleanup failure.");

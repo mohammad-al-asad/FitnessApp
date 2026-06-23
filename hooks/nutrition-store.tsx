@@ -35,50 +35,6 @@ const parseLocalDateKey = (dateKey: string) => {
 };
 const getTodayString = () => formatLocalDate(new Date());
 
-function getAutoMacros(calorieGoal: number) {
-  const proteinCalories = calorieGoal * 0.3;
-  const fatCalories = calorieGoal * 0.25;
-  const carbCalories = calorieGoal * 0.45;
-  return {
-    proteinGoal: Math.round(proteinCalories / 4),
-    fatsGoal: Math.round(fatCalories / 9),
-    carbsGoal: Math.round(carbCalories / 4),
-  };
-}
-
-export async function getQuestionnaireSettings(userId: string) {
-  try {
-    const storedData = await AsyncStorage.getItem(`questionnaireData_${userId}`);
-    if (!storedData) return null;
-    const data = JSON.parse(storedData);
-    const { weight, height, age, gender, activityLevel, goal } = data;
-
-    let bmr =
-      gender === "male"
-        ? 10 * weight + 6.25 * height - 5 * age + 5
-        : 10 * weight + 6.25 * height - 5 * age - 161;
-
-    const factors: Record<string, number> = {
-      sedentary: 1.2,
-      lightly_active: 1.375,
-      moderately_active: 1.55,
-      very_active: 1.725,
-      extremely_active: 1.9,
-    };
-    bmr *= factors[activityLevel] || 1.55;
-
-    if (goal === "lose_weight") bmr -= 400;
-    else if (goal === "gain_weight" || goal === "build_muscle") bmr += 400;
-
-    const calorieGoal = Math.round(bmr);
-    const { proteinGoal, carbsGoal, fatsGoal } = getAutoMacros(calorieGoal);
-    return { weight, calorieGoal, proteinGoal, carbsGoal, fatsGoal };
-  } catch (error) {
-    console.log("Error loading questionnaire settings:", error);
-    return null;
-  }
-}
-
 export const [NutritionProvider, useNutrition] = createContextHook(() => {
   const { profile } = useUserProfile();
   const { user } = useAuth();
@@ -102,10 +58,9 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
     }
 
     try {
-      const [storedSettings, storedLogs, questionnaireSettings] = await Promise.all([
+      const [storedSettings, storedLogs] = await Promise.all([
         AsyncStorage.getItem(SETTINGS_KEY),
         AsyncStorage.getItem(LOGS_KEY),
-        getQuestionnaireSettings(userId),
       ]);
 
 
@@ -122,10 +77,6 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
           carbsGoal: profile.targetCarbs ?? parsedSettings.carbsGoal,
           fatsGoal: profile.targetFat ?? parsedSettings.fatsGoal,
         };
-      }
-
-      if (questionnaireSettings) {
-        parsedSettings = { ...parsedSettings, ...questionnaireSettings };
       }
 
       setSettings(parsedSettings);
