@@ -4,7 +4,8 @@ import { createCustomFood, getFoodByBarcode } from "@/services/food-api";
 import { responsiveHeight, responsiveWidth } from "@/utilities/ScalingUtils";
 import Barcode from "@alexartisan/react-native-barcode-builder";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { Save, ScanBarcode, X } from "lucide-react-native";
+import { Save, ScanBarcode, X, Sparkles } from "lucide-react-native";
+import { Image } from "expo-image";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -23,21 +24,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function CreateCustomFoodScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams();
 
-  const [foodName, setFoodName] = useState("");
-  const [brandName, setBrandName] = useState("");
-  const [servingSize, setServingSize] = useState("");
-  const [calories, setCalories] = useState("");
-  const [barcode, setBarcode] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fats, setFats] = useState("");
+  const [foodName, setFoodName] = useState(() => (params.foodName as string) || "");
+  const [brandName, setBrandName] = useState(() => (params.brandName as string) || "");
+  const [servingSize, setServingSize] = useState(() => (params.servingSize as string) || "");
+  const [calories, setCalories] = useState(() => (params.calories as string) || "");
+  const [barcode, setBarcode] = useState(() => (params.barcode as string) || "");
+  const [protein, setProtein] = useState(() => (params.protein as string) || "");
+  const [carbs, setCarbs] = useState(() => (params.carbs as string) || "");
+  const [fats, setFats] = useState(() => (params.fats as string) || "");
   const [loading, setLoading] = useState(false);
   const { t, isRTL } = useLanguage();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  // STEP 2: read barcode coming from scanner
-  const params = useLocalSearchParams();
 
   useEffect(() => {
     const showListener = Keyboard.addListener("keyboardDidShow", (event) => {
@@ -168,37 +167,59 @@ export default function CreateCustomFoodScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Barcode Scanner Card */}
-        <TouchableOpacity
-          style={[
-            styles.scannerCard,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.primary,
-            },
-          ]}
-          activeOpacity={0.7}
-          onPress={() => router.push("/modal/scanBarcode?source=createCustom")}
-        >
+        {params.foodName ? (
           <View
             style={[
-              styles.scannerIcon,
-              { backgroundColor: colors.primary + "20" },
+              styles.scannedImageContainer,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.primary,
+              },
             ]}
           >
-            <ScanBarcode size={28} color={colors.primary} />
+            <Image
+              source={{ uri: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80" }}
+              style={styles.scannedImage}
+              contentFit="cover"
+            />
+            <View style={styles.scannedImageOverlay}>
+              <Sparkles size={16} color="#FFF" style={{ marginRight: 6 }} />
+              <Text style={styles.scannedImageText}>AI Scanned Meal Preview</Text>
+            </View>
           </View>
-          <View style={styles.scannerContent}>
-            <Text style={[styles.scannerTitle, { color: colors.text }]}>
-              {t("scanBarcode")}
-            </Text>
-            <Text
-              style={[styles.scannerSubtitle, { color: colors.placeholder }]}
+        ) : (
+          /* Barcode Scanner Card */
+          <TouchableOpacity
+            style={[
+              styles.scannerCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.primary,
+              },
+            ]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/modal/scanBarcode?source=createCustom")}
+          >
+            <View
+              style={[
+                styles.scannerIcon,
+                { backgroundColor: colors.primary + "20" },
+              ]}
             >
-              {t("quickWayToAddFoodInfo")}
-            </Text>
-          </View>
-        </TouchableOpacity>
+              <ScanBarcode size={28} color={colors.primary} />
+            </View>
+            <View style={styles.scannerContent}>
+              <Text style={[styles.scannerTitle, { color: colors.text }]}>
+                {t("scanBarcode")}
+              </Text>
+              <Text
+                style={[styles.scannerSubtitle, { color: colors.placeholder }]}
+              >
+                {t("quickWayToAddFoodInfo")}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {barcode && (
           <View style={styles.barcodeContainer}>
@@ -462,6 +483,41 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: "600" },
   content: { flex: 1, paddingTop: 20, marginHorizontal: 20 },
+  scannedImageContainer: {
+    height: 180,
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 28,
+    borderWidth: 1.5,
+    borderColor: "rgba(34,197,94,0.3)",
+    position: "relative",
+    shadowColor: "#22c55e",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  scannedImage: {
+    width: "100%",
+    height: "100%",
+  },
+  scannedImageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  scannedImageText: {
+    color: "#FFF",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
   scannerCard: {
     flexDirection: "row",
     alignItems: "center",

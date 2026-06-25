@@ -15,6 +15,7 @@ import {
   backendSignIn,
   backendSignUp,
   readStoredSession,
+  backendSyncRevenueCat,
 } from "@/services/backend-auth";
 import {
   ensureRevenueCatConfigured,
@@ -47,6 +48,8 @@ type AuthContextType = {
   showFirstSignInSubscriptionPromptIfPending: () => Promise<void>;
   completeFirstSignInSubscriptionPrompt: () => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<BackendUser | null>;
+  syncSubscription: () => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -167,6 +170,63 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const mapOnboardingToRegisterPayload = (
+    answersStr: string | null,
+    basicInfo: { email: string; password: string; firstName: string; lastName: string }
+  ) => {
+    const payload: Record<string, any> = { ...basicInfo };
+
+    if (!answersStr) return payload;
+
+    try {
+      const answers = JSON.parse(answersStr);
+      
+      // Parse birthday to age
+      if (answers.profile?.birthday) {
+        const birthDate = new Date(answers.profile.birthday);
+        const age = new Date().getFullYear() - birthDate.getFullYear();
+        payload.age = isNaN(age) ? 25 : age;
+      } else {
+        payload.age = 25; // default fallback
+      }
+
+      payload.height = answers.body?.height?.value ?? 170;
+      payload.weight = answers.body?.currentWeight?.value ?? 70;
+      payload.gender = String(answers.profile?.sex ?? "male").toLowerCase();
+      
+      // Map activityLevel from workoutsPerWeek or set a default
+      const workouts = Number(answers.goals?.workoutsPerWeek ?? 3);
+      payload.activityLevel = workouts >= 5 ? "very_active" : workouts >= 3 ? "moderately_active" : "lightly_active";
+
+      // Map goal: "lose_weight", "maintain_weight", "gain_weight"
+      const rawGoal = String(answers.goals?.goal ?? "maintain_weight").toLowerCase();
+      if (rawGoal.includes("lose") || rawGoal.includes("deficit")) {
+        payload.goal = "lose_weight";
+      } else if (rawGoal.includes("gain") || rawGoal.includes("surplus") || rawGoal.includes("muscle")) {
+        payload.goal = "gain_weight";
+      } else {
+        payload.goal = "maintain_weight";
+      }
+
+      payload.targetWeight = answers.body?.desiredWeight?.value ?? payload.weight;
+
+      // Desired weekly change rate: e.g. 0.25, 0.5, 1.0 (optional/null if maintain_weight)
+      if (payload.goal === "maintain_weight") {
+        payload.weeklyPace = null;
+      } else {
+        payload.weeklyPace = answers.goals?.weeklyPace != null ? Number(answers.goals.weeklyPace) : 0.5;
+      }
+
+      payload.medicalConditions = answers.goals?.challenge || "";
+      payload.allergies = ""; // default empty
+
+    } catch (error) {
+      console.error("[Auth] Failed to map onboarding answers:", error);
+    }
+
+    return payload;
+  };
+
   const signUp = async (
     email: string,
     password: string,
@@ -174,12 +234,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     lastName: string,
   ): Promise<AuthResult> => {
     try {
-      const createdUser = await backendSignUp({
+      const answersStr = await AsyncStorage.getItem("fitco_onboarding_answers");
+      const registerPayload = mapOnboardingToRegisterPayload(answersStr, {
         email,
         password,
         firstName,
         lastName,
       });
+
+      const createdUser = await backendSignUp(registerPayload);
 
       let session = await readStoredSession();
       if (!session.token) {
@@ -313,6 +376,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshUser = async (): Promise<BackendUser | null> => {
+    try {
+      const { user: storedUser } = await readStoredSession();
+      setUser(storedUser);
+      return storedUser;
+    } catch (error) {
+      console.error("[Auth] Failed to refresh user:", error);
+      return null;
+    }
+  };
+
+  const syncSubscription = async (): Promise<boolean> => {
+    try {
+      const res = await backendSyncRevenueCat();
+      if (res.user) {
+        setUser(res.user);
+        return res.user.isSubscribed;
+      }
+      return false;
+    } catch (error) {
+      console.error("[Auth] syncSubscription failed:", error);
+      return false;
+    }
+  };
+
+
   const logout = async (): Promise<void> => {
     let hasError = false;
     try {
@@ -337,7 +426,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setFirstSignInSubscriptionPromptVisible(false);
       setSubscriptionPromptUserId(null);
-      router.replace("/(auth)/auth");
+      router.replace("/");
       if (hasError) {
         // Keep this non-blocking and visible for debugging only.
         console.warn("[Auth] Forced local logout after cleanup failure.");
@@ -358,6 +447,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         showFirstSignInSubscriptionPromptIfPending,
         completeFirstSignInSubscriptionPrompt,
         logout,
+        refreshUser,
+        syncSubscription,
       }}
     >
       {children}

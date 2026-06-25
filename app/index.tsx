@@ -8,7 +8,11 @@ export default function IndexRoute() {
     return null;
   }
 
+  if (!user) {
+    return <Redirect href="/(auth)/auth" />;
+  }
+
   return (
-    <Redirect href={user ? "/(tabs)/home" : "/(auth)/auth"} />
+    <Redirect href="/(tabs)/home" />
   );
 }

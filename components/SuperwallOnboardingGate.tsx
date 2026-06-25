@@ -18,6 +18,7 @@ import Purchases, { type CustomerInfo } from "react-native-purchases";
 
 import { useAuth } from "@/hooks/auth-context";
 import { ensureRevenueCatConfigured } from "@/services/revenuecat";
+import { router } from "expo-router";
 
 const ONBOARDING_COMPLETED_KEY = "fitco_superwall_onboarding_v1_completed";
 const ONBOARDING_PLACEMENT =
@@ -174,7 +175,20 @@ function SuperwallUserSync() {
   const { identify, update, signOut, setSubscriptionStatus } =
     useSuperwallUser();
   const isConfigured = useSuperwall((state) => state.isConfigured);
-  const previousUserId = useRef<string | null>(null);
+  const lastIdentifiedUid = useRef<string | null>(null);
+  const lastSyncedAttributes = useRef<string>("");
+
+  const identifyRef = useRef(identify);
+  const updateRef = useRef(update);
+  const signOutRef = useRef(signOut);
+  const setSubscriptionStatusRef = useRef(setSubscriptionStatus);
+
+  useEffect(() => {
+    identifyRef.current = identify;
+    updateRef.current = update;
+    signOutRef.current = signOut;
+    setSubscriptionStatusRef.current = setSubscriptionStatus;
+  });
 
   useEffect(() => {
     if (!isConfigured || !isInitialized) return;
@@ -186,33 +200,51 @@ function SuperwallUserSync() {
         lastName: user.lastName || null,
         displayName: user.displayName || null,
       };
+      const attrString = JSON.stringify(attributes);
 
-      identify(user.uid)
-        .then(() => update(attributes))
-        .catch((error) => {
-          console.error("[Superwall] Failed to identify user:", error);
+      const uidChanged = user.uid !== lastIdentifiedUid.current;
+      const attrsChanged = attrString !== lastSyncedAttributes.current;
+
+      if (uidChanged || attrsChanged) {
+        const performSync = async () => {
+          if (uidChanged) {
+            console.log(`[Superwall] Identifying user: ${user.uid}`);
+            await identifyRef.current(user.uid);
+            lastIdentifiedUid.current = user.uid;
+          }
+          if (attrsChanged || uidChanged) {
+            console.log(`[Superwall] Updating user attributes:`, attributes);
+            await updateRef.current(attributes);
+            lastSyncedAttributes.current = attrString;
+          }
+        };
+
+        performSync().catch((error) => {
+          console.error("[Superwall] Failed to sync user:", error);
         });
-      previousUserId.current = user.uid;
+      }
       return;
     }
 
-    if (previousUserId.current) {
-      signOut().catch((error) => {
-        console.error("[Superwall] Failed to sign out user:", error);
-      });
-      previousUserId.current = null;
+    if (lastIdentifiedUid.current) {
+      console.log("[Superwall] Signing out user");
+      signOutRef.current()
+        .then(() => {
+          lastIdentifiedUid.current = null;
+          lastSyncedAttributes.current = "";
+        })
+        .catch((error) => {
+          console.error("[Superwall] Failed to sign out user:", error);
+        });
     }
   }, [
-    identify,
     isConfigured,
     isInitialized,
-    signOut,
-    update,
-    user?.displayName,
+    user?.uid,
     user?.email,
     user?.firstName,
     user?.lastName,
-    user?.uid,
+    user?.displayName,
   ]);
 
   useEffect(() => {
@@ -221,7 +253,7 @@ function SuperwallUserSync() {
     let isActive = true;
     const sync = (customerInfo: CustomerInfo) => {
       if (!isActive) return;
-      setSubscriptionStatus(
+      setSubscriptionStatusRef.current(
         subscriptionStatusFromCustomerInfo(customerInfo),
       ).catch((error) => {
         console.error(
@@ -253,7 +285,7 @@ function SuperwallUserSync() {
       isActive = false;
       Purchases.removeCustomerInfoUpdateListener(listener);
     };
-  }, [isConfigured, setSubscriptionStatus]);
+  }, [isConfigured]);
 
   return null;
 }
@@ -265,7 +297,7 @@ export default function SuperwallOnboardingGate({
   children: ReactNode;
   enabled: boolean;
 }) {
-  const { user, isInitialized } = useAuth();
+  const { user, isInitialized, syncSubscription, logout } = useAuth();
   const [gateState, setGateState] = useState<GateState>("checking");
   const hasStarted = useRef(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -286,6 +318,31 @@ export default function SuperwallOnboardingGate({
         preloadPaywalls: state.preloadPaywalls,
       }),
     );
+
+  const { registerPlacement: registerPaywall } = usePlacement({
+    onPresent: () => {
+      console.log("[Superwall] Gating paywall presented.");
+    },
+    onDismiss: () => {
+      console.log("[Superwall] Gating paywall dismissed. Logging out...");
+      logout().catch(() => undefined);
+    },
+    onSkip: () => {
+      console.log("[Superwall] Gating paywall skipped. Logging out...");
+      logout().catch(() => undefined);
+    },
+    onError: (err) => {
+      console.error("[Superwall] Gating paywall error. Logging out:", err);
+      logout().catch(() => undefined);
+    }
+  });
+
+  useEffect(() => {
+    if (isInitialized && isConfigured && user && !user.isSubscribed) {
+      console.log("[Superwall] User is logged in but not subscribed. Presenting gating paywall...");
+      registerPaywall({ placement: "paywall" });
+    }
+  }, [isInitialized, isConfigured, user?.uid, user?.isSubscribed]);
 
   const releaseGate = useCallback(() => {
     if (hasReleasedGate.current) return;
@@ -350,6 +407,10 @@ export default function SuperwallOnboardingGate({
           2,
         )}`,
       );
+      AsyncStorage.setItem("fitco_onboarding_answers", JSON.stringify(arrangedAnswers))
+        .catch((err) => {
+          console.error("[Superwall] Failed to save onboarding answers:", err);
+        });
     },
     [],
   );
@@ -517,8 +578,23 @@ export default function SuperwallOnboardingGate({
       }
       return { status: "success" };
     },
-    onCustomPaywallAction: (name) => {
-      console.log("[Superwall] Onboarding custom paywall action:", name);
+    onCustomPaywallAction: async (name) => {
+      console.log("[Superwall] Custom paywall action:", name);
+      if (name === "Purchased") {
+        try {
+          console.log("[Superwall] Purchased action received. Syncing subscription with backend...");
+          const isSubscribed = await syncSubscription();
+          if (isSubscribed) {
+            console.log("[Superwall] Subscription synced successfully. Granting access and redirecting to home.");
+            await dismiss().catch(() => undefined);
+            router.replace("/(tabs)/home");
+          } else {
+            console.warn("[Superwall] Synced subscription, but user is still not subscribed.");
+          }
+        } catch (err) {
+          console.error("[Superwall] Failed to sync subscription on Purchased custom action:", err);
+        }
+      }
     },
   }); 
 

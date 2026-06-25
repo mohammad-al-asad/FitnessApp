@@ -388,8 +388,13 @@ export const translations = {
     // Add Food Menu
     addFoodMenu: "Add Food",
     logFood: "Log Food",
+    searchFoodDesc: "Search database",
     createCustomFood: "Create Custom Food",
+    createCustomDesc: "Create recipe",
     scanBarcode: "Scan Barcode",
+    scanBarcodeDesc: "Scan packages",
+    mealScanner: "Meal Scanner",
+    mealScannerDesc: "AI scan dish",
 
     // Scan Barcode Page
     cameraPermissionRequired: "Camera Permission Required",
@@ -904,8 +909,13 @@ export const translations = {
     // Add Food Menu
     addFoodMenu: "اضافة طعام",
     logFood: "تسجيل طعام",
+    searchFoodDesc: "البحث في القاعدة",
     createCustomFood: "انشاء طعام مخصص",
+    createCustomDesc: "إنشاء صنف جديد",
     scanBarcode: "مسح الباركود",
+    scanBarcodeDesc: "مسح الباركود للمنتج",
+    mealScanner: "ماسح الوجبات",
+    mealScannerDesc: "مسح بالذكاء الاصطناعي",
 
     // Scan Barcode Page
     cameraPermissionRequired: "مطلوب إذن الكاميرا",

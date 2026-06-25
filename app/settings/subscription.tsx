@@ -5,6 +5,7 @@ import {
 import { TranslationKey } from "@/constants/translations";
 import { useAuth } from "@/hooks/auth-context";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
+import { usePlacement } from "expo-superwall";
 import {
   backendGetMySubscriptionStatus,
   backendSyncRevenueCat,
@@ -283,34 +284,26 @@ const getOfferBasePrice = (option: SubscriptionOption) =>
 
 const UpgradePlanScreen = () => {
   const { t, isRTL } = useLanguage();
-  const { user } = useAuth();
+  const { user, syncSubscription } = useAuth();
   const colors = useSafeColors();
   const router = useRouter();
+
+  const { registerPlacement } = usePlacement({
+    onPresent: () => {
+      console.log("[Superwall] Paywall presented on subscription screen.");
+    },
+    onDismiss: () => {
+      console.log("[Superwall] Paywall dismissed on subscription screen.");
+    }
+  });
 
   const [connected, setConnected] = useState(false);
   const [monthlyPackage, setMonthlyPackage] = useState<any>(null);
   const [yearlyPackage, setYearlyPackage] = useState<any>(null);
-
-  const [plans] = useState<SubscriptionPlan[]>(
-    STATIC_SUBSCRIPTION_PLANS,
-  );
-  const [selectedPeriod, setSelectedPeriod] = useState("monthly");
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] =
     useState<MySubscriptionStatus | null>(null);
-  const [couponText, setCouponText] = useState("");
-  const [appliedOfferCode, setAppliedOfferCode] = useState("");
-
-  const features = useMemo(
-    () => [
-      t("featureBarcode"),
-      t("featureChat"),
-      t("featureSupport"),
-      t("featureEarlyAccess"),
-    ],
-    [t],
-  );
 
   const loadInitialData = useCallback(async () => {
     try {
@@ -341,128 +334,33 @@ const UpgradePlanScreen = () => {
     loadInitialData();
   }, [loadInitialData]);
 
-  useEffect(() => {
-    setCouponText("");
-    setAppliedOfferCode("");
-  }, [selectedPeriod]);
-
-  const selectedPlan =
-    plans.find((p) => p.planType === selectedPeriod) ?? plans[0];
-
-  const selectedStorePackage =
-    selectedPeriod === "monthly" ? monthlyPackage : yearlyPackage;
-
-  const appliedAndroidOfferOption = useMemo(() => {
-    if (Platform.OS !== "android" || !appliedOfferCode) return null;
-    return findAndroidOfferOption(selectedStorePackage, appliedOfferCode);
-  }, [appliedOfferCode, selectedStorePackage]);
-
-  const nativeStoreProduct = useMemo(() => {
-    if (!selectedStorePackage) return null;
-
-    const prod = selectedStorePackage.product;
-    if (!prod) return null;
-
-    const offerDisplayPrice = appliedAndroidOfferOption
-      ? getOfferDisplayPrice(appliedAndroidOfferOption)
-      : null;
-    const offerBasePrice = appliedAndroidOfferOption
-      ? getOfferBasePrice(appliedAndroidOfferOption)
-      : null;
-
-    return {
-      basePlanPrice: offerBasePrice?.priceString ?? prod.priceString,
-      displayPrice: offerDisplayPrice?.priceString ?? prod.priceString,
-      baseAmount: offerBasePrice?.amount ?? prod.price,
-      displayAmount: offerDisplayPrice?.amount ?? prod.price,
-      currencyCode:
-        offerDisplayPrice?.currencyCode ??
-        offerBasePrice?.currencyCode ??
-        prod.currencyCode,
-      isDiscounted: Boolean(appliedAndroidOfferOption),
-    };
-  }, [appliedAndroidOfferOption, selectedStorePackage]);
-
-  const handleSubscribe = async () => {
-    if (!selectedStorePackage || isProcessingPurchase) return;
+  const handleUpgradeToYearly = async () => {
+    if (!yearlyPackage || isProcessingPurchase) {
+      Alert.alert(String(t("error")), "Yearly plan is currently not available. Please try again later.");
+      return;
+    }
 
     try {
-      if (!connected || !nativeStoreProduct?.displayPrice) {
-        throw new Error(String(t("iap_not_available")));
-      }
-
       setIsProcessingPurchase(true);
       await ensureRevenueCatConfigured(user?.uid);
-
-      if (Platform.OS === "android" && appliedOfferCode) {
-        const offerOption = findAndroidOfferOption(
-          selectedStorePackage,
-          appliedOfferCode,
-        );
-        if (!offerOption) {
-          throw new Error(String(t("invalidCoupon")));
-        }
-        await Purchases.purchaseSubscriptionOption(offerOption);
+      await Purchases.purchasePackage(yearlyPackage);
+      const isSubscribedLocally = await syncSubscription();
+      if (isSubscribedLocally) {
+        Alert.alert(String(t("success")), "Successfully upgraded to the Yearly Plan!");
+        await loadInitialData();
       } else {
-        await Purchases.purchasePackage(selectedStorePackage);
+        throw new Error("Upgrade verification failed.");
       }
-
-      const verifyResult = await backendSyncRevenueCat();
-      const isActive = isVerifiedSubscriptionActive(verifyResult);
-
-      if (!isActive) {
-        throw new Error(verifyResult?.message || "Subscription verification failed");
-      }
-
-      Alert.alert(
-        String(t("success")),
-        verifyResult?.message && verifyResult.message !== "Success"
-          ? verifyResult.message
-          : String(t("subscriptionActivated")),
-      );
-      loadInitialData();
     } catch (error: any) {
-      if (error.userCancelled) {
-        return;
+      if (!error.userCancelled) {
+        Alert.alert(
+          String(t("error")),
+          error.message || "Failed to upgrade subscription",
+        );
       }
-      Alert.alert(
-        String(t("error")),
-        error.message || "Failed to process purchase",
-      );
     } finally {
       setIsProcessingPurchase(false);
     }
-  };
-
-  const handleApplyCoupon = async () => {
-    if (Platform.OS === "ios") {
-      try {
-        await ensureRevenueCatConfigured(user?.uid);
-        await Purchases.presentCodeRedemptionSheet();
-        return;
-      } catch (error: any) {
-        Alert.alert(
-          String(t("error")),
-          error.message || "Code redemption sheet could not be opened.",
-        );
-      }
-      return;
-    }
-
-    const code = normalizeOfferCode(couponText);
-    const offerOption = findAndroidOfferOption(selectedStorePackage, code);
-
-    if (!offerOption) {
-      Alert.alert(
-        String(t("error")),
-        String(t("invalidCoupon")),
-      );
-      return;
-    }
-
-    setCouponText(code);
-    setAppliedOfferCode(code);
-    Alert.alert(String(t("success")), String(t("couponApplied")));
   };
 
   const handleRestore = async () => {
@@ -486,14 +384,13 @@ const UpgradePlanScreen = () => {
         return;
       }
 
-      const verifyResult = await backendSyncRevenueCat();
-      const isActive = isVerifiedSubscriptionActive(verifyResult);
+      const isSubscribedLocally = await syncSubscription();
 
-      if (isActive) {
+      if (isSubscribedLocally) {
         Alert.alert(String(t("success")), String(t("subscription_restored")));
-        loadInitialData();
+        await loadInitialData();
       } else {
-        Alert.alert(String(t("error")), verifyResult?.message || String(t("failed_to_restore")));
+        Alert.alert(String(t("error")), String(t("failed_to_restore")));
       }
     } catch (error: any) {
       Alert.alert(
@@ -506,328 +403,155 @@ const UpgradePlanScreen = () => {
   };
 
   const isSubscribed = Boolean(subscriptionStatus?.subscribed);
-  const canPurchase = Boolean(
-    connected && nativeStoreProduct?.displayPrice && !isSubscribed,
-  );
+  const activeSub = subscriptionStatus?.activeSubscription;
   const showInitialSkeleton = isLoadingPlans && !subscriptionStatus;
-  const fallbackPriceText = isLoadingPlans ? String(t("loading")) : "N/A";
-  const priceText = nativeStoreProduct?.displayPrice ?? fallbackPriceText;
-  const basePriceText = nativeStoreProduct?.basePlanPrice ?? fallbackPriceText;
 
   if (showInitialSkeleton) {
     return (
-      <View
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <SubscriptionSkeleton />
       </View>
     );
   }
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.subtitle, { color: colors.placeholder }]}>
-          {t("choosePlanSubtitle")}
-        </Text>
-
-        {isSubscribed && (
-          <View
-            style={[
-              styles.statusCard,
-              { backgroundColor: colors.surface, borderColor: colors.primary },
-            ]}
-          >
-            <Text style={[styles.statusTitle, { color: colors.text }]}>
-              {t("youAreAlreadySubscribed")}
-            </Text>
-            {subscriptionStatus?.activeSubscription?.expiryDate && (
-              <Text
-                style={[styles.statusSubtitle, { color: colors.placeholder }]}
-              >
-                {t("activeUntil")}{" "}
-                {new Date(
-                  subscriptionStatus.activeSubscription.expiryDate,
-                ).toLocaleDateString()}
-              </Text>
-            )}
-          </View>
-        )}
-
-        <View
-          style={[
-            styles.toggleContainer,
-            {
-              backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          {plans.map((plan) => (
-            <TouchableOpacity
-              key={plan.planType}
-              style={[
-                styles.toggleButton,
-                selectedPeriod === plan.planType && {
-                  backgroundColor: colors.primary,
-                },
-                isSubscribed && styles.disabledButton,
-              ]}
-              onPress={() => setSelectedPeriod(plan.planType)}
-              disabled={isSubscribed}
-            >
-              <Text
-                style={[
-                  styles.toggleText,
-                  { color: selectedPeriod === plan.planType ? "#000" : "#fff" },
-                ]}
-              >
-                {t(plan.planType as TranslationKey)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        {/* Header Title */}
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {t("subscription") || "Subscription"}
+          </Text>
         </View>
 
-        {selectedPlan && (
-          <View
-            style={[
-              styles.planCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.primary,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.planTitle,
-                { color: colors.text, textAlign: isRTL ? "right" : "left" },
-              ]}
-            >
-              {t(
-                selectedPeriod === "monthly"
-                  ? "monthlyPremium"
-                  : "yearlyPremium",
-              )}
-            </Text>
-            <Text
-              style={[
-                styles.planSubtitle,
-                {
-                  color: colors.placeholder,
-                  textAlign: isRTL ? "right" : "left",
-                },
-              ]}
-            >
-              {t("premiumSubtitle")}
-            </Text>
+        {isSubscribed && activeSub ? (
+          <>
+            {/* Active Subscription Card */}
+            <View style={[styles.statusCard, { borderColor: colors.primary }]}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                <Text style={[styles.statusTitle, { color: colors.text }]}>
+                  Active Premium Member
+                </Text>
+              </View>
 
-            <View
-              style={[
-                styles.priceContainer,
-                { flexDirection: isRTL ? "row-reverse" : "row" },
-              ]}
-            >
-              <View>
-                {nativeStoreProduct?.isDiscounted && (
-                  <Text
-                    style={[
-                      styles.originalPriceText,
-                      {
-                        color: colors.placeholder,
-                        textDecorationLine: "line-through",
-                      },
-                    ]}
-                  >
-                    {nativeStoreProduct.basePlanPrice}
-                  </Text>
-                )}
-                {nativeStoreProduct?.displayPrice ? (
-                  <Text style={[styles.price, { color: colors.text }]}>
-                    {nativeStoreProduct.displayPrice}
-                    <Text style={styles.periodText}>
-                      {" "}
-                      {selectedPlan.interval === "month"
-                        ? t("perMonthly")
-                        : t("perYearly")}
-                    </Text>
-                  </Text>
-                ) : (
-                  <Text style={[styles.priceUnavailable, { color: colors.placeholder }]}>
-                    {isLoadingPlans ? t("loading") : t("iap_not_available")}
-                  </Text>
-                )}
+              <View style={styles.statusDivider} />
+
+              <View style={styles.statusRow}>
+                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Plan Type</Text>
+                <Text style={[styles.statusValue, { color: colors.text }]}>
+                  {activeSub.planType === "monthly" ? "Monthly Plan" : "Yearly Plan"}
+                </Text>
+              </View>
+
+              <View style={styles.statusRow}>
+                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Cost</Text>
+                <Text style={[styles.statusValue, { color: colors.text }]}>
+                  {activeSub.planType === "monthly"
+                    ? (monthlyPackage?.product?.priceString || "$9.99/mo")
+                    : (yearlyPackage?.product?.priceString || "$59.99/yr")}
+                </Text>
+              </View>
+
+              <View style={styles.statusRow}>
+                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Renewal Date</Text>
+                <Text style={[styles.statusValue, { color: colors.text }]}>
+                  {activeSub.expiryDate
+                    ? new Date(activeSub.expiryDate).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "N/A"}
+                </Text>
+              </View>
+
+              <View style={styles.statusRow}>
+                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Platform</Text>
+                <Text style={[styles.statusValue, { color: colors.text, textTransform: "capitalize" }]}>
+                  {activeSub.platform || "App Store/Google Play"}
+                </Text>
               </View>
             </View>
 
-            {features.map((f, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.featureItem,
-                  { flexDirection: isRTL ? "row-reverse" : "row" },
-                ]}
-              >
-                <Ionicons name="checkmark" size={18} color={colors.primary} />
-                <Text
-                  style={[
-                    styles.featureText,
-                    {
-                      color: colors.text,
-                      marginLeft: isRTL ? 0 : 12,
-                      marginRight: isRTL ? 12 : 0,
-                    },
-                  ]}
-                >
-                  {f}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {selectedPeriod !== "yearly" && nativeStoreProduct?.displayPrice && (
-          <>
-            {Platform.OS === "ios" ? (
-              <View style={styles.couponSection}>
-                <TouchableOpacity
-                  style={[
-                    styles.applyButton,
-                    { backgroundColor: colors.primary, paddingHorizontal: 20 },
-                  ]}
-                  onPress={handleApplyCoupon}
-                >
-                  <Text style={styles.applyButtonText}>{t("haveACoupon")}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.couponSection}>
-                <Text style={[styles.couponTitle, { color: colors.text }]}>
-                  {t("haveACoupon")}
-                </Text>
-                <View style={styles.couponInputWrapper}>
-                  <TextInput
-                    style={[
-                      styles.couponInput,
-                      {
-                        backgroundColor: colors.surface,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder={String(t("enterCouponCode"))}
-                    placeholderTextColor={colors.placeholder}
-                    value={couponText}
-                    onChangeText={(txt) => setCouponText(txt.toLowerCase())}
-                    editable={!appliedOfferCode}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                  <TouchableOpacity
-                    style={[
-                      styles.applyButton,
-                      { backgroundColor: colors.primary },
-                      (appliedOfferCode || !couponText.trim()) && {
-                        opacity: 0.5,
-                      },
-                    ]}
-                    onPress={handleApplyCoupon}
-                    disabled={Boolean(appliedOfferCode) || !couponText.trim()}
-                  >
-                    <Text style={styles.applyButtonText}>
-                      {appliedOfferCode ? t("applied") : t("apply")}
-                    </Text>
-                  </TouchableOpacity>
+            {/* Upgrade Option for Monthly Subscribers */}
+            {activeSub.planType === "monthly" && (
+              <View style={[styles.upgradeCard, { backgroundColor: colors.surface }]}>
+                <View style={styles.badgeContainer}>
+                  <View style={[styles.bestValueBadge, { backgroundColor: colors.primary }]}>
+                    <Text style={styles.bestValueText}>UPGRADE & SAVE 50%</Text>
+                  </View>
                 </View>
+
+                <Text style={[styles.upgradeTitle, { color: colors.text }]}>
+                  Switch to Yearly Plan
+                </Text>
+                <Text style={[styles.upgradeDesc, { color: colors.placeholder }]}>
+                  Get the same premium features for a full year and save 50% compared to the monthly plan.
+                </Text>
+
+                <View style={styles.comparisonWrapper}>
+                  <View style={styles.priceComparisonItem}>
+                    <Text style={[styles.comparisonPlanLabel, { color: colors.placeholder }]}>Monthly</Text>
+                    <Text style={[styles.comparisonPlanPrice, { color: colors.text }]}>
+                      {monthlyPackage?.product?.priceString || "$9.99"}
+                      <Text style={styles.priceSubText}>/mo</Text>
+                    </Text>
+                    <Text style={[styles.comparisonTotal, { color: colors.placeholder }]}>$119.88 / year</Text>
+                  </View>
+
+                  <Ionicons name="arrow-forward" size={24} color={colors.placeholder} style={styles.arrowIcon} />
+
+                  <View style={[styles.priceComparisonItem, { borderColor: colors.primary, borderWidth: 1, borderRadius: 12, padding: 8 }]}>
+                    <Text style={[styles.comparisonPlanLabel, { color: colors.primary, fontWeight: "700" }]}>Yearly</Text>
+                    <Text style={[styles.comparisonPlanPrice, { color: colors.primary }]}>
+                      {yearlyPackage?.product?.priceString || "$59.99"}
+                      <Text style={[styles.priceSubText, { color: colors.primary }]}>/yr</Text>
+                    </Text>
+                    <Text style={[styles.comparisonTotal, { color: colors.primary }]}>Only $5.00 / month</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  disabled={isProcessingPurchase}
+                  style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
+                  onPress={handleUpgradeToYearly}
+                >
+                  {isProcessingPurchase ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <Text style={styles.upgradeButtonText}>Upgrade to Yearly</Text>
+                  )}
+                </TouchableOpacity>
               </View>
             )}
           </>
-        )}
-
-        <View
-          style={[
-            styles.summaryCard,
-            {
-              backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.placeholder }]}>
-              {t("originalPrice")}
+        ) : (
+          /* Unsubscribed State */
+          <View style={[styles.statusCard, { borderColor: "#D32F2F" }]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="alert-circle" size={24} color="#D32F2F" />
+              <Text style={[styles.statusTitle, { color: "#D32F2F" }]}>
+                No Active Subscription
+              </Text>
+            </View>
+            <Text style={[styles.statusSubtitle, { color: colors.placeholder, marginTop: 8 }]}>
+              You are currently on the free/inactive tier. Subscribe to unlock all features.
             </Text>
-            <Text style={[styles.summaryValue, { color: colors.placeholder }]}>
-              {basePriceText}
-            </Text>
-          </View>
 
-          {appliedOfferCode && (
-            <>
-              {nativeStoreProduct?.isDiscounted && (
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: "#4CAF50" }]}>
-                    {t("discountPercentage") || "Discount Applied"}
-                  </Text>
-                  <Text style={[styles.summaryValue, { color: "#4CAF50" }]}>
-                    {(() => {
-                      const base = Number(nativeStoreProduct?.baseAmount) || 0;
-                      const current =
-                        Number(nativeStoreProduct?.displayAmount) || 0;
-                      const saved = base - current;
-                      if (saved > 0) {
-                        return `${formatCurrency(saved, nativeStoreProduct?.currencyCode || "USD")}`;
-                      }
-                      return t("saved") || "SAVED!";
-                    })()}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.divider} />
-            </>
-          )}
-
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.text }]}>
-              {t("total")}
-            </Text>
-            <Text
-              style={[
-                styles.summaryValue,
-                { color: colors.primary, fontWeight: "bold", fontSize: 20 },
-              ]}
+            <TouchableOpacity
+              style={[styles.subscribeButton, { backgroundColor: colors.primary, marginTop: 24 }]}
+              onPress={() => registerPlacement({ placement: "paywall" })}
             >
-              {priceText}
-            </Text>
+              <Text style={styles.buttonTextWhite}>Subscribe Now</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-
-        <TouchableOpacity
-          disabled={isProcessingPurchase || !canPurchase}
-          style={[
-            styles.subscribeButton,
-            { backgroundColor: colors.primary },
-            (isProcessingPurchase || !canPurchase) && styles.disabledButton,
-          ]}
-          onPress={handleSubscribe}
-        >
-          {isProcessingPurchase ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <Text style={styles.buttonTextWhite}>
-              {isSubscribed ? t("alreadySubscribed") : t("subscribeNow")}
-            </Text>
-          )}
-        </TouchableOpacity>
+        )}
 
         <View style={styles.transparencySection}>
           <Text style={[styles.autoRenewalNotice, { color: colors.text }]}>
@@ -886,127 +610,121 @@ const UpgradePlanScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loadingContainer: { justifyContent: "center", alignItems: "center" },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  headerTitle: { fontSize: 18, fontWeight: "bold" },
-  backButton: { position: "absolute", left: 20, zIndex: 10 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 15 },
-  subtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 24,
-    opacity: 0.8,
-  },
+  headerTitle: { fontSize: 24, fontWeight: "bold" },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
   statusCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 20,
-  },
-  statusTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
-  statusSubtitle: { fontSize: 14 },
-  toggleContainer: {
-    flexDirection: "row",
     borderRadius: 16,
-    padding: 4,
-    marginBottom: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderRadius: 14,
-  },
-  toggleText: { fontWeight: "600" },
-  planCard: {
-    borderRadius: 24,
-    padding: 24,
     borderWidth: 1.5,
-    marginBottom: 32,
+    padding: 20,
+    marginBottom: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
   },
-  planTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 4 },
-  planSubtitle: { fontSize: 14, marginBottom: 24 },
-  priceContainer: { alignItems: "baseline", marginBottom: 24 },
-  price: { fontSize: 32, fontWeight: "bold" },
-  priceUnavailable: { fontSize: 16, fontWeight: "600", lineHeight: 22 },
-  originalPriceText: { fontSize: 16, marginBottom: -4, opacity: 0.7 },
-  periodText: { fontSize: 16, fontWeight: "normal", opacity: 0.6 },
-  featureItem: { alignItems: "center", marginBottom: 16 },
-  featureText: { fontSize: 14, opacity: 0.9 },
-  innerButton: {
-    marginTop: 10,
-    paddingVertical: 14,
-    borderRadius: 12,
+  cardHeader: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 10,
   },
-  innerButtonText: { color: "#000", fontWeight: "bold", fontSize: 16 },
-  couponSection: { marginBottom: 24 },
-  couponTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 16 },
-  couponInputWrapper: { flexDirection: "row", alignItems: "center" },
-  couponInput: {
-    flex: 1,
-    height: 54,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    borderWidth: 1,
+  statusTitle: { fontSize: 18, fontWeight: "bold" },
+  statusSubtitle: { fontSize: 15, lineHeight: 22 },
+  statusDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginVertical: 16,
   },
-  applyButton: {
-    marginLeft: 12,
-    paddingHorizontal: 24,
-    height: 54,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  applyButtonText: { color: "#000", fontWeight: "bold", fontSize: 16 },
-  summaryCard: {
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  summaryRow: {
+  statusRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginVertical: 4,
+    marginVertical: 6,
   },
-  summaryLabel: { fontSize: 15 },
-  summaryValue: { fontSize: 16 },
-  divider: {
-    height: 1,
-    backgroundColor: "#333",
-    marginVertical: 12,
-    opacity: 0.5,
-  },
+  statusLabel: { fontSize: 15 },
+  statusValue: { fontSize: 15, fontWeight: "600" },
   subscribeButton: {
-    paddingVertical: 18,
-    borderRadius: 16,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "center",
   },
-  buttonTextWhite: { color: "#000", fontWeight: "bold", fontSize: 18 },
-  disabledButton: { opacity: 0.5 },
-  footerNote: {
+  buttonTextWhite: { color: "#000", fontWeight: "bold", fontSize: 16 },
+  upgradeCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  badgeContainer: {
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  bestValueBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  bestValueText: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  upgradeTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 6,
+  },
+  upgradeDesc: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  comparisonWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  priceComparisonItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  comparisonPlanLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  comparisonPlanPrice: {
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  priceSubText: {
     fontSize: 12,
-    textAlign: "center",
-    opacity: 0.6,
-    lineHeight: 18,
+    fontWeight: "normal",
+    color: "#999",
+  },
+  comparisonTotal: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  arrowIcon: {
+    marginHorizontal: 10,
+  },
+  upgradeButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  upgradeButtonText: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 16,
   },
   transparencySection: {
     marginTop: 24,
