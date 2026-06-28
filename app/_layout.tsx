@@ -27,6 +27,7 @@ import {
 } from "react-native";
 import "react-native-reanimated";
 import { configureRevenueCatForStoredUser } from "@/services/revenuecat";
+import { SUPERWALL_ONBOARDING_PLACEMENT } from "@/services/superwall-flow";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // 🚀 Keep the native splash screen visible until our custom animation is ready to take over.
@@ -96,10 +97,6 @@ function RootNavigator() {
     </>
   );
 }
-
-const SUPERWALL_ONBOARDING_PLACEMENT =
-  process.env.EXPO_PUBLIC_SUPERWALL_ONBOARDING_PLACEMENT?.trim() ||
-  "onboarding";
 
 function SuperwallSplashPreloader() {
   const { isConfigured, preloadPaywalls } = useSuperwall((state) => ({

@@ -12,6 +12,12 @@ import {
   type MySubscriptionStatus,
 } from "@/services/backend-auth";
 import { ensureRevenueCatConfigured } from "@/services/revenuecat";
+import {
+  SUPERWALL_PAYWALL_PLACEMENT,
+  getPaywallParams,
+  getReferralCodeStatus,
+  isSuperwallPurchasedAction,
+} from "@/services/superwall-flow";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, {
@@ -288,14 +294,35 @@ const UpgradePlanScreen = () => {
   const colors = useSafeColors();
   const router = useRouter();
 
+  const handleSuperwallPurchased = useCallback(async () => {
+    const isSubscribed = await syncSubscription();
+    if (isSubscribed) {
+      router.replace("/(tabs)/home" as any);
+    }
+  }, [router, syncSubscription]);
+
   const { registerPlacement } = usePlacement({
     onPresent: () => {
       console.log("[Superwall] Paywall presented on subscription screen.");
     },
     onDismiss: () => {
       console.log("[Superwall] Paywall dismissed on subscription screen.");
-    }
+    },
+    onCustomCallback: async (callback) => {
+      if (isSuperwallPurchasedAction(callback.name)) {
+        await handleSuperwallPurchased();
+      }
+      return { status: "success" };
+    },
   });
+
+  const handleSubscribeNow = useCallback(async () => {
+    const referralCodeStatus = await getReferralCodeStatus();
+    await registerPlacement({
+      placement: SUPERWALL_PAYWALL_PLACEMENT,
+      params: getPaywallParams(referralCodeStatus),
+    });
+  }, [registerPlacement]);
 
   const [connected, setConnected] = useState(false);
   const [monthlyPackage, setMonthlyPackage] = useState<any>(null);
@@ -546,7 +573,7 @@ const UpgradePlanScreen = () => {
 
             <TouchableOpacity
               style={[styles.subscribeButton, { backgroundColor: colors.primary, marginTop: 24 }]}
-              onPress={() => registerPlacement({ placement: "paywall" })}
+              onPress={handleSubscribeNow}
             >
               <Text style={styles.buttonTextWhite}>Subscribe Now</Text>
             </TouchableOpacity>

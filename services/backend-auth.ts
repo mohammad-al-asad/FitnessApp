@@ -1,5 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import {
+  normalizeReferralCodeStatus,
+  type ReferralCodeStatus,
+} from "@/services/superwall-flow";
+
 const TOKEN_STORAGE_KEY = "fitco_auth_token";
 const REFRESH_TOKEN_STORAGE_KEY = "fitco_refresh_token";
 const USER_STORAGE_KEY = "fitco_auth_user";
@@ -10,7 +15,18 @@ export type BackendUser = {
   displayName?: string | null;
   firstName?: string;
   lastName?: string;
+  subscriptionStatus?: string;
+  subscriptionExpiry?: string | null;
+  isSubscribed?: boolean;
+  isVerified?: boolean;
   [key: string]: any;
+};
+
+export type RegisterResponse = {
+  message: string;
+  email: string;
+  referralCode?: string;
+  referralCodeStatus: ReferralCodeStatus;
 };
 
 type AuthApiResponse = {
@@ -232,6 +248,13 @@ function toBackendUser(raw: any): BackendUser {
   const subscriptionStatus = raw?.subscriptionStatus ?? raw?.user?.subscriptionStatus ?? "inactive";
   const subscriptionExpiry = raw?.subscriptionExpiry ?? raw?.user?.subscriptionExpiry ?? null;
   const isSubscribed = raw?.isSubscribed ?? raw?.user?.isSubscribed ?? false;
+  const isVerified =
+    raw?.isVerified ??
+    raw?.verified ??
+    raw?.emailVerified ??
+    raw?.user?.isVerified ??
+    raw?.user?.verified ??
+    raw?.user?.emailVerified;
 
   return {
     ...raw,
@@ -246,6 +269,7 @@ function toBackendUser(raw: any): BackendUser {
     subscriptionStatus,
     subscriptionExpiry,
     isSubscribed: Boolean(isSubscribed),
+    ...(isVerified !== undefined ? { isVerified: Boolean(isVerified) } : {}),
   };
 }
 
@@ -399,51 +423,35 @@ export async function backendSignIn(
   email: string,
   password: string,
 ): Promise<BackendUser> {
-  try {
-    const json = await request("/api/v1/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
+  const json = await request("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
 
-    const { user, token, refreshToken } = extractAuthPayload(json);
-    await saveSession(user, token, refreshToken);
-    return user;
-  } catch (error) {
-    if (email === "demo@fitco.app") {
-      console.warn("backendSignIn failed for demo, using fallback demo user: ", error);
-      const user: BackendUser = {
-        uid: "demo-uid",
-        email: "demo@fitco.app",
-        firstName: "Demo",
-        lastName: "User",
-        displayName: "Demo User",
-        subscriptionStatus: "active",
-        subscriptionExpiry: "2030-12-31T23:59:59.000Z",
-        isSubscribed: true,
-      };
-      await saveSession(user, "demo-token", "demo-refresh-token");
-      return user;
-    }
-    throw error;
-  }
+  const { user, token, refreshToken } = extractAuthPayload(json);
+  await saveSession(user, token, refreshToken);
+  return user;
 }
 
 export async function backendSignUp(
   params: Record<string, any>,
-): Promise<BackendUser> {
+): Promise<RegisterResponse> {
   const json = await request("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify(params),
   });
 
-  const { user, token, refreshToken } = extractAuthPayload(json);
-  if (token) {
-    await saveSession(user, token, refreshToken);
-    return user;
-  }
-
-  // Register endpoint may return user only; fetch tokens by logging in.
-  return backendSignIn(params.email, params.password);
+  const root = json?.data ?? json;
+  return {
+    message: String(
+      root?.message ??
+        "Registration successful. Please verify the OTP sent to your email.",
+    ),
+    email: String(root?.email ?? params.email ?? ""),
+    referralCode:
+      root?.referralCode != null ? String(root.referralCode) : undefined,
+    referralCodeStatus: normalizeReferralCodeStatus(root?.referralCodeStatus),
+  };
 }
 
 export async function backendMe(token?: string): Promise<BackendUser> {
@@ -947,29 +955,13 @@ export async function backendGoogleSignIn(payload: {
   idToken: string;
   email?: string;
 }): Promise<BackendUser> {
-  try {
-    const json = await request("/api/v1/auth/google", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    const { user, token, refreshToken } = extractAuthPayload(json);
-    await saveSession(user, token, refreshToken);
-    return user;
-  } catch (error) {
-    console.warn("backendGoogleSignIn failed, using demo user: ", error);
-    const user: BackendUser = {
-      uid: "google-demo-uid",
-      email: payload.email || "google-user@fitco.app",
-      firstName: "Google",
-      lastName: "User",
-      displayName: "Google User",
-      subscriptionStatus: "active",
-      subscriptionExpiry: "2026-12-31T23:59:59.000Z",
-      isSubscribed: true,
-    };
-    await saveSession(user, "demo-token", "demo-refresh-token");
-    return user;
-  }
+  const json = await request("/api/v1/auth/google", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const { user, token, refreshToken } = extractAuthPayload(json);
+  await saveSession(user, token, refreshToken);
+  return user;
 }
 
 export async function backendAppleSignIn(payload: {
@@ -978,118 +970,64 @@ export async function backendAppleSignIn(payload: {
   firstName?: string;
   lastName?: string;
 }): Promise<BackendUser> {
-  try {
-    const json = await request("/api/v1/auth/apple", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    const { user, token, refreshToken } = extractAuthPayload(json);
-    await saveSession(user, token, refreshToken);
-    return user;
-  } catch (error) {
-    console.warn("backendAppleSignIn failed, using demo user: ", error);
-    const user: BackendUser = {
-      uid: "apple-demo-uid",
-      email: payload.email || "apple-user@fitco.app",
-      firstName: payload.firstName || "Apple",
-      lastName: payload.lastName || "User",
-      displayName: [payload.firstName, payload.lastName].filter(Boolean).join(" ") || "Apple User",
-      subscriptionStatus: "active",
-      subscriptionExpiry: "2026-12-31T23:59:59.000Z",
-      isSubscribed: true,
-    };
-    await saveSession(user, "demo-token", "demo-refresh-token");
-    return user;
-  }
+  const json = await request("/api/v1/auth/apple", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const { user, token, refreshToken } = extractAuthPayload(json);
+  await saveSession(user, token, refreshToken);
+  return user;
 }
 
 export async function backendVerifyRegister(payload: {
   email: string;
   code: string;
 }): Promise<BackendUser> {
-  try {
-    const json = await request("/api/v1/auth/verify-register", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    const { user, token, refreshToken } = extractAuthPayload(json);
-    await saveSession(user, token, refreshToken);
-    return user;
-  } catch (error) {
-    console.warn("backendVerifyRegister failed, using demo user: ", error);
-    const user: BackendUser = {
-      uid: "register-demo-uid",
-      email: payload.email,
-      firstName: "Verify",
-      lastName: "Demo",
-      displayName: "Verify Demo User",
-      subscriptionStatus: "inactive",
-      subscriptionExpiry: null,
-      isSubscribed: false,
-    };
-    await saveSession(user, "demo-token", "demo-refresh-token");
-    return user;
-  }
+  const json = await request("/api/v1/auth/verify-register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const { user, token, refreshToken } = extractAuthPayload(json);
+  await saveSession(user, token, refreshToken);
+  return user;
 }
 
 export async function backendForgotPassword(payload: {
   email: string;
 }): Promise<{ message: string }> {
-  try {
-    const json = await request("/api/v1/auth/forgot-password", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return { message: json?.message ?? "Code sent successfully" };
-  } catch (error) {
-    console.warn("backendForgotPassword failed, using demo response: ", error);
-    return { message: "Demo mode: Reset code sent successfully to " + payload.email };
-  }
+  const json = await request("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return {
+    message: json?.message ?? "If the email exists, reset instructions were sent",
+  };
 }
 
 export async function backendVerifyResetOtp(payload: {
   email: string;
   code: string;
 }): Promise<{ message: string }> {
-  try {
-    const json = await request("/api/v1/auth/verify-reset-otp", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return { message: json?.message ?? "Code verified successfully" };
-  } catch (error) {
-    console.warn("backendVerifyResetOtp failed, using demo response: ", error);
-    return { message: "Demo mode: Code verified successfully" };
-  }
+  const json = await request("/api/v1/auth/verify-reset-otp", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return { message: json?.message ?? "OTP verified" };
 }
 
 export async function backendResetPassword(payload: {
   email: string;
   code: string;
   newPassword: string;
-}): Promise<BackendUser> {
-  try {
-    const json = await request("/api/v1/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    const { user, token, refreshToken } = extractAuthPayload(json);
-    await saveSession(user, token, refreshToken);
-    return user;
-  } catch (error) {
-    console.warn("backendResetPassword failed, using demo user: ", error);
-    const user: BackendUser = {
-      uid: "reset-demo-uid",
+}): Promise<{ message: string }> {
+  const json = await request("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
       email: payload.email,
-      firstName: "Reset",
-      lastName: "User",
-      displayName: "Reset User",
-      subscriptionStatus: "active",
-      subscriptionExpiry: "2026-12-31T23:59:59.000Z",
-      isSubscribed: true,
-    };
-    await saveSession(user, "demo-token", "demo-refresh-token");
-    return user;
-  }
+      code: payload.code,
+      password: payload.newPassword,
+    }),
+  });
+  return { message: json?.message ?? "Password updated" };
 }
 

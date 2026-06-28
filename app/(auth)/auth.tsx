@@ -10,7 +10,16 @@ import {
   backendResetPassword,
 } from "@/services/backend-auth";
 import { useLanguage } from "@/hooks/language-context";
-import { usePlacement } from "expo-superwall";
+import {
+  saveReferralCodeStatus,
+  type ReferralCodeStatus,
+} from "@/services/superwall-flow";
+import {
+  GoogleSignin,
+  isCancelledResponse,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   Eye,
@@ -20,7 +29,7 @@ import {
   User,
   ChevronLeft,
 } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -62,25 +71,165 @@ interface AuthScreenProps {
   onAuthComplete?: () => void;
 }
 
+const isVerificationRequiredMessage = (message: string) => {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("verify") ||
+    normalized.includes("verification") ||
+    normalized.includes("otp")
+  );
+};
+
+const mapErrorToBilingual = (msg: string): string => {
+  if (!msg) return "";
+  const normalized = msg.trim().toLowerCase();
+
+  const dictionary = [
+    {
+      en: "Please enter a valid email address.",
+      ar: "يرجى إدخال عنوان بريد إلكتروني صالح.",
+    },
+    {
+      en: "Password must be at least 6 characters.",
+      ar: "يجب أن تكون كلمة المرور 6 أحرف على الأقل.",
+    },
+    {
+      en: "First name and last name are required.",
+      ar: "الرجاء إدخال الاسم الأول واسم العائلة.",
+    },
+    {
+      en: "Please enter the complete 4-digit code.",
+      ar: "يرجى إدخال الرمز المكون من 4 أرقام كاملاً.",
+    },
+    {
+      en: "Please enter your email address.",
+      ar: "يرجى إدخال بريدك الإلكتروني.",
+    },
+    {
+      en: "Please go back and complete your signup details.",
+      ar: "يرجى الرجوع وإكمال بيانات التسجيل.",
+    },
+    {
+      en: "Passwords do not match.",
+      ar: "كلمات المرور غير متطابقة.",
+    },
+    {
+      en: "Something went wrong. Please try again.",
+      ar: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+    },
+    {
+      en: "Invalid email or password.",
+      ar: "البريد الإلكتروني أو كلمة المرور غير صالحة.",
+    },
+    {
+      en: "This email is already in use.",
+      ar: "هذا البريد الإلكتروني مستخدم بالفعل.",
+    },
+    {
+      en: "This user is already registered.",
+      ar: "هذا المستخدم مسجل بالفعل.",
+    },
+    {
+      en: "User not found.",
+      ar: "المستخدم غير موجود.",
+    },
+    {
+      en: "Incorrect password.",
+      ar: "كلمة المرور غير صحيحة.",
+    },
+    {
+      en: "Network error. Please check your internet connection.",
+      ar: "فشل في الاتصال بالشبكة. يرجى التحقق من اتصال الإنترنت الخاص بك.",
+    },
+    {
+      en: "Invalid verification code. Please check and try again.",
+      ar: "رمز التحقق غير صحيح. يرجى التحقق والمحاولة مرة أخرى.",
+    },
+    {
+      en: "The code has expired. Please request a new one.",
+      ar: "انتهت صلاحية الرمز. يرجى طلب رمز جديد.",
+    },
+    {
+      en: "A new OTP code has been sent to your email.",
+      ar: "تم إرسال رمز جديد إلى بريدك الإلكتروني.",
+    },
+    {
+      en: "A new password reset code has been sent to your email.",
+      ar: "تم إرسال رمز تعيين كلمة المرور الجديد إلى بريدك الإلكتروني.",
+    },
+    {
+      en: "You can now sign in with your new password.",
+      ar: "يمكنك الآن تسجيل الدخول باستخدام كلمة المرور الجديدة.",
+    },
+    {
+      en: "Missing Google Web client ID. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID so the backend can verify the ID token audience.",
+      ar: "معرف عميل ويب Google مفقود. قم بتعيين EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID حتى يتمكن الجزء الخلفي من التحقق من جمهور رمز معرف الهوية.",
+    },
+    {
+      en: "Missing Google iOS client ID. Set EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID for native iOS sign-in.",
+      ar: "معرف عميل iOS Google مفقود. قم بتعيين EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID لتسجيل الدخول الأصلي إلى iOS.",
+    },
+    {
+      en: "Google did not return an ID token.",
+      ar: "لم ترجع Google رمز معرف الهوية.",
+    },
+    {
+      en: "Apple Sign-In is not available on this device.",
+      ar: "تسجيل الدخول باستخدام Apple غير متوفر على هذا الجهاز.",
+    },
+    {
+      en: "Apple did not return an identity token.",
+      ar: "لم ترجع Apple رمز الهوية الخاص بها.",
+    },
+    {
+      en: "Please verify your email with the OTP sent to you.",
+      ar: "يرجى التحقق من بريدك الإلكتروني باستخدام الرمز المرسل إليك.",
+    },
+  ];
+
+  for (const item of dictionary) {
+    const enNorm = item.en.toLowerCase();
+    const arNorm = item.ar.toLowerCase();
+    if (
+      normalized.includes(enNorm) ||
+      enNorm.includes(normalized) ||
+      normalized.includes(arNorm) ||
+      arNorm.includes(normalized)
+    ) {
+      return `${item.en}\n\n${item.ar}`;
+    }
+  }
+
+  const hasArabic = /[\u0600-\u06FF]/.test(msg);
+  const hasEnglish = /[a-zA-Z]/.test(msg);
+
+  if (hasEnglish && !hasArabic) {
+    return `${msg}\n\nحدث خطأ ما. يُرجى المحاولة مرة أخرى.`;
+  } else if (hasArabic && !hasEnglish) {
+    return `Something went wrong. Please try again.\n\n${msg}`;
+  }
+
+  return msg;
+};
+
 export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   const { signIn, signUp, refreshUser } = useAuth();
   const { t, isRTL } = useLanguage();
+  const translateText = useCallback(
+    (key: keyof typeof translations.en) => {
+      const value = t(key as any);
+      return Array.isArray(value) ? value.join(" ") : value;
+    },
+    [t],
+  );
+  const errorTitle = "Error / خطأ";
   const params = useLocalSearchParams<{ mode?: "signin" | "signup" }>();
 
-  const { registerPlacement } = usePlacement({
-    onPresent: () => {
-      console.log("[Superwall] Paywall presented from AuthScreen.");
-    },
-    onDismiss: () => {
-      console.log("[Superwall] Paywall dismissed from AuthScreen.");
-    },
-    onSkip: (reason) => {
-      console.log("[Superwall] Paywall skipped from AuthScreen:", reason);
-    },
-    onError: (error) => {
-      console.error("[Superwall] Paywall error from AuthScreen:", error);
-    }
-  });
+  const googleWebClientId =
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+  const googleIosClientId =
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
+  const hasGoogleClientId = Boolean(googleWebClientId);
 
   // Steps state
   const [step, setStep] = useState<AuthStep>("welcome");
@@ -92,6 +241,8 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   const [lastName, setLastName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [referralCodeStatus, setReferralCodeStatus] =
+    useState<ReferralCodeStatus>("invalid");
 
   // Forgot Password / New Password Fields
   const [newPassword, setNewPassword] = useState("");
@@ -115,7 +266,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * funnyLines.length);
     setFunnyLine(funnyLines[randomIndex]);
-  }, [step, isRTL]);
+  }, [funnyLines, step, isRTL]);
 
   useEffect(() => {
     if (params.mode === "signup") {
@@ -124,6 +275,25 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
       setStep("signin");
     }
   }, [params.mode]);
+
+  useEffect(() => {
+    if (!googleWebClientId) return;
+
+    GoogleSignin.configure({
+      webClientId: googleWebClientId,
+      iosClientId: googleIosClientId || undefined,
+      scopes: ["profile", "email"],
+      offlineAccess: false,
+    });
+  }, [googleIosClientId, googleWebClientId]);
+
+  const completeAuthFlow = useCallback(async () => {
+    onAuthComplete?.();
+    const updatedUser = await refreshUser();
+    if (updatedUser?.isSubscribed) {
+      router.replace("/(tabs)/home");
+    }
+  }, [onAuthComplete, refreshUser]);
 
   const handleBack = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -147,68 +317,140 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     setIsLoading(true);
     try {
       if (provider === "Google") {
-        await backendGoogleSignIn({ idToken: "demo-google-token" });
-      } else {
-        await backendAppleSignIn({ identityToken: "demo-apple-token" });
+        if (!hasGoogleClientId) {
+          throw new Error(
+            "Missing Google Web client ID. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID so the backend can verify the ID token audience.",
+          );
+        }
+        if (Platform.OS === "ios" && !googleIosClientId) {
+          throw new Error(
+            "Missing Google iOS client ID. Set EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID for native iOS sign-in.",
+          );
+        }
+
+        await GoogleSignin.hasPlayServices({
+          showPlayServicesUpdateDialog: true,
+        });
+        const result = await GoogleSignin.signIn();
+        if (isCancelledResponse(result)) {
+          setIsLoading(false);
+          return;
+        }
+
+        const tokens = await GoogleSignin.getTokens();
+        const idToken = tokens.idToken || result.data.idToken;
+        if (!idToken) {
+          throw new Error("Google did not return an ID token.");
+        }
+
+        await backendGoogleSignIn({
+          idToken,
+          email: result.data.user.email,
+        });
+        await completeAuthFlow();
+        return;
       }
-      onAuthComplete?.();
-      const updatedUser = await refreshUser();
-      if (updatedUser && !updatedUser.isSubscribed) {
-        console.log("[Superwall] OAuth login successful, user is unsubscribed. Presenting paywall...");
-        registerPlacement({ placement: "paywall" });
-      } else {
-        router.replace("/(tabs)/home");
+
+      const isAppleAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAppleAvailable) {
+        throw new Error("Apple Sign-In is not available on this device.");
       }
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error("Apple did not return an identity token.");
+      }
+
+      await backendAppleSignIn({
+        identityToken: credential.identityToken,
+        email: credential.email ?? undefined,
+        firstName: credential.fullName?.givenName ?? undefined,
+        lastName: credential.fullName?.familyName ?? undefined,
+      });
+      await completeAuthFlow();
     } catch (err: any) {
-      Alert.alert(t("error") || "Error", err?.message || String(err));
-    } finally {
+      if (
+        err?.code !== "ERR_REQUEST_CANCELED" &&
+        err?.code !== statusCodes.SIGN_IN_CANCELLED
+      ) {
+        Alert.alert(errorTitle, mapErrorToBilingual(err?.message || String(err)));
+      }
       setIsLoading(false);
+    } finally {
+      if (provider === "Apple") {
+        setIsLoading(false);
+      }
     }
   };
 
   const handleEmailFormSubmit = async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!email || !email.includes("@")) {
-      Alert.alert(t("error") || "Error", isRTL ? "يرجى إدخال عنوان بريد إلكتروني صالح." : "Please enter a valid email address.");
+      Alert.alert(errorTitle, mapErrorToBilingual("Please enter a valid email address."));
       return;
     }
     if (!password || password.length < 6) {
-      Alert.alert(t("error") || "Error", isRTL ? "يجب أن تكون كلمة المرور 6 أحرف على الأقل." : "Password must be at least 6 characters.");
+      Alert.alert(errorTitle, mapErrorToBilingual("Password must be at least 6 characters."));
       return;
     }
 
     if (step === "signin") {
-      // Direct Login (calls signIn backend mock as before)
       setIsLoading(true);
       try {
         const result = await signIn(email, password);
         if (result.success) {
-          setTimeout(() => {
-            onAuthComplete?.();
-            if (result.user && !result.user.isSubscribed) {
-              console.log("[Superwall] Email login successful, user is unsubscribed. Presenting paywall...");
-              registerPlacement({ placement: "paywall" });
-            } else {
-              router.replace("/(tabs)/home");
-            }
-          }, 300);
+          await completeAuthFlow();
         } else {
-          Alert.alert(t("error") as string, result.error.message);
+          if (isVerificationRequiredMessage(result.error.message)) {
+            setOtp(["", "", "", ""]);
+            setStep("otpVerify");
+            Alert.alert(
+              "Verify your email / تحقق من بريدك الإلكتروني",
+              mapErrorToBilingual(result.error.message),
+            );
+          } else {
+            Alert.alert(errorTitle, mapErrorToBilingual(result.error.message));
+          }
         }
       } catch (error) {
-        Alert.alert(t("error") as string, t("somethingWentWrong") as string);
+        Alert.alert(errorTitle, mapErrorToBilingual("Something went wrong. Please try again."));
         console.error("Auth Error:", error);
       } finally {
         setIsLoading(false);
       }
     } else if (step === "signup") {
-      // Sign Up verification transition (needs first and last name validation first)
       if (!firstName || !lastName) {
-        Alert.alert(t("error") || "Error", isRTL ? "الرجاء إدخال الاسم الأول واسم العائلة." : "First name and last name are required.");
+        Alert.alert(errorTitle, mapErrorToBilingual("First name and last name are required."));
         return;
       }
-      setOtp(["", "", "", ""]);
-      setStep("otpVerify");
+      setIsLoading(true);
+      try {
+        const result = await signUp(email, password, firstName, lastName);
+        if (result.success && result.requiresVerification) {
+          setEmail(result.email);
+          setReferralCodeStatus(result.referralCodeStatus);
+          await saveReferralCodeStatus(result.referralCodeStatus);
+          setOtp(["", "", "", ""]);
+          setStep("otpVerify");
+        } else if (result.success && "user" in result) {
+          await completeAuthFlow();
+        } else if (!result.success) {
+          Alert.alert(errorTitle, mapErrorToBilingual(result.error.message));
+        }
+      } catch (error: any) {
+        Alert.alert(
+          errorTitle,
+          mapErrorToBilingual(error?.message || String(error)),
+        );
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -216,23 +458,17 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const code = otp.join("");
     if (code.length < 4) {
-      Alert.alert(t("error") || "Error", isRTL ? "يرجى إدخال الرمز المكون من 4 أرقام كاملاً." : "Please enter the complete 4-digit code.");
+      Alert.alert(errorTitle, mapErrorToBilingual("Please enter the complete 4-digit code."));
       return;
     }
 
     setIsLoading(true);
     try {
+      await saveReferralCodeStatus(referralCodeStatus);
       await backendVerifyRegister({ email, code });
-      onAuthComplete?.();
-      const updatedUser = await refreshUser();
-      if (updatedUser && !updatedUser.isSubscribed) {
-        console.log("[Superwall] Registration verification successful, user is unsubscribed. Presenting paywall...");
-        registerPlacement({ placement: "paywall" });
-      } else {
-        router.replace("/(tabs)/home");
-      }
+      await completeAuthFlow();
     } catch (error: any) {
-      Alert.alert(t("error") || "Error", error?.message || String(error));
+      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -241,7 +477,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   const handleForgotPasswordSubmit = async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!email || !email.includes("@")) {
-      Alert.alert(t("error") || "Error", isRTL ? "يرجى إدخال بريدك الإلكتروني." : "Please enter your email address.");
+      Alert.alert(errorTitle, mapErrorToBilingual("Please enter your email address."));
       return;
     }
     setIsLoading(true);
@@ -250,7 +486,57 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
       setOtp(["", "", "", ""]);
       setStep("resetOtpVerify");
     } catch (error: any) {
-      Alert.alert(t("error") || "Error", error?.message || String(error));
+      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegisterOtpResend = async () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!email || !password || !firstName || !lastName) {
+      Alert.alert(
+        errorTitle,
+        mapErrorToBilingual("Please go back and complete your signup details."),
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await signUp(email, password, firstName, lastName);
+      if (result.success && result.requiresVerification) {
+        setReferralCodeStatus(result.referralCodeStatus);
+        await saveReferralCodeStatus(result.referralCodeStatus);
+        setOtp(["", "", "", ""]);
+        Alert.alert(
+          "Code Sent / تم إرسال الرمز",
+          mapErrorToBilingual("A new OTP code has been sent to your email."),
+        );
+      } else if (!result.success) {
+        Alert.alert(errorTitle, mapErrorToBilingual(result.error.message));
+      }
+    } catch (error: any) {
+      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetOtpResend = async () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!email || !email.includes("@")) return;
+
+    setIsLoading(true);
+    try {
+      await backendForgotPassword({ email });
+      setOtp(["", "", "", ""]);
+      Alert.alert(
+        "Code Sent / تم إرسال الرمز",
+        mapErrorToBilingual("A new password reset code has been sent to your email."),
+      );
+    } catch (error: any) {
+      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -260,7 +546,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const code = otp.join("");
     if (code.length < 4) {
-      Alert.alert(t("error") || "Error", isRTL ? "يرجى إدخال الرمز المكون من 4 أرقام كاملاً." : "Please enter the complete 4-digit code.");
+      Alert.alert(errorTitle, mapErrorToBilingual("Please enter the complete 4-digit code."));
       return;
     }
 
@@ -269,7 +555,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
       await backendVerifyResetOtp({ email, code });
       setStep("newPassword");
     } catch (error: any) {
-      Alert.alert(t("error") || "Error", error?.message || String(error));
+      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -278,11 +564,11 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   const handleNewPasswordSubmit = async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!newPassword || newPassword.length < 6) {
-      Alert.alert(t("error") || "Error", isRTL ? "يجب أن تكون كلمة المرور 6 أحرف على الأقل." : "Password must be at least 6 characters.");
+      Alert.alert(errorTitle, mapErrorToBilingual("Password must be at least 6 characters."));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(t("error") || "Error", isRTL ? "كلمات المرور غير متطابقة." : "Passwords do not match.");
+      Alert.alert(errorTitle, mapErrorToBilingual("Passwords do not match."));
       return;
     }
 
@@ -290,16 +576,17 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     setIsLoading(true);
     try {
       await backendResetPassword({ email, code, newPassword });
-      onAuthComplete?.();
-      const updatedUser = await refreshUser();
-      if (updatedUser && !updatedUser.isSubscribed) {
-        console.log("[Superwall] Password reset successful, user is unsubscribed. Presenting paywall...");
-        registerPlacement({ placement: "paywall" });
-      } else {
-        router.replace("/(tabs)/home");
-      }
+      setPassword(newPassword);
+      setNewPassword("");
+      setConfirmPassword("");
+      setOtp(["", "", "", ""]);
+      setStep("signin");
+      Alert.alert(
+        "Password updated / تم تحديث كلمة المرور",
+        mapErrorToBilingual("You can now sign in with your new password."),
+      );
     } catch (error: any) {
-      Alert.alert(t("error") || "Error", error?.message || String(error));
+      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -397,12 +684,12 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                     {/* Continue with Email Button */}
                     <TouchableOpacity
                       style={[styles.socialPillButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => setStep("signup")}
+                      onPress={() => setStep("signin")}
                       activeOpacity={0.85}
                     >
                       <Mail size={24} color={colors.text} style={styles.socialPillIconMail} />
                       <Text style={[styles.socialPillText, { color: colors.text }]}>
-                        {isRTL ? "المتابعة باستخدام البريد الإلكتروني" : "Continue with email"}
+                        {isRTL ? "تسجيل الدخول بالبريد الإلكتروني" : "Sign in with Email"}
                       </Text>
                     </TouchableOpacity>
 
@@ -802,13 +1089,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
 
                   <TouchableOpacity
                     style={styles.resendBtn}
-                    onPress={() => {
-                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      Alert.alert(
-                        isRTL ? "تم إرسال الرمز" : "Code Sent",
-                        isRTL ? "تم إرسال رمز جديد إلى بريدك الإلكتروني." : "A new OTP code has been sent to your email."
-                      );
-                    }}
+                    onPress={handleRegisterOtpResend}
                   >
                     <Text style={[styles.resendText, { color: colors.placeholder }]}>
                       {isRTL ? "إعادة إرسال الرمز" : "Resend code"}
@@ -908,6 +1189,15 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                       {isRTL ? "التحقق من الرمز" : "Verify Code"}
                     </Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.resendBtn}
+                    onPress={handleResetOtpResend}
+                  >
+                    <Text style={[styles.resendText, { color: colors.placeholder }]}>
+                      {isRTL ? "إعادة إرسال الرمز" : "Resend code"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -985,7 +1275,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                       onPress={handleNewPasswordSubmit}
                     >
                       <Text style={[styles.authButtonText, { color: colors.background }]}>
-                        {isRTL ? "تحديث وتسجيل الدخول" : "Update & Login"}
+                        {isRTL ? "تحديث كلمة المرور" : "Update Password"}
                       </Text>
                     </TouchableOpacity>
                   </View>

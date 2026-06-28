@@ -10,6 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import {
   type BackendUser,
+  type RegisterResponse,
   backendLogout,
   backendMe,
   backendSignIn,
@@ -21,6 +22,13 @@ import {
   ensureRevenueCatConfigured,
   logOutRevenueCatUser,
 } from "@/services/revenuecat";
+import {
+  ONBOARDING_ANSWERS_KEY,
+  clearReferralCodeStatus,
+  clearSuperwallOnboardingCompletion,
+  saveReferralCodeStatus,
+  type ReferralCodeStatus,
+} from "@/services/superwall-flow";
 
 const USER_STORAGE_KEY = "fitco_auth_user";
 const FIRST_SIGN_IN_SUBSCRIPTION_PROMPT_SEEN_PREFIX =
@@ -29,7 +37,15 @@ const FIRST_SIGN_IN_SUBSCRIPTION_PROMPT_PENDING_PREFIX =
   "fitco_first_sign_in_subscription_prompt_pending_";
 
 type AuthResult =
-  | { success: true; user: BackendUser }
+  | { success: true; user: BackendUser; requiresVerification?: false }
+  | {
+      success: true;
+      requiresVerification: true;
+      email: string;
+      message: string;
+      referralCode?: string;
+      referralCodeStatus: ReferralCodeStatus;
+    }
   | { success: false; error: { message: string } };
 
 type AuthContextType = {
@@ -160,6 +176,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSubscriptionPromptUserId(null);
 
       const signedInUser = await backendSignIn(email, password);
+      if (signedInUser.isVerified === false) {
+        await backendLogout();
+        return {
+          success: false,
+          error: {
+            message: "Please verify your email with the OTP sent to you.",
+          },
+        };
+      }
       await ensureRevenueCatConfigured(signedInUser.uid);
       setUser(signedInUser);
       await clearFitcoData();
@@ -219,6 +244,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       payload.medicalConditions = answers.goals?.challenge || "";
       payload.allergies = ""; // default empty
+      if (answers.profile?.referralCode) {
+        payload.referralCode = String(answers.profile.referralCode).trim();
+      }
 
     } catch (error) {
       console.error("[Auth] Failed to map onboarding answers:", error);
@@ -234,7 +262,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     lastName: string,
   ): Promise<AuthResult> => {
     try {
-      const answersStr = await AsyncStorage.getItem("fitco_onboarding_answers");
+      const answersStr = await AsyncStorage.getItem(ONBOARDING_ANSWERS_KEY);
       const registerPayload = mapOnboardingToRegisterPayload(answersStr, {
         email,
         password,
@@ -242,74 +270,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         lastName,
       });
 
-      const createdUser = await backendSignUp(registerPayload);
-
-      let session = await readStoredSession();
-      if (!session.token) {
-        await backendSignIn(email, password);
-        session = await readStoredSession();
-      }
-      if (!session.token) {
-        throw new Error("Signup succeeded but no auth token was issued.");
-      }
-
-      await clearFitcoData();
-      await ensureRevenueCatConfigured(createdUser.uid);
-
-      const blankProfile = {
-        userId: createdUser.uid,
-        firstName,
-        lastName,
-        email,
-        age: 25,
-        weight: 70,
-        height: 170,
-        gender: "male",
-        goal: "maintain_weight",
-        activityLevel: "moderately_active",
-        targetWeight: 70,
-        medicalConditions: "",
-        allergies: "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const existingProfile = await AsyncStorage.getItem(
-        `fitco_user_profile_${createdUser.uid}`,
+      const registration: RegisterResponse = await backendSignUp(
+        registerPayload,
       );
-      if (!existingProfile) {
-        await AsyncStorage.setItem(
-          `fitco_user_profile_${createdUser.uid}`,
-          JSON.stringify(blankProfile),
-        );
-      }
-
-      const existingSettings = await AsyncStorage.getItem(
-        `fitco_settings_${createdUser.uid}`,
-      );
-      if (!existingSettings) {
-        await AsyncStorage.setItem(
-          `fitco_settings_${createdUser.uid}`,
-          JSON.stringify({}),
-        );
-      }
-
-      const existingLogs = await AsyncStorage.getItem(
-        `fitco_daily_logs_${createdUser.uid}`,
-      );
-      if (!existingLogs) {
-        await AsyncStorage.setItem(
-          `fitco_daily_logs_${createdUser.uid}`,
-          JSON.stringify({}),
-        );
-      }
-
-      setUser(createdUser);
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(createdUser));
+      await saveReferralCodeStatus(registration.referralCodeStatus);
       setFirstSignInSubscriptionPromptVisible(false);
       setSubscriptionPromptUserId(null);
 
-      return { success: true, user: createdUser };
+      return {
+        success: true,
+        requiresVerification: true,
+        email: registration.email || email,
+        message: registration.message,
+        referralCode: registration.referralCode,
+        referralCodeStatus: registration.referralCodeStatus,
+      };
     } catch (error: any) {
       return { success: false, error: { message: error.message } };
     }
@@ -378,9 +353,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshUser = async (): Promise<BackendUser | null> => {
     try {
-      const { user: storedUser } = await readStoredSession();
-      setUser(storedUser);
-      return storedUser;
+      const { user: storedUser, token } = await readStoredSession();
+      let nextUser = storedUser;
+
+      if (token) {
+        try {
+          nextUser = await backendMe(token);
+        } catch {
+          nextUser = storedUser;
+        }
+      }
+
+      if (nextUser?.uid) {
+        await ensureRevenueCatConfigured(nextUser.uid);
+      }
+
+      setUser(nextUser);
+      return nextUser;
     } catch (error) {
       console.error("[Auth] Failed to refresh user:", error);
       return null;
@@ -392,7 +381,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const res = await backendSyncRevenueCat();
       if (res.user) {
         setUser(res.user);
-        return res.user.isSubscribed;
+        return Boolean(res.user.isSubscribed);
       }
       return false;
     } catch (error) {
@@ -406,7 +395,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let hasError = false;
     try {
       await backendLogout();
+      await logOutRevenueCatUser();
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      await clearSuperwallOnboardingCompletion();
+      await clearReferralCodeStatus();
+      await AsyncStorage.removeItem(ONBOARDING_ANSWERS_KEY);
 
       const keys = await AsyncStorage.getAllKeys();
       const removableKeys = [

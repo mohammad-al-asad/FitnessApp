@@ -18,12 +18,18 @@ import Purchases, { type CustomerInfo } from "react-native-purchases";
 
 import { useAuth } from "@/hooks/auth-context";
 import { ensureRevenueCatConfigured } from "@/services/revenuecat";
+import {
+  ONBOARDING_ANSWERS_KEY,
+  ONBOARDING_COMPLETED_KEY,
+  SUPERWALL_ONBOARDING_PLACEMENT,
+  SUPERWALL_PAYWALL_PLACEMENT,
+  getPaywallParams,
+  getReferralCodeStatus,
+  isSuperwallPurchasedAction,
+  isSuperwallSigninAction,
+} from "@/services/superwall-flow";
 import { router } from "expo-router";
 
-const ONBOARDING_COMPLETED_KEY = "fitco_superwall_onboarding_v1_completed";
-const ONBOARDING_PLACEMENT =
-  process.env.EXPO_PUBLIC_SUPERWALL_ONBOARDING_PLACEMENT?.trim() ||
-  "onboarding";
 const ONBOARDING_COMPLETE_CALLBACK = "onboarding_complete";
 const APP_REVIEW_CALLBACK = "request_app_review";
 const APP_REVIEW_REQUESTED_KEY = "fitco_app_review_prompt_requested_v1";
@@ -40,6 +46,12 @@ const isAppReviewAction = (name: string | undefined) => {
 
 type GateState = "checking" | "waiting" | "presenting" | "ready";
 type SuperwallVariables = Record<string, unknown>;
+
+const isBackendUserSubscribed = (user: ReturnType<typeof useAuth>["user"]) =>
+  Boolean(
+    user?.isSubscribed ||
+      String(user?.subscriptionStatus ?? "").toLowerCase() === "active",
+  );
 
 const firstPresentValue = (
   variables: SuperwallVariables | undefined,
@@ -307,7 +319,8 @@ export default function SuperwallOnboardingGate({
   const hasPresentedOnboarding = useRef(false);
   const hasPreloadedOnboarding = useRef(false);
   const isOnboardingActive = useRef(false);
-  const hasSeenAuthenticatedUser = useRef(false);
+  const activePaywallUserId = useRef<string | null>(null);
+  const isHandlingPurchase = useRef(false);
   const isRequestingReview = useRef(false);
   const { isConfigured, configurationError, dismiss, preloadPaywalls } =
     useSuperwall(
@@ -319,30 +332,114 @@ export default function SuperwallOnboardingGate({
       }),
     );
 
+  const handlePurchasedCallback = useCallback(async () => {
+    if (isHandlingPurchase.current) return;
+
+    isHandlingPurchase.current = true;
+    try {
+      console.log(
+        "[Superwall] purchased callback received. Syncing subscription with backend...",
+      );
+      const isSubscribed = await syncSubscription();
+      if (isSubscribed) {
+        activePaywallUserId.current = null;
+        console.log(
+          "[Superwall] Subscription synced successfully. Granting access.",
+        );
+        await dismiss().catch(() => undefined);
+        router.replace("/(tabs)/home");
+        return;
+      }
+
+      console.warn(
+        "[Superwall] Backend sync completed, but the user is still inactive.",
+      );
+    } catch (err) {
+      console.error(
+        "[Superwall] Failed to sync subscription on purchased callback:",
+        err,
+      );
+    } finally {
+      isHandlingPurchase.current = false;
+    }
+  }, [dismiss, syncSubscription]);
+
   const { registerPlacement: registerPaywall } = usePlacement({
     onPresent: () => {
       console.log("[Superwall] Gating paywall presented.");
     },
     onDismiss: () => {
       console.log("[Superwall] Gating paywall dismissed. Logging out...");
+      activePaywallUserId.current = null;
       logout().catch(() => undefined);
     },
     onSkip: () => {
       console.log("[Superwall] Gating paywall skipped. Logging out...");
+      activePaywallUserId.current = null;
       logout().catch(() => undefined);
     },
     onError: (err) => {
       console.error("[Superwall] Gating paywall error. Logging out:", err);
+      activePaywallUserId.current = null;
       logout().catch(() => undefined);
-    }
+    },
+    onCustomCallback: async (callback) => {
+      console.log(
+        "[Superwall] Gating paywall custom callback:",
+        callback.name,
+        callback.variables ?? {},
+      );
+      if (isSuperwallPurchasedAction(callback.name)) {
+        await handlePurchasedCallback();
+      }
+      return { status: "success" };
+    },
   });
 
   useEffect(() => {
-    if (isInitialized && isConfigured && user && !user.isSubscribed) {
-      console.log("[Superwall] User is logged in but not subscribed. Presenting gating paywall...");
-      registerPaywall({ placement: "paywall" });
+    if (!isInitialized || !isConfigured || !user?.uid) return;
+
+    if (isBackendUserSubscribed(user)) {
+      activePaywallUserId.current = null;
+      return;
     }
-  }, [isInitialized, isConfigured, user?.uid, user?.isSubscribed]);
+
+    if (activePaywallUserId.current === user.uid) return;
+    activePaywallUserId.current = user.uid;
+
+    const presentPaywall = async () => {
+      const referralCodeStatus = await getReferralCodeStatus();
+      console.log(
+        `[Superwall] User is logged in but not subscribed. Presenting ${SUPERWALL_PAYWALL_PLACEMENT} with referralCodeStatus=${referralCodeStatus}.`,
+      );
+
+      await registerPaywall({
+        placement: SUPERWALL_PAYWALL_PLACEMENT,
+        params: getPaywallParams(referralCodeStatus),
+        feature: () => {
+          console.warn(
+            "[Superwall] Subscription paywall did not present; logging out inactive user.",
+          );
+          logout().catch(() => undefined);
+        },
+      });
+    };
+
+    presentPaywall().catch((error) => {
+      activePaywallUserId.current = null;
+      console.error("[Superwall] Failed to present subscription paywall:", error);
+      logout().catch(() => undefined);
+    });
+  }, [
+    isConfigured,
+    isInitialized,
+    logout,
+    registerPaywall,
+    user,
+    user?.uid,
+    user?.isSubscribed,
+    user?.subscriptionStatus,
+  ]);
 
   const releaseGate = useCallback(() => {
     if (hasReleasedGate.current) return;
@@ -407,12 +504,24 @@ export default function SuperwallOnboardingGate({
           2,
         )}`,
       );
-      AsyncStorage.setItem("fitco_onboarding_answers", JSON.stringify(arrangedAnswers))
+      AsyncStorage.setItem(ONBOARDING_ANSWERS_KEY, JSON.stringify(arrangedAnswers))
         .catch((err) => {
           console.error("[Superwall] Failed to save onboarding answers:", err);
         });
     },
     [],
+  );
+
+  const openSigninFromOnboarding = useCallback(
+    async (variables?: SuperwallVariables) => {
+      if (variables) {
+        logArrangedOnboardingAnswers(variables);
+      }
+      await completeOnboarding();
+      await dismiss().catch(() => undefined);
+      router.replace("/(auth)/auth?mode=signin" as any);
+    },
+    [completeOnboarding, dismiss, logArrangedOnboardingAnswers],
   );
 
   const requestAppReview = useCallback(async () => {
@@ -474,11 +583,11 @@ export default function SuperwallOnboardingGate({
 
     try {
       console.log(
-        `[Superwall] Preloading onboarding paywall for ${ONBOARDING_PLACEMENT}.`,
+        `[Superwall] Preloading onboarding paywall for ${SUPERWALL_ONBOARDING_PLACEMENT}.`,
       );
 
       await Promise.race([
-        preloadPaywalls([ONBOARDING_PLACEMENT]),
+        preloadPaywalls([SUPERWALL_ONBOARDING_PLACEMENT]),
         new Promise<void>((resolve) => {
           setTimeout(resolve, ONBOARDING_PRELOAD_TIMEOUT_MS);
         }),
@@ -520,6 +629,9 @@ export default function SuperwallOnboardingGate({
         logArrangedOnboardingAnswers(callback.variables);
         await completeOnboarding();
         await dismiss().catch(() => undefined);
+      }
+      if (isSuperwallSigninAction(callback.name)) {
+        await openSigninFromOnboarding(callback.variables);
       }
       if (isAppReviewAction(callback.name)) {
         console.log(
@@ -570,6 +682,15 @@ export default function SuperwallOnboardingGate({
         await completeOnboarding();
         await dismiss().catch(() => undefined);
       }
+      if (
+        isOnboardingActive.current &&
+        isSuperwallSigninAction(callback.name)
+      ) {
+        await openSigninFromOnboarding(callback.variables);
+      }
+      if (isSuperwallPurchasedAction(callback.name)) {
+        await handlePurchasedCallback();
+      }
       if (isAppReviewAction(callback.name)) {
         console.log(
           "[StoreReview] request_app_review custom callback received from Superwall.",
@@ -580,20 +701,11 @@ export default function SuperwallOnboardingGate({
     },
     onCustomPaywallAction: async (name) => {
       console.log("[Superwall] Custom paywall action:", name);
-      if (name === "Purchased") {
-        try {
-          console.log("[Superwall] Purchased action received. Syncing subscription with backend...");
-          const isSubscribed = await syncSubscription();
-          if (isSubscribed) {
-            console.log("[Superwall] Subscription synced successfully. Granting access and redirecting to home.");
-            await dismiss().catch(() => undefined);
-            router.replace("/(tabs)/home");
-          } else {
-            console.warn("[Superwall] Synced subscription, but user is still not subscribed.");
-          }
-        } catch (err) {
-          console.error("[Superwall] Failed to sync subscription on Purchased custom action:", err);
-        }
+      if (isSuperwallSigninAction(name)) {
+        await openSigninFromOnboarding();
+      }
+      if (isSuperwallPurchasedAction(name)) {
+        await handlePurchasedCallback();
       }
     },
   }); 
@@ -602,17 +714,25 @@ export default function SuperwallOnboardingGate({
     if (!isInitialized) return;
 
     if (user) {
-      hasSeenAuthenticatedUser.current = true;
-      hasReleasedGate.current = true;
       isOnboardingActive.current = false;
-      setGateState("ready");
+      hasStarted.current = false;
+
+      if (isBackendUserSubscribed(user)) {
+        releaseGate();
+        return;
+      }
+
+      hasReleasedGate.current = false;
+      setGateState("presenting");
       return;
     }
 
-    if (hasSeenAuthenticatedUser.current) {
-      setGateState("ready");
-      return;
-    }
+    hasReleasedGate.current = false;
+    hasStarted.current = false;
+    hasPresentedOnboarding.current = false;
+    hasLoggedOnboardingAnswers.current = false;
+    hasCompletedOnboarding.current = false;
+    activePaywallUserId.current = null;
 
     let isCancelled = false;
     AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY)
@@ -664,7 +784,7 @@ export default function SuperwallOnboardingGate({
       if (isCancelled) return;
 
       await registerPlacement({
-        placement: ONBOARDING_PLACEMENT,
+        placement: SUPERWALL_ONBOARDING_PLACEMENT,
         feature: () => {
           if (
             hasCompletedOnboarding.current ||
@@ -715,10 +835,14 @@ export default function SuperwallOnboardingGate({
     [],
   );
 
+  const shouldBlockForSubscription = Boolean(
+    user && !isBackendUserSubscribed(user),
+  );
+
   return (
     <>
       <SuperwallUserSync />
-      {gateState === "ready" ? (
+      {gateState === "ready" && !shouldBlockForSubscription ? (
         children
       ) : (
         <View style={styles.loading}>

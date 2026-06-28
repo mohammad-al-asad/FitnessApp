@@ -17,6 +17,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.creedtng.fitcov3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -56,6 +57,13 @@
           "ios": {
             "deploymentTarget": "15.1"
           }
+        }
+      ],
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.362235528443-rok9ujevmn9hk96fj3kaprrk9qisl9p7"
         }
       ]
     ],
