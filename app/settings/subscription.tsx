@@ -8,15 +8,14 @@ import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { usePlacement } from "expo-superwall";
 import {
   backendGetMySubscriptionStatus,
-  backendSyncRevenueCat,
   type MySubscriptionStatus,
 } from "@/services/backend-auth";
 import { ensureRevenueCatConfigured } from "@/services/revenuecat";
+import { subscribeToRevenueCatSync } from "@/services/subscription-sync-events";
 import {
   SUPERWALL_PAYWALL_PLACEMENT,
   getPaywallParams,
   getReferralCodeStatus,
-  isSuperwallPurchasedAction,
 } from "@/services/superwall-flow";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -288,18 +287,45 @@ const getOfferBasePrice = (option: SubscriptionOption) =>
   getPhasePrice(option.fullPricePhase) ??
   getPhasePrice(option.pricingPhases[option.pricingPhases.length - 1]);
 
+const getPackagePriceParts = (
+  pack: PurchasesPackage | null,
+  fallback: { currency: string; amount: string },
+) => {
+  const priceString = String(pack?.product?.priceString ?? "").trim();
+  const fallbackParts = fallback;
+
+  if (!priceString) return fallbackParts;
+
+  const match = priceString.match(/^([^\d.,-]+)?\s*([\d.,]+)\s*([^\d.,-]+)?$/);
+  if (!match) {
+    return { currency: "", amount: priceString };
+  }
+
+  return {
+    currency: String(match[1] || match[3] || fallback.currency).trim(),
+    amount: String(match[2] || fallback.amount).trim(),
+  };
+};
+
+const getAnnualTotalText = (pack: PurchasesPackage | null) => {
+  const price = Number(pack?.product?.price ?? 0);
+  const currencyCode = pack?.product?.currencyCode;
+  if (price > 0) return `${formatCurrency(price * 12, currencyCode)} / year`;
+  return "$119.88 / year";
+};
+
+const getMonthlyEquivalentText = (pack: PurchasesPackage | null) => {
+  const price = Number(pack?.product?.price ?? 0);
+  const currencyCode = pack?.product?.currencyCode;
+  if (price > 0) return `${formatCurrency(price / 12, currencyCode)} / month`;
+  return "$5.00 / month";
+};
+
 const UpgradePlanScreen = () => {
   const { t, isRTL } = useLanguage();
   const { user, syncSubscription } = useAuth();
   const colors = useSafeColors();
   const router = useRouter();
-
-  const handleSuperwallPurchased = useCallback(async () => {
-    const isSubscribed = await syncSubscription();
-    if (isSubscribed) {
-      router.replace("/(tabs)/home" as any);
-    }
-  }, [router, syncSubscription]);
 
   const { registerPlacement } = usePlacement({
     onPresent: () => {
@@ -307,12 +333,6 @@ const UpgradePlanScreen = () => {
     },
     onDismiss: () => {
       console.log("[Superwall] Paywall dismissed on subscription screen.");
-    },
-    onCustomCallback: async (callback) => {
-      if (isSuperwallPurchasedAction(callback.name)) {
-        await handleSuperwallPurchased();
-      }
-      return { status: "success" };
     },
   });
 
@@ -331,6 +351,31 @@ const UpgradePlanScreen = () => {
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] =
     useState<MySubscriptionStatus | null>(null);
+  const monthlyPrice = getPackagePriceParts(monthlyPackage, {
+    currency: "USD",
+    amount: "9.99",
+  });
+  const yearlyPrice = getPackagePriceParts(yearlyPackage, {
+    currency: "USD",
+    amount: "59.99",
+  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToRevenueCatSync((event) => {
+      if (event.type !== "completed") return;
+
+      const isSubscribed =
+        event.response.user?.isSubscribed === true ||
+        event.response.normalized?.isActive === true ||
+        event.response.subscription?.isActive === true;
+
+      if (isSubscribed) {
+        router.replace("/(tabs)/home" as any);
+      }
+    });
+
+    return unsubscribe;
+  }, [router]);
 
   const loadInitialData = useCallback(async () => {
     try {
@@ -371,7 +416,9 @@ const UpgradePlanScreen = () => {
       setIsProcessingPurchase(true);
       await ensureRevenueCatConfigured(user?.uid);
       await Purchases.purchasePackage(yearlyPackage);
-      const isSubscribedLocally = await syncSubscription();
+      const isSubscribedLocally = await syncSubscription(
+        "subscription-screen:purchase",
+      );
       if (isSubscribedLocally) {
         Alert.alert(String(t("success")), "Successfully upgraded to the Yearly Plan!");
         await loadInitialData();
@@ -411,7 +458,9 @@ const UpgradePlanScreen = () => {
         return;
       }
 
-      const isSubscribedLocally = await syncSubscription();
+      const isSubscribedLocally = await syncSubscription(
+        "subscription-screen:restore",
+      );
 
       if (isSubscribedLocally) {
         Alert.alert(String(t("success")), String(t("subscription_restored")));
@@ -449,12 +498,6 @@ const UpgradePlanScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Title */}
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {t("subscription") || "Subscription"}
-          </Text>
-        </View>
 
         {isSubscribed && activeSub ? (
           <>
@@ -525,22 +568,54 @@ const UpgradePlanScreen = () => {
                 <View style={styles.comparisonWrapper}>
                   <View style={styles.priceComparisonItem}>
                     <Text style={[styles.comparisonPlanLabel, { color: colors.placeholder }]}>Monthly</Text>
-                    <Text style={[styles.comparisonPlanPrice, { color: colors.text }]}>
-                      {monthlyPackage?.product?.priceString || "$9.99"}
+                    <View style={styles.priceLine}>
+                      <Text style={[styles.priceCurrency, { color: colors.text }]}>
+                        {monthlyPrice.currency}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.72}
+                        style={[styles.comparisonPlanPrice, { color: colors.text }]}
+                      >
+                        {monthlyPrice.amount}
+                      </Text>
                       <Text style={styles.priceSubText}>/mo</Text>
+                    </View>
+                    <Text
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      style={[styles.comparisonTotal, { color: colors.placeholder }]}
+                    >
+                      {getAnnualTotalText(monthlyPackage)}
                     </Text>
-                    <Text style={[styles.comparisonTotal, { color: colors.placeholder }]}>$119.88 / year</Text>
                   </View>
 
                   <Ionicons name="arrow-forward" size={24} color={colors.placeholder} style={styles.arrowIcon} />
 
                   <View style={[styles.priceComparisonItem, { borderColor: colors.primary, borderWidth: 1, borderRadius: 12, padding: 8 }]}>
                     <Text style={[styles.comparisonPlanLabel, { color: colors.primary, fontWeight: "700" }]}>Yearly</Text>
-                    <Text style={[styles.comparisonPlanPrice, { color: colors.primary }]}>
-                      {yearlyPackage?.product?.priceString || "$59.99"}
+                    <View style={styles.priceLine}>
+                      <Text style={[styles.priceCurrency, { color: colors.primary }]}>
+                        {yearlyPrice.currency}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.72}
+                        style={[styles.comparisonPlanPrice, { color: colors.primary }]}
+                      >
+                        {yearlyPrice.amount}
+                      </Text>
                       <Text style={[styles.priceSubText, { color: colors.primary }]}>/yr</Text>
+                    </View>
+                    <Text
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      style={[styles.comparisonTotal, { color: colors.primary }]}
+                    >
+                      Only {getMonthlyEquivalentText(yearlyPackage)}
                     </Text>
-                    <Text style={[styles.comparisonTotal, { color: colors.primary }]}>Only $5.00 / month</Text>
                   </View>
                 </View>
 
@@ -644,6 +719,24 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 24, fontWeight: "bold" },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
+  toggleContainer: {
+    flexDirection: "row",
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 20,
+  },
+  planCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 20,
+  },
+  summaryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 24,
+  },
   statusCard: {
     borderRadius: 16,
     borderWidth: 1.5,
@@ -720,27 +813,48 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    minWidth: 0,
   },
   comparisonPlanLabel: {
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 4,
   },
+  priceLine: {
+    width: "100%",
+    minHeight: 32,
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    flexWrap: "nowrap",
+  },
+  priceCurrency: {
+    flexShrink: 0,
+    fontSize: 12,
+    fontWeight: "700",
+    marginEnd: 3,
+  },
   comparisonPlanPrice: {
-    fontSize: 22,
+    flexShrink: 1,
+    fontSize: 20,
     fontWeight: "bold",
+    textAlign: "center",
   },
   priceSubText: {
+    flexShrink: 0,
     fontSize: 12,
     fontWeight: "normal",
     color: "#999",
+    marginStart: 2,
   },
   comparisonTotal: {
-    fontSize: 12,
+    width: "100%",
+    fontSize: 11,
     marginTop: 4,
+    textAlign: "center",
   },
   arrowIcon: {
-    marginHorizontal: 10,
+    marginHorizontal: 8,
   },
   upgradeButton: {
     paddingVertical: 16,

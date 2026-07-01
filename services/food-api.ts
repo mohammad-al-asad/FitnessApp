@@ -1,4 +1,8 @@
-import { getServerUrl, readStoredSession } from "./backend-auth";
+import {
+  fetchWithAuthRefresh,
+  getServerUrl,
+  readStoredSession,
+} from "./backend-auth";
 
 export type FoodApiItem = {
   id?: string;
@@ -267,7 +271,7 @@ export async function getLogFoodsPage(
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithAuthRefresh(url.toString(), {
       method: "GET",
       headers,
     });
@@ -367,7 +371,7 @@ export async function getFoodByBarcode(
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithAuthRefresh(url.toString(), {
       method: "GET",
       headers,
     });
@@ -431,7 +435,7 @@ export async function createCustomFood(
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithAuthRefresh(url.toString(), {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -487,7 +491,7 @@ export async function createFoodLog(
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithAuthRefresh(url.toString(), {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -540,7 +544,7 @@ export async function backendDeleteFoodLog(mealLogId: string): Promise<any> {
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithAuthRefresh(url.toString(), {
       method: "DELETE",
       headers,
     });
@@ -702,7 +706,7 @@ export async function getFoodLogsHome(
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithAuthRefresh(url.toString(), {
       method: "GET",
       headers,
     });
@@ -762,7 +766,7 @@ export async function getFoodLogsWeeklySummary(
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithAuthRefresh(url.toString(), {
       method: "GET",
       headers,
     });

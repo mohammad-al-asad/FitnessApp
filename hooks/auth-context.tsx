@@ -6,29 +6,31 @@ import React, {
   type ReactNode,
 } from "react";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
 import {
-  type BackendUser,
-  type RegisterResponse,
   backendLogout,
   backendMe,
   backendSignIn,
   backendSignUp,
-  readStoredSession,
   backendSyncRevenueCat,
+  readStoredSession,
+  type BackendUser,
+  type RegisterResponse,
 } from "@/services/backend-auth";
 import {
   ensureRevenueCatConfigured,
   logOutRevenueCatUser,
 } from "@/services/revenuecat";
+import { subscribeToRevenueCatSync } from "@/services/subscription-sync-events";
 import {
   ONBOARDING_ANSWERS_KEY,
   clearReferralCodeStatus,
   clearSuperwallOnboardingCompletion,
+  getStoredOnboardingAuthPayload,
   saveReferralCodeStatus,
   type ReferralCodeStatus,
 } from "@/services/superwall-flow";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 
 const USER_STORAGE_KEY = "fitco_auth_user";
 const FIRST_SIGN_IN_SUBSCRIPTION_PROMPT_SEEN_PREFIX =
@@ -65,10 +67,37 @@ type AuthContextType = {
   completeFirstSignInSubscriptionPrompt: () => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<BackendUser | null>;
-  syncSubscription: () => Promise<boolean>;
+  syncSubscription: (source?: string) => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+const isUserSubscribed = (user: BackendUser | null | undefined) =>
+  Boolean(
+    user?.isSubscribed ||
+      user?.subscriptionStatus === "active" ||
+      user?.subscriptionStatus === "premium",
+  );
+
+const mergeUserPreservingSubscription = (
+  previousUser: BackendUser | null,
+  nextUser: BackendUser | null,
+) => {
+  if (!previousUser || !nextUser || previousUser.uid !== nextUser.uid) {
+    return nextUser;
+  }
+
+  if (!isUserSubscribed(previousUser) || isUserSubscribed(nextUser)) {
+    return nextUser;
+  }
+
+  return {
+    ...nextUser,
+    isSubscribed: previousUser.isSubscribed,
+    subscriptionStatus: previousUser.subscriptionStatus,
+    subscriptionExpiry: previousUser.subscriptionExpiry,
+  };
+};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<BackendUser | null>(null);
@@ -109,13 +138,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!isMounted) return;
 
         if (storedUser) {
-          setUser(storedUser);
+          setUser((currentUser) =>
+            mergeUserPreservingSubscription(currentUser, storedUser),
+          );
         }
 
         if (token) {
           try {
             const freshUser = await backendMe(token);
-            if (isMounted) setUser(freshUser);
+            if (isMounted) {
+              setUser((currentUser) =>
+                mergeUserPreservingSubscription(currentUser, freshUser),
+              );
+            }
           } catch {
           }
         }
@@ -167,6 +202,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user?.displayName,
   ]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeToRevenueCatSync((event) => {
+      if (event.type !== "completed") return;
+
+      console.log(
+        `[Auth] Received purchase-triggered RevenueCat sync event: ${JSON.stringify(
+          {
+            success: event.response.success,
+            message: event.response.message,
+            normalized: event.response.normalized,
+            subscription: event.response.subscription,
+            user: event.response.user
+              ? {
+                  uid: event.response.user.uid,
+                  email: event.response.user.email,
+                  subscriptionStatus: event.response.user.subscriptionStatus,
+                  subscriptionExpiry: event.response.user.subscriptionExpiry,
+                  isSubscribed: event.response.user.isSubscribed,
+                }
+              : null,
+          },
+          null,
+          2,
+        )}`,
+      );
+
+      if (event.response.user) {
+        setUser((currentUser) =>
+          mergeUserPreservingSubscription(currentUser, event.response.user!),
+        );
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   const signIn = async (
     email: string,
     password: string,
@@ -186,73 +257,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
       }
       await ensureRevenueCatConfigured(signedInUser.uid);
-      setUser(signedInUser);
+      setUser((currentUser) =>
+        mergeUserPreservingSubscription(currentUser, signedInUser),
+      );
       await clearFitcoData();
 
       return { success: true, user: signedInUser };
     } catch (error: any) {
       return { success: false, error: { message: error.message } };
     }
-  };
-
-  const mapOnboardingToRegisterPayload = (
-    answersStr: string | null,
-    basicInfo: { email: string; password: string; firstName: string; lastName: string }
-  ) => {
-    const payload: Record<string, any> = { ...basicInfo };
-
-    if (!answersStr) return payload;
-
-    try {
-      const answers = JSON.parse(answersStr);
-      
-      // Parse birthday to age
-      if (answers.profile?.birthday) {
-        const birthDate = new Date(answers.profile.birthday);
-        const age = new Date().getFullYear() - birthDate.getFullYear();
-        payload.age = isNaN(age) ? 25 : age;
-      } else {
-        payload.age = 25; // default fallback
-      }
-
-      payload.height = answers.body?.height?.value ?? 170;
-      payload.weight = answers.body?.currentWeight?.value ?? 70;
-      payload.gender = String(answers.profile?.sex ?? "male").toLowerCase();
-      
-      // Map activityLevel from workoutsPerWeek or set a default
-      const workouts = Number(answers.goals?.workoutsPerWeek ?? 3);
-      payload.activityLevel = workouts >= 5 ? "very_active" : workouts >= 3 ? "moderately_active" : "lightly_active";
-
-      // Map goal: "lose_weight", "maintain_weight", "gain_weight"
-      const rawGoal = String(answers.goals?.goal ?? "maintain_weight").toLowerCase();
-      if (rawGoal.includes("lose") || rawGoal.includes("deficit")) {
-        payload.goal = "lose_weight";
-      } else if (rawGoal.includes("gain") || rawGoal.includes("surplus") || rawGoal.includes("muscle")) {
-        payload.goal = "gain_weight";
-      } else {
-        payload.goal = "maintain_weight";
-      }
-
-      payload.targetWeight = answers.body?.desiredWeight?.value ?? payload.weight;
-
-      // Desired weekly change rate: e.g. 0.25, 0.5, 1.0 (optional/null if maintain_weight)
-      if (payload.goal === "maintain_weight") {
-        payload.weeklyPace = null;
-      } else {
-        payload.weeklyPace = answers.goals?.weeklyPace != null ? Number(answers.goals.weeklyPace) : 0.5;
-      }
-
-      payload.medicalConditions = answers.goals?.challenge || "";
-      payload.allergies = ""; // default empty
-      if (answers.profile?.referralCode) {
-        payload.referralCode = String(answers.profile.referralCode).trim();
-      }
-
-    } catch (error) {
-      console.error("[Auth] Failed to map onboarding answers:", error);
-    }
-
-    return payload;
   };
 
   const signUp = async (
@@ -262,13 +275,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     lastName: string,
   ): Promise<AuthResult> => {
     try {
-      const answersStr = await AsyncStorage.getItem(ONBOARDING_ANSWERS_KEY);
-      const registerPayload = mapOnboardingToRegisterPayload(answersStr, {
+      const registerPayload = {
+        ...(await getStoredOnboardingAuthPayload()),
         email,
         password,
         firstName,
         lastName,
-      });
+      };
 
       const registration: RegisterResponse = await backendSignUp(
         registerPayload,
@@ -368,7 +381,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await ensureRevenueCatConfigured(nextUser.uid);
       }
 
-      setUser(nextUser);
+      setUser((currentUser) =>
+        mergeUserPreservingSubscription(currentUser, nextUser),
+      );
       return nextUser;
     } catch (error) {
       console.error("[Auth] Failed to refresh user:", error);
@@ -376,11 +391,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const syncSubscription = async (): Promise<boolean> => {
+  const syncSubscription = async (
+    source = "auth-context.syncSubscription",
+  ): Promise<boolean> => {
     try {
-      const res = await backendSyncRevenueCat();
+      const res = await backendSyncRevenueCat(source);
+      console.log(
+        `[Auth] backendSyncRevenueCat response (${source}): ${JSON.stringify(
+          {
+            success: res.success,
+            message: res.message,
+            normalized: res.normalized,
+            subscription: res.subscription,
+            user: res.user
+              ? {
+                  uid: res.user.uid,
+                  email: res.user.email,
+                  subscriptionStatus: res.user.subscriptionStatus,
+                  subscriptionExpiry: res.user.subscriptionExpiry,
+                  isSubscribed: res.user.isSubscribed,
+                }
+              : null,
+          },
+          null,
+          2,
+        )}`,
+      );
       if (res.user) {
-        setUser(res.user);
+        setUser((currentUser) =>
+          mergeUserPreservingSubscription(currentUser, res.user!),
+        );
         return Boolean(res.user.isSubscribed);
       }
       return false;

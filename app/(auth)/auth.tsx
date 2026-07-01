@@ -11,6 +11,8 @@ import {
 } from "@/services/backend-auth";
 import { useLanguage } from "@/hooks/language-context";
 import {
+  getStoredOnboardingAuthPayload,
+  hasCompletedSuperwallOnboarding,
   saveReferralCodeStatus,
   type ReferralCodeStatus,
 } from "@/services/superwall-flow";
@@ -215,13 +217,6 @@ const mapErrorToBilingual = (msg: string): string => {
 export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   const { signIn, signUp, refreshUser } = useAuth();
   const { t, isRTL } = useLanguage();
-  const translateText = useCallback(
-    (key: keyof typeof translations.en) => {
-      const value = t(key as any);
-      return Array.isArray(value) ? value.join(" ") : value;
-    },
-    [t],
-  );
   const errorTitle = "Error / خطأ";
   const params = useLocalSearchParams<{ mode?: "signin" | "signup" }>();
 
@@ -231,8 +226,15 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
   const hasGoogleClientId = Boolean(googleWebClientId);
 
+  const initialStep: AuthStep =
+    params.mode === "signup"
+      ? "signup"
+      : params.mode === "signin"
+        ? "signin"
+        : "welcome";
+
   // Steps state
-  const [step, setStep] = useState<AuthStep>("welcome");
+  const [step, setStep] = useState<AuthStep>(initialStep);
 
   // Form Fields
   const [email, setEmail] = useState("");
@@ -295,6 +297,16 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     }
   }, [onAuthComplete, refreshUser]);
 
+  const getOAuthOnboardingPayload = useCallback(async () => {
+    const isExistingUserSignin = params.mode === "signin" || step === "signin";
+    if (isExistingUserSignin) return {};
+
+    const hasCompletedOnboarding = await hasCompletedSuperwallOnboarding();
+    if (!hasCompletedOnboarding) return {};
+
+    return getStoredOnboardingAuthPayload();
+  }, [params.mode, step]);
+
   const handleBack = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === "signup" || step === "signin") {
@@ -343,9 +355,19 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
           throw new Error("Google did not return an ID token.");
         }
 
+        const onboardingPayload = await getOAuthOnboardingPayload();
+        const isFirstOAuthSignup = Object.keys(onboardingPayload).length > 0;
+
         await backendGoogleSignIn({
           idToken,
           email: result.data.user.email,
+          ...(isFirstOAuthSignup
+            ? {
+                firstName: result.data.user.givenName ?? undefined,
+                lastName: result.data.user.familyName ?? undefined,
+                ...onboardingPayload,
+              }
+            : {}),
         });
         await completeAuthFlow();
         return;
@@ -367,11 +389,15 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
         throw new Error("Apple did not return an identity token.");
       }
 
+      const onboardingPayload = await getOAuthOnboardingPayload();
+      const isFirstOAuthSignup = Object.keys(onboardingPayload).length > 0;
+
       await backendAppleSignIn({
         identityToken: credential.identityToken,
         email: credential.email ?? undefined,
         firstName: credential.fullName?.givenName ?? undefined,
         lastName: credential.fullName?.familyName ?? undefined,
+        ...(isFirstOAuthSignup ? onboardingPayload : {}),
       });
       await completeAuthFlow();
     } catch (err: any) {
@@ -681,15 +707,15 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                       </Text>
                     </TouchableOpacity>
 
-                    {/* Continue with Email Button */}
+                    {/* Sign up with Email Button */}
                     <TouchableOpacity
                       style={[styles.socialPillButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => setStep("signin")}
+                      onPress={() => setStep("signup")}
                       activeOpacity={0.85}
                     >
                       <Mail size={24} color={colors.text} style={styles.socialPillIconMail} />
                       <Text style={[styles.socialPillText, { color: colors.text }]}>
-                        {isRTL ? "تسجيل الدخول بالبريد الإلكتروني" : "Sign in with Email"}
+                        {isRTL ? "التسجيل بالبريد الإلكتروني" : "Sign up with Email"}
                       </Text>
                     </TouchableOpacity>
 
@@ -987,50 +1013,6 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                     >
                       <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
                         {t("forgotPassword")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Or divider */}
-                  <View style={styles.orDivider}>
-                    <View style={[styles.orLine, { backgroundColor: colors.border }]} />
-                    <Text style={[styles.orText, { color: colors.placeholder }]}>
-                      {isRTL ? "أو" : "or"}
-                    </Text>
-                    <View style={[styles.orLine, { backgroundColor: colors.border }]} />
-                  </View>
-
-                  {/* OAuth buttons */}
-                  <View style={styles.oauthButtonGroup}>
-                    {/* Apple Sign-In Button */}
-                    <TouchableOpacity
-                      style={[styles.socialPillButton, { backgroundColor: "#000000", borderColor: "#333333" }]}
-                      onPress={() => handleOAuthLogin("Apple")}
-                      activeOpacity={0.85}
-                    >
-                      <Image
-                        source={require("@/assets/images/apple.png")}
-                        style={[styles.socialPillIcon, { width: 34, height: 34, tintColor: "#FFFFFF" }]}
-                        resizeMode="contain"
-                      />
-                      <Text style={[styles.socialPillText, { color: "#FFFFFF" }]}>
-                        {isRTL ? "تسجيل الدخول باستخدام Apple" : "Sign in with Apple"}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Google Sign-In Button */}
-                    <TouchableOpacity
-                      style={[styles.socialPillButton, { backgroundColor: "#FFFFFF", borderColor: "#E4E4E7" }]}
-                      onPress={() => handleOAuthLogin("Google")}
-                      activeOpacity={0.85}
-                    >
-                      <Image
-                        source={require("@/assets/images/google.png")}
-                        style={styles.socialPillIcon}
-                        resizeMode="contain"
-                      />
-                      <Text style={[styles.socialPillText, { color: "#000000" }]}>
-                        {isRTL ? "تسجيل الدخول باستخدام Google" : "Sign in with Google"}
                       </Text>
                     </TouchableOpacity>
                   </View>

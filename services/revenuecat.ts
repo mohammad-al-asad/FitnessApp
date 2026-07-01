@@ -25,6 +25,15 @@ const normalizeAppUserID = (appUserID?: string | null) => {
   return value ? value : null;
 };
 
+const isAnonymousLogoutError = (error: unknown) => {
+  const message = String((error as any)?.message ?? error ?? "").toLowerCase();
+
+  return (
+    message.includes("current user is anonymous") ||
+    message.includes("called logout but the current user is anonymous")
+  );
+};
+
 const configureLogHandler = () => {
   if (logHandlerConfigured) return;
 
@@ -124,11 +133,22 @@ export const configureRevenueCatForStoredUser = async () => {
 };
 
 export const logOutRevenueCatUser = async () => {
-  if (!isConfigured) return;
-
-  const isAnonymous = await Purchases.isAnonymous();
-  if (!isAnonymous) {
-    await Purchases.logOut();
+  if (!isConfigured) {
+    configuredAppUserID = null;
+    return;
   }
-  configuredAppUserID = null;
+
+  try {
+    await Purchases.logOut();
+  } catch (error) {
+    if (!isAnonymousLogoutError(error)) {
+      throw error;
+    }
+
+    console.log(
+      "[RevenueCat] Skipping logOut because the current user is already anonymous.",
+    );
+  } finally {
+    configuredAppUserID = null;
+  }
 };
