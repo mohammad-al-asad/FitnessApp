@@ -43,6 +43,7 @@ import {
 import Purchases, {
   type PricingPhase,
   type PurchasesPackage,
+  type StoreProductChangeInfo,
   type SubscriptionOption,
 } from "react-native-purchases";
 
@@ -307,6 +308,14 @@ const getPackagePriceParts = (
   };
 };
 
+const normalizeStoreProductIdentifier = (identifier: string) => {
+  const trimmed = identifier.trim();
+  if (!trimmed) return "";
+
+  // RevenueCat/Google may expose "productId:basePlanId"; upgrades need only productId.
+  return trimmed.split(":")[0] || trimmed;
+};
+
 const getAnnualTotalText = (pack: PurchasesPackage | null) => {
   const price = Number(pack?.product?.price ?? 0);
   const currencyCode = pack?.product?.currencyCode;
@@ -415,7 +424,23 @@ const UpgradePlanScreen = () => {
     try {
       setIsProcessingPurchase(true);
       await ensureRevenueCatConfigured(user?.uid);
-      await Purchases.purchasePackage(yearlyPackage);
+      const activeProductId = normalizeStoreProductIdentifier(
+        String(activeSub?.productId || ""),
+      );
+      const monthlyProductId = normalizeStoreProductIdentifier(
+        String(monthlyPackage?.product?.identifier || ""),
+      );
+      const oldProductIdentifier = activeProductId || monthlyProductId;
+      const productChangeInfo: StoreProductChangeInfo | null =
+        Platform.OS === "android" && oldProductIdentifier
+          ? {
+              oldProductIdentifier,
+              replacementMode:
+                Purchases.STORE_REPLACEMENT_MODE.CHARGE_PRORATED_PRICE,
+            }
+          : null;
+
+      await Purchases.purchasePackage(yearlyPackage, null, productChangeInfo);
       const isSubscribedLocally = await syncSubscription(
         "subscription-screen:purchase",
       );

@@ -82,6 +82,7 @@ export default function AddMealScreen() {
       await createCustomFood({
         barcode: barcode.trim() || undefined,
         foodName: foodName.trim(),
+        servingSize: "1 serving",
         calories: Number(calories) || 0,
         protein: Number(protein) || 0,
         carbs: Number(carbs) || 0,
@@ -113,7 +114,7 @@ export default function AddMealScreen() {
     >
       <Stack.Screen
         options={{
-          title: t("addMeal") as string,
+          title: t("addFoodTitle") as string,
           headerShown: false,
         }}
       />

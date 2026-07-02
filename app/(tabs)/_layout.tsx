@@ -259,8 +259,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Settings color={color} size={23} />,
         }}
       />
-      {/* Hidden Screens */}
-      <Tabs.Screen name="scanBarcode" options={{ href: null }} />
     </Tabs>
   );
 }

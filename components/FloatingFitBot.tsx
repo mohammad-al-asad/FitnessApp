@@ -801,7 +801,11 @@ export default function FloatingFitBot({
         }}
         onScanBarcode={() => {
           setShowModal(false);
-          router.push("/(modals)/scanBarcode" as any);
+          router.push("/modal/scanBarcode?source=foodLog");
+        }}
+        onScanMeal={() => {
+          setShowModal(false);
+          router.push("/modal/scanMeal");
         }}
       />
       <FirstSignInSubscriptionModal

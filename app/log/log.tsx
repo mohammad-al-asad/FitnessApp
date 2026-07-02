@@ -182,7 +182,7 @@ export default function LogFoodScreen() {
           ]}
           numberOfLines={1}
         >
-          {item.brand || item.name}
+          {item.name}
         </Text>
 
         <View
@@ -206,7 +206,7 @@ export default function LogFoodScreen() {
                 ]}
                 numberOfLines={1}
               >
-                {item.name}
+                {item.brand}
               </Text>
               <Text style={[styles.dot, { color: colors.placeholder }]}>|</Text>
             </>

@@ -47,6 +47,72 @@ export type CreateFoodLogPayload = {
   servingUnit: string;
 };
 
+export type UpdateFoodLogPayload = {
+  meal?: string;
+  foodName?: string;
+  servings?: number;
+  servingSize?: number;
+  servingUnit?: string;
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fats?: number;
+  notes?: string;
+};
+
+export type NutritionFactValue = {
+  value: number;
+  unit: string;
+};
+
+export type AiNutritionFacts = {
+  calories: NutritionFactValue;
+  protein: NutritionFactValue;
+  carbs: NutritionFactValue;
+  fats: NutritionFactValue;
+};
+
+export type AiMealScanPayload = {
+  imageBase64: string;
+  mimeType: string;
+  servingDescription?: string;
+};
+
+export type AiMealScanResult = {
+  source: string;
+  foodName: string;
+  servingSize: string;
+  confidence: number;
+  nutritionFacts: AiNutritionFacts;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  notes: string;
+};
+
+export type SaveAiMealPayload = {
+  meal: string;
+  imageBase64: string;
+  mimeType: string;
+  foodName: string;
+  confidence?: number;
+  nutritionFacts: AiNutritionFacts;
+  notes?: string;
+};
+
+export type UpdateAiMealPayload = Partial<
+  Omit<SaveAiMealPayload, "imageBase64" | "mimeType">
+> & {
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  fats?: number;
+  servingSize?: string;
+};
+
 export type FoodLogsHomeMealItem = {
   id?: string;
   foodId?: string;
@@ -61,6 +127,12 @@ export type FoodLogsHomeMealItem = {
   carbs: number;
   fat: number;
   foodSource?: string;
+  imageUrl?: string;
+  confidence?: number | null;
+  notes?: string;
+  source?: string;
+  servingDescription?: string;
+  isAi?: boolean;
   loggedAt?: string;
 };
 
@@ -244,6 +316,91 @@ function parseErrorMessage(bodyText: string, fallback: string): string {
   }
 
   return fallback;
+}
+
+type FoodApiRequestError = Error & { status?: number };
+
+async function requestFoodApi<T>(
+  path: string,
+  init: RequestInit,
+  fallbackMessage: string,
+): Promise<T> {
+  const url = new URL(path, getServerUrl());
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
+    ...(init.headers as Record<string, string> | undefined),
+  };
+
+  let response: Response;
+  try {
+    response = await fetchWithAuthRefresh(url.toString(), {
+      ...init,
+      headers,
+    });
+  } catch (error: any) {
+    const rawMessage = String(error?.message ?? "").toLowerCase();
+    const isNetworkError =
+      rawMessage.includes("network request failed") ||
+      rawMessage.includes("failed to fetch");
+
+    if (isNetworkError) {
+      throw new Error(
+        `Cannot reach backend at ${url.toString()}. Check EXPO_PUBLIC_SERVER_URL and backend availability.`,
+      );
+    }
+
+    throw error;
+  }
+
+  const bodyText = await response.text();
+  let parsedBody: any = {};
+  if (bodyText) {
+    try {
+      parsedBody = JSON.parse(bodyText);
+    } catch {
+      parsedBody = {};
+    }
+  }
+
+  if (!response.ok) {
+    const error = new Error(
+      parseErrorMessage(bodyText, `${fallbackMessage} (${response.status})`),
+    ) as FoodApiRequestError;
+    error.status = response.status;
+    throw error;
+  }
+
+  return parsedBody as T;
+}
+
+async function requestFoodApiWithMethodFallback<T>(
+  path: string,
+  methods: string[],
+  payload: unknown,
+  fallbackMessage: string,
+): Promise<T> {
+  let lastError: FoodApiRequestError | null = null;
+
+  for (const method of methods) {
+    try {
+      return await requestFoodApi<T>(
+        path,
+        {
+          method,
+          body: payload == null ? undefined : JSON.stringify(payload),
+        },
+        fallbackMessage,
+      );
+    } catch (error: any) {
+      lastError = error;
+      const canTryNext =
+        error?.status === 404 || error?.status === 405 || error?.status === 501;
+      if (!canTryNext) throw error;
+    }
+  }
+
+  throw lastError ?? new Error(fallbackMessage);
 }
 
 export async function getLogFoodsPage(
@@ -530,6 +687,25 @@ export async function createFoodLog(
   return parsedBody?.data ?? parsedBody;
 }
 
+export async function backendUpdateFoodLog(
+  mealLogId: string,
+  payload: UpdateFoodLogPayload,
+): Promise<any> {
+  const normalizedId = String(mealLogId || "").trim();
+  if (!normalizedId) {
+    throw new Error("Missing food log id.");
+  }
+
+  const json = await requestFoodApiWithMethodFallback<any>(
+    `/api/v1/food-logs/${encodeURIComponent(normalizedId)}`,
+    ["PATCH", "PUT"],
+    payload,
+    "Failed to update food log",
+  );
+
+  return json?.data ?? json;
+}
+
 export async function backendDeleteFoodLog(mealLogId: string): Promise<any> {
   const url = new URL(`/api/v1/food-logs/${mealLogId}`, getServerUrl());
   const { token } = await readStoredSession();
@@ -573,21 +749,220 @@ export async function backendDeleteFoodLog(mealLogId: string): Promise<any> {
   return bodyText ? JSON.parse(bodyText) : { message: "Food log deleted" };
 }
 
-function mapHomeMealItem(raw: any): FoodLogsHomeMealItem {
+export async function scanAiMeal(
+  payload: AiMealScanPayload,
+): Promise<AiMealScanResult> {
+  const imageBase64 = String(payload.imageBase64 || "").trim();
+  if (!imageBase64) {
+    throw new Error("Missing meal image.");
+  }
+
+  const json = await requestFoodApi<any>(
+    "/api/v1/custom-foods/scan/ai",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        imageBase64,
+        mimeType: payload.mimeType || "image/jpeg",
+        servingDescription: payload.servingDescription || "1 visible serving",
+      }),
+    },
+    "Failed to scan meal with AI",
+  );
+
+  return normalizeAiMealScanResult(json);
+}
+
+export async function saveAiMealScan(payload: SaveAiMealPayload): Promise<{
+  message: string;
+  foodLog: FoodLogsHomeMealItem | null;
+}> {
+  const json = await requestFoodApi<any>(
+    "/api/v1/custom-foods/scan/ai/save",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    "Failed to save AI scanned meal",
+  );
+
   return {
-    id: raw?._id ? String(raw._id) : undefined,
-    foodId: raw?.food ? String(raw.food) : undefined,
-    foodName: asText(raw?.foodName ?? raw?.name ?? "Unnamed"),
-    brandName: asText(raw?.brandName ?? raw?.brand ?? ""),
+    message: asText(json?.message ?? json?.data?.message ?? "AI meal saved"),
+    foodLog: normalizeSavedFoodLog(json),
+  };
+}
+
+export async function updateAiMealScan(
+  aiFoodLogId: string,
+  payload: UpdateAiMealPayload,
+): Promise<{
+  message: string;
+  foodLog: FoodLogsHomeMealItem | null;
+}> {
+  const normalizedId = String(aiFoodLogId || "").trim();
+  if (!normalizedId) {
+    throw new Error("Missing AI food log id.");
+  }
+
+  const nextPayload = {
+    ...payload,
+    nutritionFacts:
+      payload.nutritionFacts ??
+      buildNutritionFactsFromValues(
+        toNumber(payload.calories),
+        toNumber(payload.protein),
+        toNumber(payload.carbs),
+        toNumber(payload.fats ?? payload.fat),
+      ),
+  };
+
+  const json = await requestFoodApiWithMethodFallback<any>(
+    `/api/v1/custom-foods/scan/ai/${encodeURIComponent(normalizedId)}`,
+    ["PATCH", "PUT"],
+    nextPayload,
+    "Failed to update AI scanned meal",
+  );
+
+  return {
+    message: asText(json?.message ?? json?.data?.message ?? "AI meal updated"),
+    foodLog: normalizeSavedFoodLog(json),
+  };
+}
+
+export async function deleteAiMealScan(aiFoodLogId: string): Promise<any> {
+  const normalizedId = String(aiFoodLogId || "").trim();
+  if (!normalizedId) {
+    throw new Error("Missing AI food log id.");
+  }
+
+  return requestFoodApi<any>(
+    `/api/v1/custom-foods/scan/ai/${encodeURIComponent(normalizedId)}`,
+    {
+      method: "DELETE",
+    },
+    "Failed to delete AI scanned meal",
+  );
+}
+
+function nutritionFactNumber(facts: any, key: string): number {
+  return toNumber(facts?.[key]?.value ?? facts?.[key]);
+}
+
+function nutritionFactUnit(
+  facts: any,
+  key: string,
+  fallback: string,
+): string {
+  return asText(facts?.[key]?.unit || fallback) || fallback;
+}
+
+function buildNutritionFactsFromValues(
+  calories: number,
+  protein: number,
+  carbs: number,
+  fats: number,
+): AiNutritionFacts {
+  return {
+    calories: { value: calories, unit: "kcal" },
+    protein: { value: protein, unit: "g" },
+    carbs: { value: carbs, unit: "g" },
+    fats: { value: fats, unit: "g" },
+  };
+}
+
+function normalizeAiMealScanResult(json: any): AiMealScanResult {
+  const root = json?.data ?? json?.result ?? json ?? {};
+  const facts = root?.nutritionFacts ?? {};
+  const calories = toNumber(root?.calories ?? nutritionFactNumber(facts, "calories"));
+  const protein = toNumber(root?.protein ?? nutritionFactNumber(facts, "protein"));
+  const carbs = toNumber(root?.carbs ?? nutritionFactNumber(facts, "carbs"));
+  const fats = toNumber(
+    root?.fats ?? root?.fat ?? nutritionFactNumber(facts, "fats"),
+  );
+
+  return {
+    source: asText(root?.source || "ai") || "ai",
+    foodName: asText(root?.foodName ?? root?.name ?? "AI scanned meal"),
+    servingSize: asText(
+      root?.servingSize ?? root?.servingDescription ?? "1 visible serving",
+    ),
+    confidence: toNumber(root?.confidence),
+    nutritionFacts: {
+      calories: {
+        value: calories,
+        unit: nutritionFactUnit(facts, "calories", "kcal"),
+      },
+      protein: {
+        value: protein,
+        unit: nutritionFactUnit(facts, "protein", "g"),
+      },
+      carbs: {
+        value: carbs,
+        unit: nutritionFactUnit(facts, "carbs", "g"),
+      },
+      fats: {
+        value: fats,
+        unit: nutritionFactUnit(facts, "fats", "g"),
+      },
+    },
+    calories,
+    protein,
+    carbs,
+    fats,
+    notes: asText(root?.notes ?? "Estimated from the submitted meal image."),
+  };
+}
+
+function normalizeSavedFoodLog(json: any): FoodLogsHomeMealItem | null {
+  const root = json?.data ?? json ?? {};
+  const rawFoodLog = root?.foodLog ?? root?.createdFoodLog ?? root?.log ?? root;
+  if (!rawFoodLog || typeof rawFoodLog !== "object") return null;
+  return mapHomeMealItem(rawFoodLog);
+}
+
+function mapHomeMealItem(raw: any): FoodLogsHomeMealItem {
+  const nestedFood =
+    raw?.food && typeof raw.food === "object" ? raw.food : undefined;
+  const nutritionFacts = raw?.nutritionFacts ?? nestedFood?.nutritionFacts ?? {};
+  const source = asText(
+    raw?.source ?? raw?.foodSource ?? nestedFood?.source ?? "",
+  ).toLowerCase();
+  const imageUrl = asText(raw?.imageUrl ?? raw?.image ?? nestedFood?.imageUrl);
+  const confidenceValue = toOptionalNumber(raw?.confidence);
+  const inferredAi = source === "ai" || Boolean(imageUrl) || confidenceValue != null;
+  const rawServingSize =
+    raw?.servingSize ??
+    raw?.servingDescription ??
+    nestedFood?.servingSize ??
+    "1";
+
+  return {
+    id: raw?._id || raw?.id || raw?.foodLogId ? String(raw?._id ?? raw?.id ?? raw?.foodLogId) : undefined,
+    foodId:
+      raw?.foodId || nestedFood?._id || nestedFood?.id || typeof raw?.food === "string"
+        ? String(raw?.foodId ?? nestedFood?._id ?? nestedFood?.id ?? raw?.food)
+        : undefined,
+    foodName: asText(
+      raw?.foodName ?? nestedFood?.foodName ?? raw?.name ?? nestedFood?.name ?? "Unnamed",
+    ),
+    brandName: asText(raw?.brandName ?? nestedFood?.brandName ?? raw?.brand ?? nestedFood?.brand ?? ""),
     meal: asText(raw?.meal ?? ""),
-    servings: toNumber(raw?.servings),
-    servingSize: toNumber(raw?.servingSize),
-    servingUnit: asText(raw?.servingUnit ?? "g"),
-    calories: toNumber(raw?.calories),
-    protein: toNumber(raw?.protein),
-    carbs: toNumber(raw?.carbs),
-    fat: toNumber(raw?.fat),
-    foodSource: raw?.foodSource ? String(raw.foodSource) : undefined,
+    servings: toNumber(raw?.servings) || 1,
+    servingSize: toNumber(rawServingSize) || 1,
+    servingUnit: asText(raw?.servingUnit ?? raw?.servingDescription ?? "serving"),
+    calories: toNumber(raw?.calories ?? nutritionFactNumber(nutritionFacts, "calories")),
+    protein: toNumber(raw?.protein ?? nutritionFactNumber(nutritionFacts, "protein")),
+    carbs: toNumber(raw?.carbs ?? nutritionFactNumber(nutritionFacts, "carbs")),
+    fat: toNumber(
+      raw?.fat ?? raw?.fats ?? nutritionFactNumber(nutritionFacts, "fats"),
+    ),
+    foodSource: raw?.foodSource ? String(raw.foodSource) : source || undefined,
+    imageUrl: imageUrl || undefined,
+    confidence: confidenceValue,
+    notes: asText(raw?.notes ?? nestedFood?.notes) || undefined,
+    source: source || undefined,
+    servingDescription: asText(raw?.servingDescription ?? raw?.servingSize) || undefined,
+    isAi: inferredAi,
     loggedAt: raw?.loggedAt ? String(raw.loggedAt) : undefined,
   };
 }

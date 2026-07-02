@@ -69,8 +69,11 @@ type AuthStep =
   | "resetOtpVerify"
   | "newPassword";
 
+type RootAuthStep = "welcome" | "signup" | "signin";
+
 interface AuthScreenProps {
   onAuthComplete?: () => void;
+  initialStep?: RootAuthStep;
 }
 
 const isVerificationRequiredMessage = (message: string) => {
@@ -214,7 +217,10 @@ const mapErrorToBilingual = (msg: string): string => {
   return msg;
 };
 
-export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
+export default function AuthFlowScreen({
+  onAuthComplete,
+  initialStep: initialRouteStep,
+}: AuthScreenProps) {
   const { signIn, signUp, refreshUser } = useAuth();
   const { t, isRTL } = useLanguage();
   const errorTitle = "Error / خطأ";
@@ -226,12 +232,13 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
   const hasGoogleClientId = Boolean(googleWebClientId);
 
-  const initialStep: AuthStep =
-    params.mode === "signup"
+  const initialStep: RootAuthStep =
+    initialRouteStep ??
+    (params.mode === "signup"
       ? "signup"
       : params.mode === "signin"
         ? "signin"
-        : "welcome";
+        : "welcome");
 
   // Steps state
   const [step, setStep] = useState<AuthStep>(initialStep);
@@ -271,12 +278,8 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   }, [funnyLines, step, isRTL]);
 
   useEffect(() => {
-    if (params.mode === "signup") {
-      setStep("signup");
-    } else if (params.mode === "signin") {
-      setStep("signin");
-    }
-  }, [params.mode]);
+    setStep(initialStep);
+  }, [initialStep]);
 
   useEffect(() => {
     if (!googleWebClientId) return;
@@ -298,19 +301,25 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
   }, [onAuthComplete, refreshUser]);
 
   const getOAuthOnboardingPayload = useCallback(async () => {
-    const isExistingUserSignin = params.mode === "signin" || step === "signin";
+    const isExistingUserSignin = initialStep === "signin" || step === "signin";
     if (isExistingUserSignin) return {};
 
     const hasCompletedOnboarding = await hasCompletedSuperwallOnboarding();
     if (!hasCompletedOnboarding) return {};
 
     return getStoredOnboardingAuthPayload();
-  }, [params.mode, step]);
+  }, [initialStep, step]);
+
+  const navigateToAuthStep = useCallback((nextStep: RootAuthStep) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setStep(nextStep);
+    router.replace(`/(auth)/${nextStep}` as any);
+  }, []);
 
   const handleBack = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === "signup" || step === "signin") {
-      setStep("welcome");
+      navigateToAuthStep("welcome");
     } else if (step === "otpVerify") {
       setStep("signup");
     } else if (step === "forgotPassword") {
@@ -320,7 +329,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     } else if (step === "newPassword") {
       setStep("resetOtpVerify");
     } else if (step === "welcome") {
-      router.back();
+      navigateToAuthStep("welcome");
     }
   };
 
@@ -636,8 +645,8 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Sleek top-aligned Back button inside safe area for sub-steps */}
-      {step !== "welcome" && (
+      {/* Root auth screens do not show a back button; sub-flows still need one. */}
+      {step !== "welcome" && step !== "signup" && step !== "signin" && (
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <ChevronLeft size={24} color={colors.text} />
@@ -710,7 +719,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                     {/* Sign up with Email Button */}
                     <TouchableOpacity
                       style={[styles.socialPillButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => setStep("signup")}
+                      onPress={() => navigateToAuthStep("signup")}
                       activeOpacity={0.85}
                     >
                       <Mail size={24} color={colors.text} style={styles.socialPillIconMail} />
@@ -719,6 +728,15 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                       </Text>
                     </TouchableOpacity>
 
+                    <TouchableOpacity
+                      style={styles.welcomeSignInLink}
+                      onPress={() => navigateToAuthStep("signin")}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.welcomeSignInText, { color: colors.accent }]}>
+                        {t("haveAccountSignIn")}
+                      </Text>
+                    </TouchableOpacity>
 
                   </View>
                 </View>
@@ -897,7 +915,7 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                     <Text style={[styles.switchText, { color: colors.text }]}>
                       {t("alreadyHaveAccount")}
                     </Text>
-                    <TouchableOpacity onPress={() => setStep("signin")}>
+                    <TouchableOpacity onPress={() => navigateToAuthStep("signin")}>
                       <Text style={[styles.switchButton, { color: colors.accent }]}>
                         {t("signIn")}
                       </Text>
@@ -1017,12 +1035,52 @@ export default function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                     </TouchableOpacity>
                   </View>
 
+                  <View style={styles.orDivider}>
+                    <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+                    <Text style={[styles.orText, { color: colors.placeholder }]}>
+                      {isRTL ? "أو" : "or"}
+                    </Text>
+                    <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+                  </View>
+
+                  <View style={styles.signInSocialGroup}>
+                    <TouchableOpacity
+                      style={[styles.socialPillButton, { backgroundColor: "#FFFFFF", borderColor: "#E4E4E7" }]}
+                      onPress={() => handleOAuthLogin("Google")}
+                      activeOpacity={0.85}
+                    >
+                      <Image
+                        source={require("@/assets/images/google.png")}
+                        style={styles.socialPillIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={[styles.socialPillText, { color: "#000000" }]}>
+                        {isRTL ? "تسجيل الدخول باستخدام Google" : "Sign in with Google"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.socialPillButton, { backgroundColor: "#000000", borderColor: "#333333" }]}
+                      onPress={() => handleOAuthLogin("Apple")}
+                      activeOpacity={0.85}
+                    >
+                      <Image
+                        source={require("@/assets/images/apple.png")}
+                        style={[styles.socialPillIcon, { width: 34, height: 34, tintColor: "#FFFFFF" }]}
+                        resizeMode="contain"
+                      />
+                      <Text style={[styles.socialPillText, { color: "#FFFFFF" }]}>
+                        {isRTL ? "تسجيل الدخول باستخدام Apple" : "Sign in with Apple"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   {/* Footer switch to sign-up */}
                   <View style={styles.footer}>
                     <Text style={[styles.switchText, { color: colors.text }]}>
                       {t("dontHaveAccount")}
                     </Text>
-                    <TouchableOpacity onPress={() => setStep("signup")}>
+                    <TouchableOpacity onPress={() => navigateToAuthStep("signup")}>
                       <Text style={[styles.switchButton, { color: colors.accent }]}>
                         {t("signUp")}
                       </Text>
@@ -1397,6 +1455,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 40,
   },
+  signInSocialGroup: {
+    gap: 12,
+    marginBottom: 24,
+  },
   socialPillButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1415,6 +1477,14 @@ const styles = StyleSheet.create({
   },
   socialPillText: {
     fontSize: 16,
+    fontWeight: "700",
+  },
+  welcomeSignInLink: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  welcomeSignInText: {
+    fontSize: 15,
     fontWeight: "700",
   },
   footer: {

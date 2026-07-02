@@ -9,7 +9,7 @@ export default function IndexRoute() {
   }
 
   if (!user) {
-    return <Redirect href="/(auth)/auth" />;
+    return <Redirect href="/(auth)/welcome" />;
   }
 
   return (

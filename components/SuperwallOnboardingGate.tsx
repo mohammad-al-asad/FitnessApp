@@ -23,6 +23,7 @@ import {
 import Purchases, { type CustomerInfo } from "react-native-purchases";
 
 import { useAuth } from "@/hooks/auth-context";
+import { useLanguage } from "@/hooks/language-context";
 import { ensureRevenueCatConfigured } from "@/services/revenuecat";
 import { subscribeToRevenueCatSync } from "@/services/subscription-sync-events";
 import {
@@ -57,6 +58,7 @@ const isAppReviewAction = (name: string | undefined) => {
 
 type GateState = "checking" | "waiting" | "presenting" | "ready";
 type SuperwallVariables = Record<string, unknown>;
+type FitcoLanguage = "en" | "ar";
 
 const isBackendUserSubscribed = (user: ReturnType<typeof useAuth>["user"]) =>
   Boolean(
@@ -106,6 +108,46 @@ const asNumber = (value: unknown) => {
   const numberValue = Number(value.replace(/[^\d.-]/g, ""));
   return Number.isFinite(numberValue) ? numberValue : null;
 };
+
+const normalizeOnboardingLanguage = (value: unknown): FitcoLanguage | null => {
+  const raw = asText(value)?.trim().toLowerCase();
+  if (!raw) return null;
+
+  if (
+    raw === "en" ||
+    raw === "eng" ||
+    raw.includes("english") ||
+    raw.includes("الانجليزي") ||
+    raw.includes("الإنجليزي")
+  ) {
+    return "en";
+  }
+
+  if (
+    raw === "ar" ||
+    raw.includes("arabic") ||
+    raw.includes("عربي") ||
+    raw.includes("العربية")
+  ) {
+    return "ar";
+  }
+
+  return null;
+};
+
+const getOnboardingLanguage = (
+  variables: SuperwallVariables | undefined,
+): FitcoLanguage | null =>
+  normalizeOnboardingLanguage(
+    firstPresentValue(variables, [
+      "state.language",
+      "language",
+      "state.locale",
+      "locale",
+      "state.selectedLanguage",
+      "selectedLanguage",
+    ]),
+  );
 
 const asMeasurement = (value: unknown, fallbackUnit: string) => {
   const raw = asText(value);
@@ -346,6 +388,7 @@ export default function SuperwallOnboardingGate({
   enabled: boolean;
 }) {
   const { user, isInitialized, syncSubscription } = useAuth();
+  const { changeLanguage, currentLanguage } = useLanguage();
   const [gateState, setGateState] = useState<GateState>("checking");
   const [canPresentSuperwall, setCanPresentSuperwall] = useState(false);
   const [isSuperwallAnonymousReady, setIsSuperwallAnonymousReady] =
@@ -819,6 +862,28 @@ export default function SuperwallOnboardingGate({
     }
   }, [releaseGate]);
 
+  const applyOnboardingLanguage = useCallback(
+    async (variables: SuperwallVariables | undefined) => {
+      const onboardingLanguage = getOnboardingLanguage(variables);
+      if (!onboardingLanguage || onboardingLanguage === currentLanguage) {
+        return;
+      }
+
+      try {
+        console.log(
+          `[Superwall] Applying onboarding language: ${onboardingLanguage}`,
+        );
+        await changeLanguage(onboardingLanguage);
+      } catch (error) {
+        console.error(
+          "[Superwall] Failed to apply onboarding language:",
+          error,
+        );
+      }
+    },
+    [changeLanguage, currentLanguage],
+  );
+
   const logArrangedOnboardingAnswers = useCallback(
     (variables: SuperwallVariables | undefined) => {
       if (hasLoggedOnboardingAnswers.current) return;
@@ -846,11 +911,17 @@ export default function SuperwallOnboardingGate({
       if (variables) {
         logArrangedOnboardingAnswers(variables);
       }
+      await applyOnboardingLanguage(variables);
       await completeOnboarding();
       await dismiss().catch(() => undefined);
-      router.replace("/(auth)/auth?mode=signin" as any);
+      router.replace("/(auth)/signin" as any);
     },
-    [completeOnboarding, dismiss, logArrangedOnboardingAnswers],
+    [
+      applyOnboardingLanguage,
+      completeOnboarding,
+      dismiss,
+      logArrangedOnboardingAnswers,
+    ],
   );
 
   const requestAppReview = useCallback(async () => {
@@ -968,6 +1039,7 @@ export default function SuperwallOnboardingGate({
 
       if (callback.name === ONBOARDING_COMPLETE_CALLBACK) {
         logArrangedOnboardingAnswers(callback.variables);
+        await applyOnboardingLanguage(callback.variables);
         await completeOnboarding();
         await dismiss().catch(() => undefined);
       }
@@ -1032,6 +1104,7 @@ export default function SuperwallOnboardingGate({
         callback.name === ONBOARDING_COMPLETE_CALLBACK
       ) {
         logArrangedOnboardingAnswers(callback.variables);
+        await applyOnboardingLanguage(callback.variables);
         await completeOnboarding();
         await dismiss().catch(() => undefined);
       }
