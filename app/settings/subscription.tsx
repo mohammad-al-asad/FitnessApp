@@ -1,12 +1,8 @@
-import {
-  STATIC_SUBSCRIPTION_PLANS,
-  type SubscriptionPlan,
-} from "@/constants/subscriptions";
-import { TranslationKey } from "@/constants/translations";
 import { useAuth } from "@/hooks/auth-context";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { usePlacement } from "expo-superwall";
 import {
+  backendSyncRevenueCat,
   backendGetMySubscriptionStatus,
   type MySubscriptionStatus,
 } from "@/services/backend-auth";
@@ -36,15 +32,13 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import Purchases, {
-  type PricingPhase,
+  type CustomerInfo,
   type PurchasesPackage,
   type StoreProductChangeInfo,
-  type SubscriptionOption,
 } from "react-native-purchases";
 
 /**
@@ -74,9 +68,11 @@ const formatCurrency = (
 const SkeletonBar = ({
   width = 80,
   height = 18,
+  borderRadius = 6,
 }: {
-  width?: number;
+  width?: number | `${number}%`;
   height?: number;
+  borderRadius?: number;
 }) => {
   const pulse = useRef(new Animated.Value(0.3)).current;
 
@@ -104,7 +100,7 @@ const SkeletonBar = ({
       style={{
         width,
         height,
-        borderRadius: 6,
+        borderRadius,
         backgroundColor: "#404040",
         opacity: pulse,
       }}
@@ -119,174 +115,165 @@ const SubscriptionSkeleton = () => {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <View style={{ alignItems: "center", marginBottom: 24 }}>
-        <SkeletonBar width={200} height={14} />
-      </View>
-
       <View
         style={[
-          styles.toggleContainer,
+          styles.skeletonStatusCard,
           {
             backgroundColor: colors.surface,
-            borderWidth: 1,
             borderColor: colors.border,
           },
         ]}
       >
-        <View style={{ flex: 1, padding: 12, alignItems: "center" }}>
-          <SkeletonBar width={60} height={16} />
-        </View>
-        <View style={{ flex: 1, padding: 12, alignItems: "center" }}>
-          <SkeletonBar width={60} height={16} />
-        </View>
-      </View>
+        <View style={styles.skeletonAccentBar} />
 
-      <View
-        style={[
-          styles.planCard,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            opacity: 0.6,
-          },
-        ]}
-      >
-        <SkeletonBar width={100} height={24} />
-        <View style={{ height: 8 }} />
-        <SkeletonBar width={180} height={14} />
-        <View style={{ height: 24 }} />
-        <SkeletonBar width={140} height={32} />
-        <View style={{ height: 24 }} />
-        {[1, 2, 3, 4].map((i) => (
-          <View
-            key={i}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 16,
-            }}
-          >
-            <SkeletonBar width={18} height={18} />
-            <View style={{ width: 12 }} />
-            <SkeletonBar width={150} height={14} />
+        <View style={styles.skeletonHeaderRow}>
+          <SkeletonBar width={42} height={42} borderRadius={21} />
+          <View style={styles.skeletonTitleStack}>
+            <SkeletonBar width="74%" height={19} />
+            <View style={{ height: 8 }} />
+            <SkeletonBar width="48%" height={12} />
+          </View>
+          <SkeletonBar width={58} height={26} borderRadius={13} />
+        </View>
+
+        <View style={styles.statusDivider} />
+
+        {["plan", "cost", "renewal"].map((item, index) => (
+          <View key={item} style={styles.skeletonStatusRow}>
+            <SkeletonBar width={index === 2 ? 94 : 68} height={13} />
+            <SkeletonBar
+              width={index === 1 ? 108 : index === 2 ? 126 : 118}
+              height={16}
+            />
           </View>
         ))}
       </View>
 
       <View
         style={[
-          styles.summaryCard,
+          styles.skeletonFooterCard,
           {
             backgroundColor: colors.surface,
-            borderWidth: 1,
             borderColor: colors.border,
-            opacity: 0.6,
           },
         ]}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginBottom: 12,
-          }}
-        >
-          <SkeletonBar width={100} height={16} />
-          <SkeletonBar width={60} height={16} />
-        </View>
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <SkeletonBar width={80} height={20} />
-          <SkeletonBar width={90} height={24} />
-        </View>
-      </View>
+        <SkeletonBar width="96%" height={12} />
+        <View style={{ height: 7 }} />
+        <SkeletonBar width="84%" height={12} />
+        <View style={{ height: 7 }} />
+        <SkeletonBar width="66%" height={12} />
+        <View style={{ height: 18 }} />
 
-      <View
-        style={{
-          height: 62,
-          borderRadius: 16,
-          backgroundColor: colors.surface,
-          opacity: 0.4,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <SkeletonBar width={140} height={20} />
+        <View style={styles.subscriptionActionsRow}>
+          <SkeletonBar width="48%" height={44} borderRadius={12} />
+          <SkeletonBar width="48%" height={44} borderRadius={12} />
+        </View>
+
+        <View style={styles.skeletonPolicyRow}>
+          <SkeletonBar width={90} height={12} />
+          <View style={{ width: 20 }} />
+          <SkeletonBar width={88} height={12} />
+        </View>
       </View>
     </ScrollView>
   );
 };
 
-// Verified subscription active helper
-
-const isVerifiedSubscriptionActive = (verifyResult: any) =>
-  verifyResult?.success === true &&
-  (verifyResult?.normalized?.isActive === true ||
-    verifyResult?.subscription?.isActive === true);
-
 const hasActiveRevenueCatEntitlement = (customerInfo: any) =>
   Object.keys(customerInfo?.entitlements?.active ?? {}).length > 0;
 
-const normalizeOfferCode = (code: string) => code.trim().toLowerCase();
+type BillingPlanType = "monthly" | "yearly";
 
-const getAndroidSubscriptionOptions = (
-  selectedPack: PurchasesPackage | null,
-) => {
-  const options = selectedPack?.product.subscriptionOptions ?? [];
-  const defaultOption = selectedPack?.product.defaultOption;
-
-  if (!defaultOption) return options;
-
-  return [
-    defaultOption,
-    ...options.filter((option) => option.id !== defaultOption.id),
-  ];
+const normalizePlanType = (
+  value: string | null | undefined,
+): BillingPlanType | null => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["yearly", "annual", "year"].includes(normalized)) return "yearly";
+  if (["monthly", "month"].includes(normalized)) return "monthly";
+  return null;
 };
 
-const findAndroidOfferOption = (
-  selectedPack: PurchasesPackage | null,
-  code: string,
-): SubscriptionOption | null => {
-  const normalizedCode = normalizeOfferCode(code);
-  if (!normalizedCode) return null;
+const inferPlanTypeFromIdentifier = (
+  value: string | null | undefined,
+): BillingPlanType | null => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) return null;
 
-  const options = getAndroidSubscriptionOptions(selectedPack);
-  return (
-    options.find((option) => {
-      if (option.isBasePlan) return false;
+  // Check yearly first because Android identifiers can look like
+  // "product.monthly:base-plan-yearly" after a product change.
+  if (
+    normalized.includes("yearly") ||
+    normalized.includes("annual") ||
+    normalized.includes("year") ||
+    normalized.endsWith(":yr")
+  ) {
+    return "yearly";
+  }
 
-      const id = normalizeOfferCode(option.id);
-      const offerId = normalizeOfferCode(id.split(":").pop() ?? "");
-      const tags = option.tags.map(normalizeOfferCode);
+  if (
+    normalized.includes("monthly") ||
+    normalized.includes("month") ||
+    normalized.endsWith(":mo")
+  ) {
+    return "monthly";
+  }
 
-      return (
-        id === normalizedCode ||
-        id.includes(normalizedCode) ||
-        offerId === normalizedCode ||
-        tags.includes(normalizedCode)
-      );
-    }) ?? null
+  return null;
+};
+
+const firstInferredPlanType = (
+  values: (string | null | undefined)[],
+): BillingPlanType | null => {
+  for (const value of values) {
+    const planType = inferPlanTypeFromIdentifier(value);
+    if (planType) return planType;
+  }
+
+  return null;
+};
+
+const inferRevenueCatPlanType = (
+  customerInfo: CustomerInfo | null,
+): BillingPlanType | null => {
+  const activeEntitlements = Object.values(
+    customerInfo?.entitlements?.active ?? {},
   );
+
+  for (const entitlement of activeEntitlements) {
+    const entitlementPlan = firstInferredPlanType([
+      entitlement.productPlanIdentifier,
+      entitlement.productIdentifier,
+      entitlement.identifier,
+    ]);
+
+    if (entitlementPlan) return entitlementPlan;
+  }
+
+  const activeSubscriptionIds = customerInfo?.activeSubscriptions ?? [];
+  const activeSubscriptionProductIds = Object.values(
+    customerInfo?.subscriptionsByProductIdentifier ?? {},
+  )
+    .filter((subscription) => subscription.isActive)
+    .map((subscription) => subscription.productIdentifier);
+
+  return firstInferredPlanType([
+    ...activeSubscriptionIds,
+    ...activeSubscriptionProductIds,
+  ]);
 };
 
-const getPhasePrice = (phase: PricingPhase | null | undefined) => {
-  if (!phase?.price) return null;
-
-  return {
-    amount: phase.price.amountMicros / 1_000_000,
-    currencyCode: phase.price.currencyCode,
-    priceString: phase.price.formatted,
-  };
-};
-
-const getOfferDisplayPrice = (option: SubscriptionOption) =>
-  getPhasePrice(option.freePhase) ??
-  getPhasePrice(option.introPhase) ??
-  getPhasePrice(option.fullPricePhase) ??
-  getPhasePrice(option.pricingPhases[0]);
-
-const getOfferBasePrice = (option: SubscriptionOption) =>
-  getPhasePrice(option.fullPricePhase) ??
-  getPhasePrice(option.pricingPhases[option.pricingPhases.length - 1]);
+const resolveActivePlanType = (
+  activeSub: MySubscriptionStatus["activeSubscription"],
+  customerInfo: CustomerInfo | null,
+): BillingPlanType | null =>
+  inferRevenueCatPlanType(customerInfo) ??
+  firstInferredPlanType([
+    activeSub?.productId,
+    activeSub?.providerSubscriptionId,
+    activeSub?.id,
+  ]) ??
+  normalizePlanType(activeSub?.planType);
 
 const getPackagePriceParts = (
   pack: PurchasesPackage | null,
@@ -331,7 +318,7 @@ const getMonthlyEquivalentText = (pack: PurchasesPackage | null) => {
 };
 
 const UpgradePlanScreen = () => {
-  const { t, isRTL } = useLanguage();
+  const { t } = useLanguage();
   const { user, syncSubscription } = useAuth();
   const colors = useSafeColors();
   const router = useRouter();
@@ -353,9 +340,12 @@ const UpgradePlanScreen = () => {
     });
   }, [registerPlacement]);
 
-  const [connected, setConnected] = useState(false);
-  const [monthlyPackage, setMonthlyPackage] = useState<any>(null);
-  const [yearlyPackage, setYearlyPackage] = useState<any>(null);
+  const [monthlyPackage, setMonthlyPackage] =
+    useState<PurchasesPackage | null>(null);
+  const [yearlyPackage, setYearlyPackage] =
+    useState<PurchasesPackage | null>(null);
+  const [revenueCatCustomerInfo, setRevenueCatCustomerInfo] =
+    useState<CustomerInfo | null>(null);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] =
@@ -390,22 +380,38 @@ const UpgradePlanScreen = () => {
     try {
       setIsLoadingPlans(true);
 
+      try {
+        await ensureRevenueCatConfigured(user?.uid);
+        const [offerings, customerInfo] = await Promise.all([
+          Purchases.getOfferings(),
+          Purchases.getCustomerInfo(),
+        ]);
+
+        setRevenueCatCustomerInfo(customerInfo);
+
+        if (offerings.current) {
+          setMonthlyPackage(offerings.current.monthly ?? null);
+          setYearlyPackage(offerings.current.annual ?? null);
+        }
+
+        if (hasActiveRevenueCatEntitlement(customerInfo)) {
+          await backendSyncRevenueCat("subscription-screen:load").catch(
+            (syncError) => {
+              console.warn(
+                "[Subscription] RevenueCat backend sync failed during load:",
+                syncError,
+              );
+            },
+          );
+        }
+      } catch (revenueCatError) {
+        console.error("Error loading RevenueCat offerings:", revenueCatError);
+      }
+
       const statusResult = await backendGetMySubscriptionStatus();
       setSubscriptionStatus(statusResult);
-
-      await ensureRevenueCatConfigured(user?.uid);
-      const offerings = await Purchases.getOfferings();
-      if (offerings.current) {
-        setConnected(true);
-        if (offerings.current.monthly) {
-          setMonthlyPackage(offerings.current.monthly);
-        }
-        if (offerings.current.annual) {
-          setYearlyPackage(offerings.current.annual);
-        }
-      }
     } catch (err) {
-      console.error("Error loading RevenueCat offerings:", err);
+      console.error("Error loading subscription status:", err);
     } finally {
       setIsLoadingPlans(false);
     }
@@ -416,6 +422,11 @@ const UpgradePlanScreen = () => {
   }, [loadInitialData]);
 
   const handleUpgradeToYearly = async () => {
+    if (activePlanType === "yearly") {
+      Alert.alert(String(t("success")), "You are already on the Yearly Plan.");
+      return;
+    }
+
     if (!yearlyPackage || isProcessingPurchase) {
       Alert.alert(String(t("error")), "Yearly plan is currently not available. Please try again later.");
       return;
@@ -440,7 +451,12 @@ const UpgradePlanScreen = () => {
             }
           : null;
 
-      await Purchases.purchasePackage(yearlyPackage, null, productChangeInfo);
+      const purchaseResult = await Purchases.purchasePackage(
+        yearlyPackage,
+        null,
+        productChangeInfo,
+      );
+      setRevenueCatCustomerInfo(purchaseResult.customerInfo);
       const isSubscribedLocally = await syncSubscription(
         "subscription-screen:purchase",
       );
@@ -483,6 +499,8 @@ const UpgradePlanScreen = () => {
         return;
       }
 
+      setRevenueCatCustomerInfo(customerInfo);
+
       const isSubscribedLocally = await syncSubscription(
         "subscription-screen:restore",
       );
@@ -503,8 +521,33 @@ const UpgradePlanScreen = () => {
     }
   };
 
-  const isSubscribed = Boolean(subscriptionStatus?.subscribed);
-  const activeSub = subscriptionStatus?.activeSubscription;
+  const activeSub = subscriptionStatus?.activeSubscription ?? null;
+  const isRevenueCatSubscribed =
+    hasActiveRevenueCatEntitlement(revenueCatCustomerInfo);
+  const isSubscribed = Boolean(
+    subscriptionStatus?.subscribed || isRevenueCatSubscribed,
+  );
+  const activePlanType = useMemo(
+    () => resolveActivePlanType(activeSub, revenueCatCustomerInfo),
+    [activeSub, revenueCatCustomerInfo],
+  );
+  const activePlanLabel =
+    activePlanType === "monthly"
+      ? "Monthly Plan"
+      : activePlanType === "yearly"
+        ? "Yearly Plan"
+        : "Premium Plan";
+  const activePlanPrice =
+    activePlanType === "monthly"
+      ? monthlyPackage?.product?.priceString || "$9.99/mo"
+      : activePlanType === "yearly"
+        ? yearlyPackage?.product?.priceString || "$59.99/yr"
+        : activeSub?.price
+          ? String(activeSub.price)
+          : "N/A";
+  const showYearlyUpgrade = activePlanType === "monthly";
+  const activeExpiryDate =
+    activeSub?.expiryDate || revenueCatCustomerInfo?.latestExpirationDate;
   const showInitialSkeleton = isLoadingPlans && !subscriptionStatus;
 
   if (showInitialSkeleton) {
@@ -524,7 +567,7 @@ const UpgradePlanScreen = () => {
         showsVerticalScrollIndicator={false}
       >
 
-        {isSubscribed && activeSub ? (
+        {isSubscribed ? (
           <>
             {/* Active Subscription Card */}
             <View style={[styles.statusCard, { borderColor: colors.primary }]}>
@@ -540,24 +583,22 @@ const UpgradePlanScreen = () => {
               <View style={styles.statusRow}>
                 <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Plan Type</Text>
                 <Text style={[styles.statusValue, { color: colors.text }]}>
-                  {activeSub.planType === "monthly" ? "Monthly Plan" : "Yearly Plan"}
+                  {activePlanLabel}
                 </Text>
               </View>
 
               <View style={styles.statusRow}>
                 <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Cost</Text>
                 <Text style={[styles.statusValue, { color: colors.text }]}>
-                  {activeSub.planType === "monthly"
-                    ? (monthlyPackage?.product?.priceString || "$9.99/mo")
-                    : (yearlyPackage?.product?.priceString || "$59.99/yr")}
+                  {activePlanPrice}
                 </Text>
               </View>
 
               <View style={styles.statusRow}>
                 <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Renewal Date</Text>
                 <Text style={[styles.statusValue, { color: colors.text }]}>
-                  {activeSub.expiryDate
-                    ? new Date(activeSub.expiryDate).toLocaleDateString(undefined, {
+                  {activeExpiryDate
+                    ? new Date(activeExpiryDate).toLocaleDateString(undefined, {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
@@ -566,16 +607,10 @@ const UpgradePlanScreen = () => {
                 </Text>
               </View>
 
-              <View style={styles.statusRow}>
-                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Platform</Text>
-                <Text style={[styles.statusValue, { color: colors.text, textTransform: "capitalize" }]}>
-                  {activeSub.platform || "App Store/Google Play"}
-                </Text>
-              </View>
             </View>
 
             {/* Upgrade Option for Monthly Subscribers */}
-            {activeSub.planType === "monthly" && (
+            {showYearlyUpgrade && (
               <View style={[styles.upgradeCard, { backgroundColor: colors.surface }]}>
                 <View style={styles.badgeContainer}>
                   <View style={[styles.bestValueBadge, { backgroundColor: colors.primary }]}>
@@ -685,30 +720,47 @@ const UpgradePlanScreen = () => {
             {t("autoRenewalNotice")}
           </Text>
 
-          <TouchableOpacity
-            onPress={() => {
-              const url =
-                Platform.OS === "ios"
-                  ? "https://apps.apple.com/account/subscriptions"
-                  : "https://play.google.com/store/account/subscriptions";
-              Linking.openURL(url);
-            }}
-            style={styles.manageLink}
-          >
-            <Text style={[styles.manageLinkText, { color: colors.primary }]}>
-              {t("manageSubscription")}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.subscriptionActionsRow}>
+            <TouchableOpacity
+              onPress={() => {
+                const url =
+                  Platform.OS === "ios"
+                    ? "https://apps.apple.com/account/subscriptions"
+                    : "https://play.google.com/store/account/subscriptions";
+                Linking.openURL(url);
+              }}
+              style={[
+                styles.manageLink,
+                styles.subscriptionActionLink,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.manageLinkText, { color: colors.primary }]}>
+                {t("manageSubscription")}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={handleRestore}
-            style={styles.manageLink}
-            disabled={isProcessingPurchase}
-          >
-            <Text style={[styles.manageLinkText, { color: colors.primary }]}>
-              {t("restorePurchases")}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleRestore}
+              style={[
+                styles.manageLink,
+                styles.subscriptionActionLink,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  opacity: isProcessingPurchase ? 0.6 : 1,
+                },
+              ]}
+              disabled={isProcessingPurchase}
+            >
+              <Text style={[styles.manageLinkText, { color: colors.primary }]}>
+                {t("restorePurchases")}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.policyRow}>
             <TouchableOpacity
@@ -743,25 +795,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 24, fontWeight: "bold" },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
-  toggleContainer: {
-    flexDirection: "row",
-    borderRadius: 14,
-    overflow: "hidden",
-    marginBottom: 20,
-  },
-  planCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-    marginBottom: 20,
-  },
-  summaryCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-    marginBottom: 24,
-  },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 30 },
   statusCard: {
     borderRadius: 16,
     borderWidth: 1.5,
@@ -786,6 +820,49 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginVertical: 6,
+  },
+  skeletonHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  skeletonStatusCard: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 24,
+  },
+  skeletonAccentBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: "rgba(81, 186, 93, 0.5)",
+  },
+  skeletonTitleStack: {
+    flex: 1,
+  },
+  skeletonStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginVertical: 7,
+  },
+  skeletonFooterCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 18,
+    marginTop: 6,
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  skeletonPolicyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
   },
   statusLabel: { fontSize: 15 },
   statusValue: { fontSize: 15, fontWeight: "600" },
@@ -906,12 +983,27 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 18,
   },
+  subscriptionActionsRow: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 18,
+  },
   manageLink: {
-    marginBottom: 16,
+    flex: 1,
+  },
+  subscriptionActionLink: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
   },
   manageLinkText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "bold",
+    textAlign: "center",
     textDecorationLine: "underline",
   },
   policyRow: {
