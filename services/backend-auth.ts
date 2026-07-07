@@ -119,18 +119,6 @@ export type ChatHistoryItem = {
   createdAt?: string;
 };
 
-export type ChatLimitStatus = {
-  subscriptionStatus: string;
-  isUnlimited: boolean;
-  dailyFreeLimit: number;
-  messagesUsedToday: number;
-  messagesLeftToday: number;
-  paidMonthlyLimit?: number;
-  premiumMonthlyLimit?: number;
-  messagesUsedThisMonth?: number;
-  messagesLeftThisMonth?: number | null;
-};
-
 export type SubscriptionPlan = {
   planType: string;
   interval: string;
@@ -488,11 +476,32 @@ async function request(path: string, init?: RequestInit): Promise<any> {
   const json = text ? safeJson(text) : {};
 
   if (!response.ok) {
+    if (path === "/api/v1/auth/register") {
+      console.log(
+        "[Auth] backendSignUp error response:",
+        JSON.stringify(
+          {
+            status: response.status,
+            body: json,
+          },
+          null,
+          2,
+        ),
+      );
+    }
     const message = extractErrorMessage(json, response.status);
     throw new Error(message);
   }
 
   return json;
+}
+
+function sanitizeSignUpPayload(params: Record<string, any>) {
+  const { password, ...safeParams } = params;
+  return {
+    ...safeParams,
+    hasPassword: Boolean(password),
+  };
 }
 
 function safeJson(text: string): any {
@@ -607,10 +616,20 @@ export async function backendSignIn(
 export async function backendSignUp(
   params: Record<string, any>,
 ): Promise<RegisterResponse> {
+  console.log(
+    "[Auth] backendSignUp request:",
+    JSON.stringify(sanitizeSignUpPayload(params), null, 2),
+  );
+
   const json = await request("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify(params),
   });
+
+  console.log(
+    "[Auth] backendSignUp response:",
+    JSON.stringify(json, null, 2),
+  );
 
   const root = json?.data ?? json;
   return {
@@ -736,33 +755,6 @@ export async function backendGetChatHistory(): Promise<ChatHistoryItem[]> {
   if (Array.isArray(root?.items)) return root.items as ChatHistoryItem[];
   if (Array.isArray(root?.history)) return root.history as ChatHistoryItem[];
   return [];
-}
-
-export async function backendGetChatLimitStatus(): Promise<ChatLimitStatus> {
-  const { token } = await readStoredSession();
-  if (!token) throw new Error("No auth token");
-
-  const json = await request("/api/v1/chat/limit", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const root = json?.data ?? json;
-
-
-  return {
-    subscriptionStatus: String(root?.subscriptionStatus ?? "free"),
-    isUnlimited: Boolean(root?.isUnlimited),
-    dailyFreeLimit: Number(root?.dailyFreeLimit ?? 0),
-    messagesUsedToday: Number(root?.messagesUsedToday ?? 0),
-    messagesLeftToday: Number(root?.messagesLeftToday ?? 0),
-    paidMonthlyLimit: root?.paidMonthlyLimit != null ? Number(root.paidMonthlyLimit) : undefined,
-    premiumMonthlyLimit: root?.premiumMonthlyLimit != null ? Number(root.premiumMonthlyLimit) : undefined,
-    messagesUsedThisMonth: root?.messagesUsedThisMonth != null ? Number(root.messagesUsedThisMonth) : undefined,
-    messagesLeftThisMonth: root?.messagesLeftThisMonth !== undefined ? (root.messagesLeftThisMonth === null ? null : Number(root.messagesLeftThisMonth)) : undefined,
-  };
 }
 
 export async function backendUpdateMyProfile(

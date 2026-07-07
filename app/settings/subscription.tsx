@@ -275,6 +275,22 @@ const resolveActivePlanType = (
   ]) ??
   normalizePlanType(activeSub?.planType);
 
+const resolveActiveRevenueCatProductIdentifier = (
+  activeSub: MySubscriptionStatus["activeSubscription"],
+  customerInfo: CustomerInfo | null,
+) => {
+  const activeEntitlement = Object.values(
+    customerInfo?.entitlements?.active ?? {},
+  )[0];
+
+  return (
+    activeEntitlement?.productIdentifier ??
+    customerInfo?.activeSubscriptions?.[0] ??
+    activeSub?.productId ??
+    null
+  );
+};
+
 const getPackagePriceParts = (
   pack: PurchasesPackage | null,
   fallback: { currency: string; amount: string },
@@ -293,14 +309,6 @@ const getPackagePriceParts = (
     currency: String(match[1] || match[3] || fallback.currency).trim(),
     amount: String(match[2] || fallback.amount).trim(),
   };
-};
-
-const normalizeStoreProductIdentifier = (identifier: string) => {
-  const trimmed = identifier.trim();
-  if (!trimmed) return "";
-
-  // RevenueCat/Google may expose "productId:basePlanId"; upgrades need only productId.
-  return trimmed.split(":")[0] || trimmed;
 };
 
 const getAnnualTotalText = (pack: PurchasesPackage | null) => {
@@ -435,19 +443,18 @@ const UpgradePlanScreen = () => {
     try {
       setIsProcessingPurchase(true);
       await ensureRevenueCatConfigured(user?.uid);
-      const activeProductId = normalizeStoreProductIdentifier(
-        String(activeSub?.productId || ""),
+      const activeProductId = resolveActiveRevenueCatProductIdentifier(
+        activeSub,
+        revenueCatCustomerInfo,
       );
-      const monthlyProductId = normalizeStoreProductIdentifier(
-        String(monthlyPackage?.product?.identifier || ""),
-      );
+      const monthlyProductId = monthlyPackage?.product?.identifier || "";
       const oldProductIdentifier = activeProductId || monthlyProductId;
       const productChangeInfo: StoreProductChangeInfo | null =
         Platform.OS === "android" && oldProductIdentifier
           ? {
               oldProductIdentifier,
               replacementMode:
-                Purchases.STORE_REPLACEMENT_MODE.CHARGE_PRORATED_PRICE,
+                Purchases.STORE_REPLACEMENT_MODE.WITHOUT_PRORATION,
             }
           : null;
 

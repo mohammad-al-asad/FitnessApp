@@ -24,6 +24,7 @@ import Purchases, { type CustomerInfo } from "react-native-purchases";
 
 import { useAuth } from "@/hooks/auth-context";
 import { useLanguage } from "@/hooks/language-context";
+import SplashScreen from "@/components/SplashScreen";
 import { ensureRevenueCatConfigured } from "@/services/revenuecat";
 import { subscribeToRevenueCatSync } from "@/services/subscription-sync-events";
 import {
@@ -175,11 +176,13 @@ const arrangedOnboardingAnswersFromVariables = (
   const desiredWeight = firstPresentValue(variables, [
     "node.gPSl3sfvWO-ms4SmWig8L.value",
     "state.userDesiredWeight",
+    "user.desiredWeight"
   ]);
   const weeklyPace = firstPresentValue(variables, [
     "node.DN1YwTL1JIGoX5qC_yaPl.value",
     "state.selectedWeeklyPace",
     "state.node.DN1YwTL1JIGoX5qC_yaPl.value",
+    "user.weeklyPace"
   ]);
   const isMale = firstPresentValue(variables, ["state.sexMale"]);
   const isFemale = firstPresentValue(variables, ["state.sexFemale"]);
@@ -190,8 +193,9 @@ const arrangedOnboardingAnswersFromVariables = (
       sex: isMale === true ? "Male" : isFemale === true ? "Female" : null,
       birthday: asText(
         firstPresentValue(variables, [
-          "node.WyxL7C8EArtT8IawRNYP3.label",
+          "node.WyxL7C8EArtT8IawRNYP3.value",
           "state.userBirthday",
+          "user.birthday",
         ]),
       ),
       referralCode: asText(
@@ -383,9 +387,11 @@ function SuperwallUserSync({
 export default function SuperwallOnboardingGate({
   children,
   enabled,
+  onStartupReady,
 }: {
   children: ReactNode;
   enabled: boolean;
+  onStartupReady?: () => void;
 }) {
   const { user, isInitialized, syncSubscription } = useAuth();
   const { changeLanguage, currentLanguage } = useLanguage();
@@ -410,6 +416,7 @@ export default function SuperwallOnboardingGate({
   const hasPresentedOnboarding = useRef(false);
   const hasPreloadedOnboarding = useRef(false);
   const isOnboardingActive = useRef(false);
+  const isOpeningSigninFromOnboarding = useRef(false);
   const activePaywallUserId = useRef<string | null>(null);
   const prePaywallSyncUserId = useRef<string | null>(null);
   const didPresentActiveGatingPaywall = useRef(false);
@@ -509,14 +516,11 @@ export default function SuperwallOnboardingGate({
     const retryCount = activityNotReadyRetryCount.current;
     if (retryCount > ACTIVITY_NOT_READY_MAX_RETRIES) {
       console.warn(
-        `[Superwall] ${reason}. Activity was not ready after ${ACTIVITY_NOT_READY_MAX_RETRIES} retries, so onboarding will continue without presenting.`,
+        `[Superwall] ${reason}. Activity was not ready after ${ACTIVITY_NOT_READY_MAX_RETRIES} retries. Keeping the paid gate closed and retrying.`,
       );
       hasStarted.current = false;
       isOnboardingActive.current = false;
       activityNotReadyRetryCount.current = 0;
-      hasReleasedGate.current = true;
-      setGateState("ready");
-      return;
     }
 
     setCanPresentSuperwall(false);
@@ -604,6 +608,7 @@ export default function SuperwallOnboardingGate({
             presentationRetryTimer.current = null;
           }
           setGateState("ready");
+          onStartupReady?.();
           console.log(
             "[Superwall] Purchase-triggered backend sync confirmed an active subscription. Granting access.",
           );
@@ -626,10 +631,11 @@ export default function SuperwallOnboardingGate({
     });
 
     return unsubscribe;
-  }, [dismiss, relockUnsubscribedUserToPaywall]);
+  }, [dismiss, onStartupReady, relockUnsubscribedUserToPaywall]);
 
   const { registerPlacement: registerPaywall } = usePlacement({
     onPresent: () => {
+      onStartupReady?.();
       didPresentActiveGatingPaywall.current = true;
       activityNotReadyRetryCount.current = 0;
       console.log("[Superwall] Gating paywall presented.");
@@ -708,6 +714,7 @@ export default function SuperwallOnboardingGate({
             activePaywallUserId.current = null;
             didPresentActiveGatingPaywall.current = false;
             setGateState("ready");
+            onStartupReady?.();
             void dismiss().catch(() => undefined);
             router.replace("/(tabs)/home");
             return;
@@ -817,7 +824,8 @@ export default function SuperwallOnboardingGate({
     if (hasReleasedGate.current) return;
     hasReleasedGate.current = true;
     setGateState("ready");
-  }, []);
+    onStartupReady?.();
+  }, [onStartupReady]);
 
   const continueWithoutCompletion = useCallback(() => {
     if (hasCompletedOnboarding.current) {
@@ -849,17 +857,10 @@ export default function SuperwallOnboardingGate({
       retryTimer.current = null;
     }
 
-    try {
-      console.log("[Superwall] Marking onboarding complete.");
-      await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, "true");
-    } catch (error) {
-      console.error(
-        "[Superwall] Failed to save onboarding completion:",
-        error,
-      );
-    } finally {
-      releaseGate();
-    }
+    console.log(
+      "[Superwall] Onboarding presentation finished. Completion will be saved after signup.",
+    );
+    releaseGate();
   }, [releaseGate]);
 
   const applyOnboardingLanguage = useCallback(
@@ -908,13 +909,19 @@ export default function SuperwallOnboardingGate({
 
   const openSigninFromOnboarding = useCallback(
     async (variables?: SuperwallVariables) => {
+      if (isOpeningSigninFromOnboarding.current) return;
+      isOpeningSigninFromOnboarding.current = true;
+
       if (variables) {
         logArrangedOnboardingAnswers(variables);
       }
       await applyOnboardingLanguage(variables);
-      await completeOnboarding();
-      await dismiss().catch(() => undefined);
       router.replace("/(auth)/signin" as any);
+      await dismiss().catch(() => undefined);
+      await completeOnboarding();
+      setTimeout(() => {
+        isOpeningSigninFromOnboarding.current = false;
+      }, 500);
     },
     [
       applyOnboardingLanguage,
@@ -1007,9 +1014,11 @@ export default function SuperwallOnboardingGate({
       releaseGate();
     },
     onDismiss: () => {
+      if (isOpeningSigninFromOnboarding.current) return;
       void completeOnboarding();
     },
     onSkip: (reason) => {
+      if (isOpeningSigninFromOnboarding.current) return;
       console.warn(
         `[Superwall] Onboarding placement was skipped: ${reason.type}`,
       );
@@ -1065,11 +1074,13 @@ export default function SuperwallOnboardingGate({
       }
     },
     onPaywallDismiss: () => {
+      if (isOpeningSigninFromOnboarding.current) return;
       if (isOnboardingActive.current) {
         void completeOnboarding();
       }
     },
     onPaywallSkip: (reason) => {
+      if (isOpeningSigninFromOnboarding.current) return;
       if (!isOnboardingActive.current) return;
       console.warn(
         `[Superwall] Automatic onboarding was skipped: ${reason.type}`,
@@ -1247,6 +1258,8 @@ export default function SuperwallOnboardingGate({
       await registerPlacement({
         placement: SUPERWALL_ONBOARDING_PLACEMENT,
         feature: () => {
+          if (isOpeningSigninFromOnboarding.current) return;
+
           if (
             hasCompletedOnboarding.current ||
             hasPresentedOnboarding.current
@@ -1320,34 +1333,46 @@ export default function SuperwallOnboardingGate({
     [],
   );
 
+  const shouldShowAnonymousGate = !user && gateState !== "ready";
   const shouldBlockForSubscription = Boolean(
     user &&
       !hasConfirmedSubscriptionAccess.current &&
       !isBackendUserSubscribed(user),
   );
+  const shouldShowGateOverlay =
+    shouldShowAnonymousGate || shouldBlockForSubscription;
+  const handleGateSplashFinished = useCallback(() => undefined, []);
 
   return (
-    <>
+    <View style={styles.container}>
       <SuperwallUserSync
         onAnonymousReady={handleSuperwallAnonymousReady}
         onIdentified={handleSuperwallIdentified}
       />
-      {gateState === "ready" && !shouldBlockForSubscription ? (
-        children
-      ) : (
-        <View style={styles.loading}>
-          <ActivityIndicator color="#4CAF50" size="large" />
+      {children}
+      {shouldShowGateOverlay && (
+        <View style={styles.overlay} pointerEvents="auto">
+          {shouldShowAnonymousGate ? (
+            <SplashScreen onFinish={handleGateSplashFinished} replay />
+          ) : (
+            <ActivityIndicator color="#4CAF50" size="large" />
+          )}
         </View>
       )}
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  loading: {
+  container: {
     flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
+    backgroundColor: "#1A1A1A",
+    elevation: 9999,
     justifyContent: "center",
-    backgroundColor: "#000000",
+    zIndex: 9999,
   },
 });

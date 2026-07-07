@@ -347,14 +347,6 @@ export const translations = {
     name: "Name",
     email: "Email",
     submitReport: "Submit Report",
-    chatDailyLimitLabel: "Daily Chat Limit",
-    chatMonthlyLimitLabel: "Monthly Chat Limit",
-    chatMessagesLeftToday: "left today",
-    chatMessagesLeftThisMonth: "left this month",
-    chatUnlimitedLabel: "Unlimited chat",
-    chatLimitReachedNotice:
-      "Daily free chat limit reached. Subscribe for unlimited messages.",
-    chatLimitReachedInput: "Daily limit reached. Subscribe to continue.",
     chatInputPlaceholder: "Ask me anything about fitness...",
     fitBotWelcome:
       "Hi! I'm FitBot, your AI fitness assistant! I can help with nutrition advice, workout tips, and meal planning. How can I help you today?",
@@ -407,9 +399,6 @@ export const translations = {
     scanAgain: "Scan Again",
     enterBarcodeManually: "Enter barcode manually",
     use: "Use",
-    dailyLimitReachedTitle: "Daily limit reached",
-    dailyScanLimitSubscription:
-      "Daily scan limit reached (2/2). Subscribe to scan more.",
 
     // Log Food Page
     whatsOnMenu: "What's on the menu today?",
@@ -853,14 +842,6 @@ export const translations = {
     name: "الاسم",
     email: "البريد الإلكتروني",
     submitReport: "إرسال البلاغ",
-    chatDailyLimitLabel: "حد الدردشة اليومي",
-    chatMonthlyLimitLabel: "حد الدردشة الشهري",
-    chatMessagesLeftToday: "متبقي اليوم",
-    chatMessagesLeftThisMonth: "متبقي هذا الشهر",
-    chatUnlimitedLabel: "دردشة غير محدودة",
-    chatLimitReachedNotice:
-      "تم الوصول إلى الحد اليومي للدردشة المجانية. اشترك للحصول على رسائل غير محدودة.",
-    chatLimitReachedInput: "تم الوصول للحد اليومي. اشترك للمتابعة.",
     chatInputPlaceholder: "اسألني أي شيء عن اللياقة...",
     fitBotWelcome:
       "أهلاً! أنا فت بوت، مساعدك الذكي للياقة البدنية! يمكنني مساعدتك في نصائح التغذية، تمارين الرياضة، وتخطيط الوجبات. كيف يمكنني مساعدتك اليوم؟",
@@ -928,9 +909,6 @@ export const translations = {
     scanAgain: "المسح مرة أخرى",
     enterBarcodeManually: "أدخل الباركود يدويا",
     use: "يستخدم",
-    dailyLimitReachedTitle: "تم الوصول إلى الحد اليومي",
-    dailyScanLimitSubscription:
-      "تم الوصول إلى حد المسح اليومي (2/2). اشترك للمسح الأكثر.",
 
     // Log Food Page
     whatsOnMenu: "وش بتاكل اليوم؟",

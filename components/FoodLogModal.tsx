@@ -1,6 +1,7 @@
 // FoodLogModal — sleek Fitco bottom drawer
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useLanguage } from "@/hooks/language-context";
-import { Search, Plus, Barcode, Scan, X } from "lucide-react-native";
+import { Search, Plus, Barcode, X } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Modal from "react-native-modal";
@@ -94,7 +95,7 @@ export default function FoodLogModal({
               activeOpacity={0.8}
             >
               <View style={styles.iconCircle}>
-                <Scan size={22} color="#22c55e" />
+                <MaterialCommunityIcons name="food-apple" size={24} color="#22c55e" />
               </View>
               <Text style={styles.blockTitle}>{t("mealScanner")}</Text>
               <Text style={styles.blockDesc}>{t("mealScannerDesc")}</Text>

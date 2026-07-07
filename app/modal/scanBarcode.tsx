@@ -1,19 +1,16 @@
 import { useLanguage } from "@/hooks/language-context";
 import { responsiveHeight } from "@/utilities/ScalingUtils";
-import { backendGetMySubscriptionStatus } from "@/services/backend-auth";
-import FirstSignInSubscriptionModal from "@/components/FirstSignInSubscriptionModal";
 import {
   BarcodeScanningResult,
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { RefreshCw, X } from "lucide-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { X } from "lucide-react-native";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   Platform,
   StyleSheet,
@@ -22,34 +19,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getFoodByBarcode } from "@/services/food-api";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const DAILY_SCAN_LIMIT = 2;
-const BARCODE_SCAN_USAGE_KEY = "fitco_barcode_scan_usage";
-
-type BarcodeScanUsage = {
-  date: string;
-  count: number;
-};
-
-const getTodayKey = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 export default function ScanBarcode() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState<boolean>(true);
   const [manualCode, setManualCode] = useState<string>("");
-  const [dailyLimitReached, setDailyLimitReached] = useState<boolean>(false);
-  const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -71,50 +47,6 @@ export default function ScanBarcode() {
     }
   }, [permission, requestPermission]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let isMounted = true;
-
-      const syncDailyLimit = async () => {
-        try {
-          const status = await backendGetMySubscriptionStatus();
-          if (!isMounted) return;
-          const subscribed = Boolean(status?.subscribed);
-          setIsSubscribed(subscribed);
-
-          if (subscribed) {
-            setDailyLimitReached(false);
-            setIsScanning(true);
-            return;
-          }
-
-          const rawUsage = await AsyncStorage.getItem(BARCODE_SCAN_USAGE_KEY);
-          const parsedUsage: BarcodeScanUsage | null = rawUsage
-            ? JSON.parse(rawUsage)
-            : null;
-          const today = getTodayKey();
-          const currentCount =
-            parsedUsage && parsedUsage.date === today ? parsedUsage.count : 0;
-          const reached = currentCount >= DAILY_SCAN_LIMIT;
-
-          if (!isMounted) return;
-          setDailyLimitReached(reached);
-          setIsScanning(!reached);
-        } catch {
-          if (!isMounted) return;
-          setDailyLimitReached(false);
-          setIsScanning(true);
-        }
-      };
-
-      void syncDailyLimit();
-
-      return () => {
-        isMounted = false;
-      };
-    }, []),
-  );
-
   useEffect(() => {
     const showListener = Keyboard.addListener("keyboardDidShow", (event) => {
       setKeyboardVisible(true);
@@ -130,10 +62,6 @@ export default function ScanBarcode() {
     };
   }, []);
 
-  const showLimitAlert = () => {
-    setShowSubscriptionModal(true);
-  };
-
   const navigateWithBarcode = async (barcode: string) => {
     const cleanedBarcode = barcode.trim();
     if (!cleanedBarcode) return;
@@ -148,41 +76,8 @@ export default function ScanBarcode() {
       }
     };
 
-    try {
-      if (isSubscribed) {
-        setIsScanning(false);
-        setDailyLimitReached(false);
-        navigate();
-        return;
-      }
-
-      const rawUsage = await AsyncStorage.getItem(BARCODE_SCAN_USAGE_KEY);
-      const parsedUsage: BarcodeScanUsage | null = rawUsage
-        ? JSON.parse(rawUsage)
-        : null;
-      const today = getTodayKey();
-      const usage: BarcodeScanUsage =
-        parsedUsage && parsedUsage.date === today
-          ? parsedUsage
-          : { date: today, count: 0 };
-
-      if (usage.count >= DAILY_SCAN_LIMIT) {
-        setDailyLimitReached(true);
-        setIsScanning(false);
-        showLimitAlert();
-        return;
-      }
-
-      usage.count += 1;
-      await AsyncStorage.setItem(BARCODE_SCAN_USAGE_KEY, JSON.stringify(usage));
-
-      setIsScanning(false);
-      setDailyLimitReached(usage.count >= DAILY_SCAN_LIMIT);
-      navigate();
-    } catch {
-      setIsScanning(false);
-      navigate();
-    }
+    setIsScanning(false);
+    navigate();
   };
 
   const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
@@ -296,17 +191,8 @@ export default function ScanBarcode() {
           </View>
 
           <View style={styles.instructionContainer}>
-            <Text
-              style={[
-                styles.instructionText,
-                dailyLimitReached && styles.limitInstructionText,
-              ]}
-            >
-              {dailyLimitReached
-                ? (t("dailyScanLimitSubscription") as string)
-                : isScanning
-                  ? t("alignBarcodeWithinFrame")
-                  : t("barcodeDetected")}
+            <Text style={styles.instructionText}>
+              {isScanning ? t("alignBarcodeWithinFrame") : t("barcodeDetected")}
             </Text>
           </View>
         </View>
@@ -357,10 +243,6 @@ export default function ScanBarcode() {
           onPress={() => {
             if (isSearching) return;
             if (!manualCode) return;
-            if (dailyLimitReached) {
-              showLimitAlert();
-              return;
-            }
             void navigateWithBarcode(manualCode);
           }}
           disabled={isSearching}
@@ -380,14 +262,6 @@ export default function ScanBarcode() {
         </TouchableOpacity>
       </View>
       {/* ? END MANUAL INPUT BOX ? */}
-      <FirstSignInSubscriptionModal
-        visible={showSubscriptionModal}
-        onDismiss={() => setShowSubscriptionModal(false)}
-        onSubscribe={() => {
-          setShowSubscriptionModal(false);
-          router.push("/settings/subscription" as any);
-        }}
-      />
     </View>
   );
 }
@@ -483,9 +357,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     width: "100%",
     maxWidth: 360,
-  },
-  limitInstructionText: {
-    backgroundColor: "rgba(180, 35, 35, 0.9)",
   },
   resultOverlay: {
     position: "absolute",

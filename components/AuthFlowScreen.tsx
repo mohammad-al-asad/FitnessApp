@@ -12,7 +12,7 @@ import {
 import { useLanguage } from "@/hooks/language-context";
 import {
   getStoredOnboardingAuthPayload,
-  hasCompletedSuperwallOnboarding,
+  markSuperwallOnboardingCompleted,
   saveReferralCodeStatus,
   type ReferralCodeStatus,
 } from "@/services/superwall-flow";
@@ -85,9 +85,19 @@ const isVerificationRequiredMessage = (message: string) => {
   );
 };
 
-const mapErrorToBilingual = (msg: string): string => {
-  if (!msg) return "";
+const AUTH_FALLBACK_MESSAGE = {
+  en: "Something went wrong. Please try again.",
+  ar: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+};
+
+const mapAuthMessage = (msg: string, isArabic: boolean): string => {
+  if (!msg) {
+    return isArabic ? AUTH_FALLBACK_MESSAGE.ar : AUTH_FALLBACK_MESSAGE.en;
+  }
   const normalized = msg.trim().toLowerCase();
+  if (!normalized) {
+    return isArabic ? AUTH_FALLBACK_MESSAGE.ar : AUTH_FALLBACK_MESSAGE.en;
+  }
 
   const dictionary = [
     {
@@ -121,6 +131,11 @@ const mapErrorToBilingual = (msg: string): string => {
     {
       en: "Something went wrong. Please try again.",
       ar: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+    },
+    {
+      en: "Please check your signup details.",
+      ar: "يرجى التحقق من بيانات التسجيل.",
+      match: ["Invalid value"],
     },
     {
       en: "Invalid email or password.",
@@ -193,28 +208,26 @@ const mapErrorToBilingual = (msg: string): string => {
   ];
 
   for (const item of dictionary) {
-    const enNorm = item.en.toLowerCase();
-    const arNorm = item.ar.toLowerCase();
+    const aliases = [item.en, item.ar, ...(item.match ?? [])].map((value) =>
+      value.toLowerCase(),
+    );
     if (
-      normalized.includes(enNorm) ||
-      enNorm.includes(normalized) ||
-      normalized.includes(arNorm) ||
-      arNorm.includes(normalized)
+      aliases.some(
+        (alias) => normalized.includes(alias) || alias.includes(normalized),
+      )
     ) {
-      return `${item.en}\n\n${item.ar}`;
+      return isArabic ? item.ar : item.en;
     }
   }
 
   const hasArabic = /[\u0600-\u06FF]/.test(msg);
   const hasEnglish = /[a-zA-Z]/.test(msg);
 
-  if (hasEnglish && !hasArabic) {
-    return `${msg}\n\nحدث خطأ ما. يُرجى المحاولة مرة أخرى.`;
-  } else if (hasArabic && !hasEnglish) {
-    return `Something went wrong. Please try again.\n\n${msg}`;
+  if (isArabic) {
+    return hasArabic ? msg : AUTH_FALLBACK_MESSAGE.ar;
   }
 
-  return msg;
+  return hasEnglish ? msg : AUTH_FALLBACK_MESSAGE.en;
 };
 
 export default function AuthFlowScreen({
@@ -223,7 +236,18 @@ export default function AuthFlowScreen({
 }: AuthScreenProps) {
   const { signIn, signUp, refreshUser } = useAuth();
   const { t, isRTL } = useLanguage();
-  const errorTitle = "Error / خطأ";
+  const errorTitle = isRTL ? "خطأ" : "Error";
+  const verifyEmailTitle = isRTL
+    ? "تحقق من بريدك الإلكتروني"
+    : "Verify your email";
+  const codeSentTitle = isRTL ? "تم إرسال الرمز" : "Code Sent";
+  const passwordUpdatedTitle = isRTL
+    ? "تم تحديث كلمة المرور"
+    : "Password updated";
+  const authMessage = useCallback(
+    (message: string) => mapAuthMessage(message, isRTL),
+    [isRTL],
+  );
   const params = useLocalSearchParams<{ mode?: "signin" | "signup" }>();
 
   const googleWebClientId =
@@ -304,9 +328,6 @@ export default function AuthFlowScreen({
     const isExistingUserSignin = initialStep === "signin" || step === "signin";
     if (isExistingUserSignin) return {};
 
-    const hasCompletedOnboarding = await hasCompletedSuperwallOnboarding();
-    if (!hasCompletedOnboarding) return {};
-
     return getStoredOnboardingAuthPayload();
   }, [initialStep, step]);
 
@@ -378,6 +399,9 @@ export default function AuthFlowScreen({
               }
             : {}),
         });
+        if (isFirstOAuthSignup) {
+          await markSuperwallOnboardingCompleted();
+        }
         await completeAuthFlow();
         return;
       }
@@ -408,13 +432,16 @@ export default function AuthFlowScreen({
         lastName: credential.fullName?.familyName ?? undefined,
         ...(isFirstOAuthSignup ? onboardingPayload : {}),
       });
+      if (isFirstOAuthSignup) {
+        await markSuperwallOnboardingCompleted();
+      }
       await completeAuthFlow();
     } catch (err: any) {
       if (
         err?.code !== "ERR_REQUEST_CANCELED" &&
         err?.code !== statusCodes.SIGN_IN_CANCELLED
       ) {
-        Alert.alert(errorTitle, mapErrorToBilingual(err?.message || String(err)));
+        Alert.alert(errorTitle, authMessage(err?.message || String(err)));
       }
       setIsLoading(false);
     } finally {
@@ -427,11 +454,11 @@ export default function AuthFlowScreen({
   const handleEmailFormSubmit = async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!email || !email.includes("@")) {
-      Alert.alert(errorTitle, mapErrorToBilingual("Please enter a valid email address."));
+      Alert.alert(errorTitle, authMessage("Please enter a valid email address."));
       return;
     }
     if (!password || password.length < 6) {
-      Alert.alert(errorTitle, mapErrorToBilingual("Password must be at least 6 characters."));
+      Alert.alert(errorTitle, authMessage("Password must be at least 6 characters."));
       return;
     }
 
@@ -446,22 +473,22 @@ export default function AuthFlowScreen({
             setOtp(["", "", "", ""]);
             setStep("otpVerify");
             Alert.alert(
-              "Verify your email / تحقق من بريدك الإلكتروني",
-              mapErrorToBilingual(result.error.message),
+              verifyEmailTitle,
+              authMessage(result.error.message),
             );
           } else {
-            Alert.alert(errorTitle, mapErrorToBilingual(result.error.message));
+            Alert.alert(errorTitle, authMessage(result.error.message));
           }
         }
       } catch (error) {
-        Alert.alert(errorTitle, mapErrorToBilingual("Something went wrong. Please try again."));
+        Alert.alert(errorTitle, authMessage("Something went wrong. Please try again."));
         console.error("Auth Error:", error);
       } finally {
         setIsLoading(false);
       }
     } else if (step === "signup") {
       if (!firstName || !lastName) {
-        Alert.alert(errorTitle, mapErrorToBilingual("First name and last name are required."));
+        Alert.alert(errorTitle, authMessage("First name and last name are required."));
         return;
       }
       setIsLoading(true);
@@ -476,12 +503,12 @@ export default function AuthFlowScreen({
         } else if (result.success && "user" in result) {
           await completeAuthFlow();
         } else if (!result.success) {
-          Alert.alert(errorTitle, mapErrorToBilingual(result.error.message));
+          Alert.alert(errorTitle, authMessage(result.error.message));
         }
       } catch (error: any) {
         Alert.alert(
           errorTitle,
-          mapErrorToBilingual(error?.message || String(error)),
+          authMessage(error?.message || String(error)),
         );
       } finally {
         setIsLoading(false);
@@ -493,7 +520,7 @@ export default function AuthFlowScreen({
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const code = otp.join("");
     if (code.length < 4) {
-      Alert.alert(errorTitle, mapErrorToBilingual("Please enter the complete 4-digit code."));
+      Alert.alert(errorTitle, authMessage("Please enter the complete 4-digit code."));
       return;
     }
 
@@ -503,7 +530,7 @@ export default function AuthFlowScreen({
       await backendVerifyRegister({ email, code });
       await completeAuthFlow();
     } catch (error: any) {
-      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
+      Alert.alert(errorTitle, authMessage(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -512,7 +539,7 @@ export default function AuthFlowScreen({
   const handleForgotPasswordSubmit = async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!email || !email.includes("@")) {
-      Alert.alert(errorTitle, mapErrorToBilingual("Please enter your email address."));
+      Alert.alert(errorTitle, authMessage("Please enter your email address."));
       return;
     }
     setIsLoading(true);
@@ -521,7 +548,7 @@ export default function AuthFlowScreen({
       setOtp(["", "", "", ""]);
       setStep("resetOtpVerify");
     } catch (error: any) {
-      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
+      Alert.alert(errorTitle, authMessage(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -532,7 +559,7 @@ export default function AuthFlowScreen({
     if (!email || !password || !firstName || !lastName) {
       Alert.alert(
         errorTitle,
-        mapErrorToBilingual("Please go back and complete your signup details."),
+        authMessage("Please go back and complete your signup details."),
       );
       return;
     }
@@ -545,14 +572,14 @@ export default function AuthFlowScreen({
         await saveReferralCodeStatus(result.referralCodeStatus);
         setOtp(["", "", "", ""]);
         Alert.alert(
-          "Code Sent / تم إرسال الرمز",
-          mapErrorToBilingual("A new OTP code has been sent to your email."),
+          codeSentTitle,
+          authMessage("A new OTP code has been sent to your email."),
         );
       } else if (!result.success) {
-        Alert.alert(errorTitle, mapErrorToBilingual(result.error.message));
+        Alert.alert(errorTitle, authMessage(result.error.message));
       }
     } catch (error: any) {
-      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
+      Alert.alert(errorTitle, authMessage(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -567,11 +594,11 @@ export default function AuthFlowScreen({
       await backendForgotPassword({ email });
       setOtp(["", "", "", ""]);
       Alert.alert(
-        "Code Sent / تم إرسال الرمز",
-        mapErrorToBilingual("A new password reset code has been sent to your email."),
+        codeSentTitle,
+        authMessage("A new password reset code has been sent to your email."),
       );
     } catch (error: any) {
-      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
+      Alert.alert(errorTitle, authMessage(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -581,7 +608,7 @@ export default function AuthFlowScreen({
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const code = otp.join("");
     if (code.length < 4) {
-      Alert.alert(errorTitle, mapErrorToBilingual("Please enter the complete 4-digit code."));
+      Alert.alert(errorTitle, authMessage("Please enter the complete 4-digit code."));
       return;
     }
 
@@ -590,7 +617,7 @@ export default function AuthFlowScreen({
       await backendVerifyResetOtp({ email, code });
       setStep("newPassword");
     } catch (error: any) {
-      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
+      Alert.alert(errorTitle, authMessage(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -599,11 +626,11 @@ export default function AuthFlowScreen({
   const handleNewPasswordSubmit = async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!newPassword || newPassword.length < 6) {
-      Alert.alert(errorTitle, mapErrorToBilingual("Password must be at least 6 characters."));
+      Alert.alert(errorTitle, authMessage("Password must be at least 6 characters."));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(errorTitle, mapErrorToBilingual("Passwords do not match."));
+      Alert.alert(errorTitle, authMessage("Passwords do not match."));
       return;
     }
 
@@ -617,11 +644,11 @@ export default function AuthFlowScreen({
       setOtp(["", "", "", ""]);
       setStep("signin");
       Alert.alert(
-        "Password updated / تم تحديث كلمة المرور",
-        mapErrorToBilingual("You can now sign in with your new password."),
+        passwordUpdatedTitle,
+        authMessage("You can now sign in with your new password."),
       );
     } catch (error: any) {
-      Alert.alert(errorTitle, mapErrorToBilingual(error?.message || String(error)));
+      Alert.alert(errorTitle, authMessage(error?.message || String(error)));
     } finally {
       setIsLoading(false);
     }

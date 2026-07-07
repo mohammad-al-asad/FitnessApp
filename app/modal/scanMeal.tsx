@@ -141,7 +141,7 @@ export default function ScanMeal() {
     progressAnim.setValue(0);
     Animated.timing(progressAnim, {
       toValue: 1,
-      duration: 4000,
+      duration: 3000,
       useNativeDriver: false,
     }).start();
   };
@@ -157,7 +157,7 @@ export default function ScanMeal() {
     try {
       const photo = await cameraRef.current.takePictureAsync({
         base64: true,
-        quality: 0.78,
+        quality: 1,
         exif: false,
         shutterSound: false,
       });
@@ -376,9 +376,7 @@ export default function ScanMeal() {
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.resultHeaderTitle}>AI Meal Result</Text>
-          <TouchableOpacity style={styles.iconButton} onPress={handleClose}>
-            <Text style={styles.closeText}>{t("close")}</Text>
-          </TouchableOpacity>
+          <View style={styles.placeholderIcon} />
         </View>
 
         <ScrollView
@@ -706,7 +704,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 122,
+    paddingTop: 24,
+    paddingBottom: 78,
   },
   logoRow: {
     flexDirection: "row",
@@ -893,11 +892,6 @@ const styles = StyleSheet.create({
   resultHeaderTitle: {
     color: colors.text,
     fontSize: 17,
-    fontWeight: "700",
-  },
-  closeText: {
-    color: colors.placeholder,
-    fontSize: 12,
     fontWeight: "700",
   },
   resultContent: {

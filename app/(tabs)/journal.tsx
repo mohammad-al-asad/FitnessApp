@@ -880,7 +880,12 @@ export default function JournalScreen() {
               </Text>
             </View>
             {isLoadingMeals ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <View
+                style={[
+                  styles.caloriePercentageSkeleton,
+                  { backgroundColor: colors.border },
+                ]}
+              />
             ) : (
               <Text style={[styles.caloriePercentage, { color: colors.primary }]}>
                 {Math.round(progressPercentage)}%
@@ -1053,6 +1058,12 @@ const styles = StyleSheet.create({
   caloriePercentage: {
     fontSize: 16,
     fontWeight: "700",
+  },
+  caloriePercentageSkeleton: {
+    width: 42,
+    height: 18,
+    borderRadius: 9,
+    opacity: 0.5,
   },
   calorieProgressContainer: {
     marginBottom: 20,

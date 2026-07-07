@@ -29,6 +29,31 @@ const BACKEND_SYNC_TIMEOUT_MS = 15000;
 let purchaseFlowPromise: Promise<PurchaseResult> | null = null;
 let restoreFlowPromise: Promise<RestoreResult> | null = null;
 
+const isPurchaseCancelledError = (error: any) => {
+  const code = String(error?.code ?? error?.nativeErrorCode ?? "").toLowerCase();
+  const underlyingCode = String(
+    error?.underlyingErrorCode ?? error?.userInfo?.underlyingErrorCode ?? "",
+  ).toLowerCase();
+  const message = String(error?.message ?? error?.userInfo?.message ?? "")
+    .toLowerCase();
+
+  return (
+    error?.userCancelled === true ||
+    error?.userCancelled === "true" ||
+    error?.cancelled === true ||
+    error?.cancelled === "true" ||
+    code === String(PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR).toLowerCase() ||
+    code.includes("purchase_cancel") ||
+    code.includes("cancelled") ||
+    code.includes("canceled") ||
+    underlyingCode.includes("cancel") ||
+    message.includes("cancelled") ||
+    message.includes("canceled") ||
+    message.includes("user canceled") ||
+    message.includes("user cancelled")
+  );
+};
+
 const withTimeout = async <T,>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -154,10 +179,20 @@ const purchaseWithRevenueCat = async (params: OnPurchaseParams) => {
       syncRevenueCatSubscriptionStateInBackground("Purchase-triggered");
       return { type: "purchased" as const };
     } catch (error: any) {
-      if (
-        error?.userCancelled ||
-        error?.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
-      ) {
+      console.log(
+        "[Superwall] RevenueCat purchase error:",
+        JSON.stringify({
+          code: error?.code,
+          nativeErrorCode: error?.nativeErrorCode,
+          underlyingErrorCode: error?.underlyingErrorCode,
+          message: error?.message,
+          userCancelled: error?.userCancelled,
+          cancelled: error?.cancelled,
+        }),
+      );
+
+      if (isPurchaseCancelledError(error)) {
+        console.log("[Superwall] RevenueCat purchase cancelled by user.");
         return { type: "cancelled" as const };
       }
 

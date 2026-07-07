@@ -17,7 +17,7 @@ import { router, Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useSuperwall } from "expo-superwall";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
   AppStateStatus,
@@ -121,9 +121,15 @@ function SuperwallSplashPreloader() {
 function AppShell() {
   const { isRTL, isLoading: isLangLoading } = useLanguage();
   const colorScheme = useColorScheme();
-  const [showSplash, setShowSplash] = useState(true);
+  const [splashAnimationDone, setSplashAnimationDone] = useState(false);
+  const [startupReady, setStartupReady] = useState(false);
 
   const appState = useRef(AppState.currentState);
+  const shouldShowStartupOverlay = !splashAnimationDone || !startupReady;
+
+  const handleStartupReady = useCallback(() => {
+    setStartupReady(true);
+  }, []);
 
   useEffect(() => {
     async function prepare() {
@@ -163,25 +169,6 @@ function AppShell() {
     return null;
   }
 
-  if (showSplash) {
-    return (
-      <View
-        style={[
-          styles.appRoot,
-          { direction: isRTL ? "rtl" : "ltr" },
-        ]}
-      >
-        <SuperwallSplashPreloader />
-        <SplashScreen
-          onFinish={() => {
-            setShowSplash(false);
-          }}
-        />
-        <StatusBar style="light" />
-      </View>
-    );
-  }
-
   return (
     <View
       style={[
@@ -193,7 +180,10 @@ function AppShell() {
         <AuthProvider>
           <UserProfileProvider>
             <NutritionProvider>
-              <SuperwallOnboardingGate enabled>
+              <SuperwallOnboardingGate
+                enabled
+                onStartupReady={handleStartupReady}
+              >
                 <RootNavigator />
               </SuperwallOnboardingGate>
               <StatusBar style="light" />
@@ -201,6 +191,16 @@ function AppShell() {
           </UserProfileProvider>
         </AuthProvider>
       </ThemeProvider>
+      <SuperwallSplashPreloader />
+      {shouldShowStartupOverlay && (
+        <View style={styles.startupOverlay}>
+          <SplashScreen
+            onFinish={() => {
+              setSplashAnimationDone(true);
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -240,5 +240,10 @@ const styles = StyleSheet.create({
   appRoot: {
     flex: 1,
     backgroundColor: "#1A1A1A",
+  },
+  startupOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10000,
+    elevation: 10000,
   },
 });

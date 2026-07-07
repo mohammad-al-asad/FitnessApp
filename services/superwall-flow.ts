@@ -59,6 +59,10 @@ export const clearSuperwallOnboardingCompletion = async () => {
   await AsyncStorage.removeItem(ONBOARDING_COMPLETED_KEY);
 };
 
+export const markSuperwallOnboardingCompleted = async () => {
+  await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, "true");
+};
+
 export const hasCompletedSuperwallOnboarding = async () =>
   (await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY)) === "true";
 

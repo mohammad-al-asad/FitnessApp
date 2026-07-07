@@ -26,6 +26,7 @@ import {
   clearReferralCodeStatus,
   clearSuperwallOnboardingCompletion,
   getStoredOnboardingAuthPayload,
+  markSuperwallOnboardingCompleted,
   saveReferralCodeStatus,
   type ReferralCodeStatus,
 } from "@/services/superwall-flow";
@@ -286,6 +287,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const registration: RegisterResponse = await backendSignUp(
         registerPayload,
       );
+      await markSuperwallOnboardingCompleted();
       await saveReferralCodeStatus(registration.referralCodeStatus);
       setFirstSignInSubscriptionPromptVisible(false);
       setSubscriptionPromptUserId(null);

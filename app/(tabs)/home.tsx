@@ -36,7 +36,6 @@ import React, {
 
 import { responsiveWidth } from "@/utilities/ScalingUtils";
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -460,8 +459,49 @@ export default function HomeScreen() {
           </View>
 
           {homeLoading ? (
-            <View style={styles.mealLoading}>
-              <ActivityIndicator size="small" color={colors.primary} />
+            <View style={styles.mealsSkeleton}>
+              {[0, 1, 2].map((item, index) => (
+                <View
+                  key={item}
+                  style={[
+                    styles.mealSkeletonRow,
+                    { borderBottomColor: colors.border },
+                    index === 2 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <View style={styles.mealSkeletonLeft}>
+                    <View
+                      style={[
+                        styles.mealSkeletonIcon,
+                        { backgroundColor: colors.border },
+                      ]}
+                    />
+                    <View style={styles.mealSkeletonText}>
+                      <View
+                        style={[
+                          styles.mealSkeletonTitle,
+                          { backgroundColor: colors.border },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.mealSkeletonSubtitle,
+                          { backgroundColor: colors.border },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.mealSkeletonButton,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                  />
+                </View>
+              ))}
             </View>
           ) : (
             mealRows.map((meal, index) => {
@@ -883,10 +923,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
-  mealLoading: {
-    paddingVertical: 16,
+  mealsSkeleton: {
+    paddingTop: 2,
+  },
+  mealSkeletonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  mealSkeletonLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  mealSkeletonIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    opacity: 0.55,
+  },
+  mealSkeletonText: {
+    flex: 1,
+    marginStart: 10,
+    gap: 7,
+  },
+  mealSkeletonTitle: {
+    width: "42%",
+    height: 13,
+    borderRadius: 7,
+    opacity: 0.6,
+  },
+  mealSkeletonSubtitle: {
+    width: "68%",
+    height: 10,
+    borderRadius: 6,
+    opacity: 0.42,
+  },
+  mealSkeletonButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    marginStart: 8,
+    opacity: 0.72,
   },
   mealRow: {
     flexDirection: "row",

@@ -1,11 +1,8 @@
-import FirstSignInSubscriptionModal from "@/components/FirstSignInSubscriptionModal";
 import { useAuth } from "@/hooks/auth-context";
 import { useLanguage } from "@/hooks/language-context";
 import {
   backendGetChatHistory,
-  backendGetChatLimitStatus,
   backendSendChatMessage,
-  type ChatLimitStatus,
 } from "@/services/backend-auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -94,10 +91,7 @@ export default function FloatingFitBot({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingLimit, setIsLoadingLimit] = useState(false);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
-  const [chatLimit, setChatLimit] = useState<ChatLimitStatus | null>(null);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -160,23 +154,6 @@ export default function FloatingFitBot({
     });
   }, []);
 
-  const loadChatLimit = useCallback(async () => {
-    try {
-      setIsLoadingLimit(true);
-      const limit = await backendGetChatLimitStatus();
-      setChatLimit(limit);
-    } catch {
-      setChatLimit(null);
-    } finally {
-      setIsLoadingLimit(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isVisible || !hasConsented) return;
-    void loadChatLimit();
-  }, [isVisible, hasConsented, loadChatLimit]);
-
   useEffect(() => {
     if (Platform.OS !== "android") return;
 
@@ -193,47 +170,6 @@ export default function FloatingFitBot({
       hideSub.remove();
     };
   }, [scrollToBottom]);
-
-  const isPremium = chatLimit?.subscriptionStatus === "premium";
-  const isChatLimitReached =
-    !!chatLimit &&
-    !chatLimit.isUnlimited &&
-    (isPremium
-      ? chatLimit.messagesLeftThisMonth !== null &&
-      chatLimit.messagesLeftThisMonth !== undefined &&
-      chatLimit.messagesLeftThisMonth <= 0
-      : chatLimit.messagesLeftToday <= 0);
-  const prevChatLimitReachedRef = useRef(false);
-
-  const chatLimitUsagePercent = React.useMemo(() => {
-    if (!chatLimit || chatLimit.isUnlimited) return 0;
-
-    if (isPremium) {
-      const limit =
-        chatLimit.paidMonthlyLimit || chatLimit.premiumMonthlyLimit || 0;
-      if (limit <= 0) return 0;
-      return Math.min(
-        100,
-        Math.max(0, ((chatLimit.messagesUsedThisMonth ?? 0) / limit) * 100),
-      );
-    } else {
-      if (chatLimit.dailyFreeLimit <= 0) return 0;
-      return Math.min(
-        100,
-        Math.max(
-          0,
-          (chatLimit.messagesUsedToday / chatLimit.dailyFreeLimit) * 100,
-        ),
-      );
-    }
-  }, [chatLimit, isPremium]);
-
-  useEffect(() => {
-    if (isVisible && isChatLimitReached && !prevChatLimitReachedRef.current) {
-      setShowSubscriptionModal(true);
-    }
-    prevChatLimitReachedRef.current = isChatLimitReached;
-  }, [isChatLimitReached, isVisible]);
 
   useEffect(() => {
     const typingMsg = messages.find((m) => m.isTyping && !m.isUser);
@@ -361,8 +297,7 @@ export default function FloatingFitBot({
   }, [isVisible, hasConsented, hasLoadedHistory]);
 
   const sendMessage = () => {
-    if (!inputText.trim() || isLoading || isLoadingLimit || isChatLimitReached)
-      return;
+    if (!inputText.trim() || isLoading) return;
 
     if (!hasConsented) {
       setShowConsentModal(true);
@@ -401,16 +336,9 @@ export default function FloatingFitBot({
 
         setMessages((prev) => [...prev, botMsg]);
       } catch (error: any) {
-        const raw = String(error?.message ?? "").toLowerCase();
-        const isLimitError = raw.includes("limit");
-        if (isLimitError) {
-          setShowSubscriptionModal(true);
-        }
         const fallback: Message = {
           id: String(Date.now() + 1),
-          text: isLimitError
-            ? String(t("chatLimitReachedNotice"))
-            : "There was an error reaching FitBot. Please check your connection and try again.",
+          text: "There was an error reaching FitBot. Please check your connection and try again.",
           isUser: false,
           timestamp: new Date(),
           isTyping: true,
@@ -419,7 +347,6 @@ export default function FloatingFitBot({
         setMessages((prev) => [...prev, fallback]);
       } finally {
         setIsLoading(false);
-        void loadChatLimit();
       }
     })();
   };
@@ -480,57 +407,6 @@ export default function FloatingFitBot({
               </TouchableOpacity>
             </View>
           </View>
-
-          {!isPremium && (
-            <View style={styles.limitContainer}>
-              {isLoadingLimit ? (
-                <ActivityIndicator size="small" color="#22c55e" />
-              ) : chatLimit ? (
-                <>
-                  <View style={styles.limitRow}>
-                    <Text style={styles.limitTitle}>
-                      {chatLimit.isUnlimited
-                        ? String(t("chatUnlimitedLabel"))
-                        : `${String(t("chatDailyLimitLabel"))}: ${chatLimit.messagesUsedToday}/${chatLimit.dailyFreeLimit}`}
-                    </Text>
-                    {!chatLimit.isUnlimited && (
-                      <Text
-                        style={[
-                          styles.limitCount,
-                          isChatLimitReached && styles.limitCountReached,
-                        ]}
-                      >
-                        {chatLimit.messagesLeftToday}{" "}
-                        {String(t("chatMessagesLeftToday"))}
-                      </Text>
-                    )}
-                  </View>
-
-                  {!chatLimit.isUnlimited && (
-                    <View style={styles.limitTrack}>
-                      <View
-                        style={[
-                          styles.limitFill,
-                          {
-                            width: `${chatLimitUsagePercent}%`,
-                            backgroundColor: isChatLimitReached
-                              ? "#f97316"
-                              : "#22c55e",
-                          },
-                        ]}
-                      />
-                    </View>
-                  )}
-
-                  {isChatLimitReached && (
-                    <Text style={styles.limitNotice}>
-                      {String(t("chatLimitReachedNotice"))}
-                    </Text>
-                  )}
-                </>
-              ) : null}
-            </View>
-          )}
 
           <KeyboardAvoidingView
             style={styles.contentContainer}
@@ -647,34 +523,21 @@ export default function FloatingFitBot({
                   ]}
                   value={inputText}
                   onChangeText={setInputText}
-                  placeholder={
-                    isChatLimitReached
-                      ? String(t("chatLimitReachedInput"))
-                      : String(t("chatInputPlaceholder"))
-                  }
+                  placeholder={String(t("chatInputPlaceholder"))}
                   placeholderTextColor="rgba(255,255,255,0.6)"
                   multiline
                   maxLength={500}
                   onSubmitEditing={sendMessage}
                   blurOnSubmit={false}
-                  editable={!isChatLimitReached}
                 />
                 <TouchableOpacity
                   style={[
                     styles.sendButton,
-                    (!inputText.trim() ||
-                      isLoading ||
-                      isLoadingLimit ||
-                      isChatLimitReached) &&
-                    styles.sendButtonDisabled,
+                    (!inputText.trim() || isLoading) &&
+                      styles.sendButtonDisabled,
                   ]}
                   onPress={sendMessage}
-                  disabled={
-                    !inputText.trim() ||
-                    isLoading ||
-                    isLoadingLimit ||
-                    isChatLimitReached
-                  }
+                  disabled={!inputText.trim() || isLoading}
                 >
                   <Send
                     size={20}
@@ -686,11 +549,11 @@ export default function FloatingFitBot({
                   />
                 </TouchableOpacity>
               </View>
-            </View>
-            <View style={styles.persistentDisclaimer}>
-              <Text style={styles.disclaimerText}>
-                {String(t("fitBotDisclaimer"))}
-              </Text>
+              <View style={styles.persistentDisclaimer}>
+                <Text style={styles.disclaimerText}>
+                  {String(t("fitBotDisclaimer"))}
+                </Text>
+              </View>
             </View>
           </KeyboardAvoidingView>
 
@@ -808,14 +671,6 @@ export default function FloatingFitBot({
           router.push("/modal/scanMeal");
         }}
       />
-      <FirstSignInSubscriptionModal
-        visible={showSubscriptionModal}
-        onDismiss={() => setShowSubscriptionModal(false)}
-        onSubscribe={() => {
-          setShowSubscriptionModal(false);
-          router.push("/settings/subscription" as any);
-        }}
-      />
     </>
   );
 }
@@ -851,61 +706,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.2)",
   },
-  limitContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.16)",
-    gap: 6,
-  },
-  limitRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  limitTitle: {
-    color: "rgba(255,255,255,0.95)",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  limitCount: {
-    color: "#86efac",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  limitCountReached: {
-    color: "#fdba74",
-  },
-  limitTrack: {
-    width: "100%",
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    overflow: "hidden",
-  },
-  limitFill: {
-    height: "100%",
-    borderRadius: 999,
-  },
   persistentDisclaimer: {
+    width: "100%",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "rgba(255,255,255,0.15)", // Semi-transparent white backdrop
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   disclaimerText: {
     color: "#fde047", // Yellowish color
     fontSize: 12,
     fontWeight: "500",
     textAlign: "center",
-  },
-  limitNotice: {
-    color: "#fdba74",
-    fontSize: 12,
-    lineHeight: 16,
   },
   headerContent: {
     flexDirection: "row",
@@ -970,8 +783,8 @@ const styles = StyleSheet.create({
   userText: { color: "white" },
   botText: { color: "white" },
   inputContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingHorizontal: 0,
     backgroundColor: "rgba(255,255,255,0.1)",
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.2)",
@@ -986,6 +799,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     minHeight: 48,
+    marginHorizontal: 16,
+    marginBottom: 10,
   },
   textInput: {
     flex: 1,
