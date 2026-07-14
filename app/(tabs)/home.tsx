@@ -14,16 +14,20 @@ import {
   getFoodLogsWeeklySummary,
 } from "@/services/food-api";
 import { useFocusEffect } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import {
   Award,
+  Camera,
   Coffee,
   Flame,
   Moon,
   Plus,
+  Sparkles,
   Sun,
   Target,
   TrendingUp,
+  X,
   Zap,
 } from "lucide-react-native";
 import React, {
@@ -36,6 +40,7 @@ import React, {
 
 import { responsiveWidth } from "@/utilities/ScalingUtils";
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -67,6 +72,9 @@ function getWeekdayLabel(dateString: string): string {
 }
 
 const HOME_REFRESH_INTERVAL_MS = 60 * 1000;
+const MEAL_SCANNER_HOME_PROMPT_DELAY_MS = 800;
+const MEAL_SCANNER_HOME_PROMPT_SEEN_PREFIX =
+  "fitco_home_meal_scanner_prompt_seen_";
 
 export default function HomeScreen() {
   // useEffect(() => {
@@ -95,7 +103,11 @@ export default function HomeScreen() {
   );
 
   // --- Hooks / contexts ---
-  const { showFirstSignInSubscriptionPromptIfPending } = useAuth();
+  const {
+    user,
+    firstSignInSubscriptionPromptVisible,
+    showFirstSignInSubscriptionPromptIfPending,
+  } = useAuth();
   const { settings, getTodayLog, getProgressData, getLogByDate, lastUpdateTimestamp } =
     useNutrition();
   const { t, isRTL } = useLanguage();
@@ -108,11 +120,79 @@ export default function HomeScreen() {
     useState<FoodLogsWeeklySummaryResponse | null>(null);
   const [homeLoading, setHomeLoading] = useState(false);
   const [homeError, setHomeError] = useState<string | null>(null);
+  const [showMealScannerPrompt, setShowMealScannerPrompt] = useState(false);
   const lastFetchedRef = useRef<{ date: string; time: number } | null>(null);
+  const mealScannerPromptSeenKey = useMemo(
+    () =>
+      user?.uid
+        ? `${MEAL_SCANNER_HOME_PROMPT_SEEN_PREFIX}${user.uid}`
+        : null,
+    [user?.uid],
+  );
 
   useEffect(() => {
     void showFirstSignInSubscriptionPromptIfPending();
   }, [showFirstSignInSubscriptionPromptIfPending]);
+
+  useEffect(() => {
+    if (
+      !mealScannerPromptSeenKey ||
+      firstSignInSubscriptionPromptVisible ||
+      showMealScannerPrompt
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    const timeoutId = setTimeout(() => {
+      const showPromptIfNeeded = async () => {
+        try {
+          const hasSeenPrompt = await AsyncStorage.getItem(
+            mealScannerPromptSeenKey,
+          );
+
+          if (isMounted && !hasSeenPrompt) {
+            setShowMealScannerPrompt(true);
+          }
+        } catch (error) {
+          console.error(
+            "Failed to read meal scanner home prompt state:",
+            error,
+          );
+        }
+      };
+
+      void showPromptIfNeeded();
+    }, MEAL_SCANNER_HOME_PROMPT_DELAY_MS);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, [
+    firstSignInSubscriptionPromptVisible,
+    mealScannerPromptSeenKey,
+    showMealScannerPrompt,
+  ]);
+
+  const completeMealScannerPrompt = useCallback(
+    async (openScanner: boolean) => {
+      setShowMealScannerPrompt(false);
+
+      if (mealScannerPromptSeenKey) {
+        try {
+          await AsyncStorage.setItem(mealScannerPromptSeenKey, "1");
+        } catch (error) {
+          console.error("Failed to save meal scanner home prompt state:", error);
+        }
+      }
+
+      if (openScanner) {
+        router.push("/modal/scanMeal");
+      }
+    },
+    [mealScannerPromptSeenKey, router],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -580,6 +660,17 @@ export default function HomeScreen() {
               );
             })
           )}
+          {!!homeError && (
+            <Text
+              style={[
+                styles.mealError,
+                isRTL && styles.rtlText,
+                { color: "#E74C3C" },
+              ]}
+            >
+              {homeError}
+            </Text>
+          )}
         </View>
 
         <View
@@ -837,6 +928,112 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
       <FloatingFitBot />
+      <Modal
+        visible={showMealScannerPrompt}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          void completeMealScannerPrompt(false);
+        }}
+      >
+        <View style={styles.mealPromptOverlay}>
+          <View
+            style={[
+              styles.mealPromptCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.mealPromptCloseButton,
+                { backgroundColor: colors.background },
+              ]}
+              activeOpacity={0.75}
+              onPress={() => {
+                void completeMealScannerPrompt(false);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={String(t("close"))}
+            >
+              <X size={18} color={colors.placeholder} />
+            </TouchableOpacity>
+
+            <View
+              style={[
+                styles.mealPromptIconBadge,
+                { backgroundColor: colors.primary + "20" },
+              ]}
+            >
+              <Camera size={30} color={colors.primary} />
+              <View
+                style={[
+                  styles.mealPromptSparkleBadge,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <Sparkles size={14} color={colors.primary} />
+              </View>
+            </View>
+
+            <Text
+              style={[
+                styles.mealPromptTitle,
+                isRTL && styles.rtlText,
+                { color: colors.text },
+              ]}
+            >
+              {t("homeMealScannerPromptTitle")}
+            </Text>
+            <Text
+              style={[
+                styles.mealPromptBody,
+                isRTL && styles.rtlText,
+                { color: colors.placeholder },
+              ]}
+            >
+              {t("homeMealScannerPromptBody")}
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.mealPromptPrimaryButton,
+                { backgroundColor: colors.primary },
+              ]}
+              activeOpacity={0.85}
+              onPress={() => {
+                void completeMealScannerPrompt(true);
+              }}
+            >
+              <Camera size={18} color={colors.background} />
+              <Text
+                style={[
+                  styles.mealPromptPrimaryButtonText,
+                  { color: colors.background },
+                ]}
+              >
+                {t("homeMealScannerPromptCta")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.mealPromptSecondaryButton}
+              activeOpacity={0.75}
+              onPress={() => {
+                void completeMealScannerPrompt(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.mealPromptSecondaryButtonText,
+                  { color: colors.placeholder },
+                ]}
+              >
+                {t("homeMealScannerPromptLater")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1075,4 +1272,85 @@ const styles = StyleSheet.create({
   caloriesStatsRTL: { flexDirection: "column-reverse" },
   statRowRTL: { flexDirection: "row-reverse" },
   statGroup: { marginBottom: 12 },
+  mealPromptOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.62)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  mealPromptCard: {
+    width: "100%",
+    maxWidth: 340,
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 22,
+    paddingTop: 28,
+    paddingBottom: 20,
+    alignItems: "center",
+  },
+  mealPromptCloseButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mealPromptIconBadge: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+  mealPromptSparkleBadge: {
+    position: "absolute",
+    right: 3,
+    bottom: 5,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mealPromptTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  mealPromptBody: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    marginBottom: 22,
+  },
+  mealPromptPrimaryButton: {
+    width: "100%",
+    minHeight: 48,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  mealPromptPrimaryButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  mealPromptSecondaryButton: {
+    marginTop: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  mealPromptSecondaryButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

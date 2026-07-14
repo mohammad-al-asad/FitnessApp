@@ -136,6 +136,11 @@ export const translations = {
     today: "today",
     ofDailyGoal: "of Daily Goal",
     startYourStreak: "Start Your Streak",
+    homeMealScannerPromptTitle: "Try the Meal Scanner",
+    homeMealScannerPromptBody:
+      "Snap a photo of your plate and let Fitco help estimate the meal for faster logging.",
+    homeMealScannerPromptCta: "Try Meal Scanner",
+    homeMealScannerPromptLater: "Maybe later",
 
     // Journal Screen
     todaysJournal: "Today's Journal",
@@ -625,6 +630,11 @@ export const translations = {
     today: "اليوم",
     ofDailyGoal: "من الهدف اليومي",
     startYourStreak: "ابدأ سلسلة انتصاراتك",
+    homeMealScannerPromptTitle: "جرّب ماسح الوجبات",
+    homeMealScannerPromptBody:
+      "صوّر طبقك وخلي فتكو يساعدك في تقدير الوجبة لتسجيل أسرع.",
+    homeMealScannerPromptCta: "جرّب ماسح الوجبات",
+    homeMealScannerPromptLater: "لاحقاً",
 
     // Journal Screen
     todaysJournal: "مذكرات اليوم",
