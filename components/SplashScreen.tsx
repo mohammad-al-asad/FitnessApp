@@ -2,14 +2,76 @@
 import { translations } from "@/constants/translations";
 import { useLanguage } from "@/hooks/language-context";
 import * as ExpoSplashScreen from "expo-splash-screen";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 interface SplashScreenProps {
   onFinish: () => void;
+  replay?: boolean;
 }
 
-export default function SplashScreen({ onFinish }: SplashScreenProps) {
+const startupLetterAnimations = [
+  new Animated.Value(0),
+  new Animated.Value(0),
+  new Animated.Value(0),
+  new Animated.Value(0),
+  new Animated.Value(0),
+];
+const startupSloganAnimation = new Animated.Value(0);
+const startupMadeInSaudiAnimation = new Animated.Value(0);
+const startupFinishListeners = new Set<() => void>();
+
+let hasStartedStartupAnimation = false;
+let hasCompletedStartupAnimation = false;
+
+const finishStartupAnimation = () => {
+  if (hasCompletedStartupAnimation) return;
+
+  hasCompletedStartupAnimation = true;
+  startupLetterAnimations.forEach((animation) => animation.setValue(1));
+  startupSloganAnimation.setValue(1);
+  startupMadeInSaudiAnimation.setValue(1);
+
+  startupFinishListeners.forEach((listener) => listener());
+  startupFinishListeners.clear();
+};
+
+const startStartupAnimation = () => {
+  if (hasStartedStartupAnimation || hasCompletedStartupAnimation) return;
+
+  hasStartedStartupAnimation = true;
+  const letterSequence = startupLetterAnimations.map((anim, i) =>
+    Animated.sequence([
+      Animated.delay(i * 60),
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 450,
+        useNativeDriver: true,
+      }),
+    ]),
+  );
+
+  Animated.parallel(letterSequence).start(() => {
+    Animated.sequence([
+      Animated.timing(startupSloganAnimation, {
+        toValue: 1,
+        duration: 500,
+        delay: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(startupMadeInSaudiAnimation, {
+        toValue: 1,
+        duration: 500,
+        delay: 120,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setTimeout(finishStartupAnimation, 900);
+    });
+  });
+};
+
+export default function SplashScreen({ onFinish, replay = false }: SplashScreenProps) {
   const colors = {
     background: "#1A1A1A",
     accent: "#4CAF50",
@@ -27,65 +89,91 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
     setTagline(taglines[randomIndex]);
   }, [taglines]);
 
-  const letterAnimations = useRef([
+  const localLetterAnimations = useRef([
     new Animated.Value(0),
     new Animated.Value(0),
     new Animated.Value(0),
     new Animated.Value(0),
     new Animated.Value(0),
   ]).current;
+  const localSloganAnimation = useRef(new Animated.Value(0)).current;
+  const localMadeInSaudiAnimation = useRef(new Animated.Value(0)).current;
 
-  const fadeAnimation = useRef(new Animated.Value(1)).current;
-  const sloganAnimation = useRef(new Animated.Value(0)).current;
-  const madeInSaudiAnimation = useRef(new Animated.Value(0)).current;
-
-  const hasFinished = useRef(false);
-  const handleAnimationComplete = useCallback(() => {
-    if (hasFinished.current) return;
-    hasFinished.current = true;
-    if (typeof onFinish === "function") onFinish();
-  }, [onFinish]);
+  const letterAnimations = replay
+    ? localLetterAnimations
+    : startupLetterAnimations;
+  const sloganAnimation = replay
+    ? localSloganAnimation
+    : startupSloganAnimation;
+  const madeInSaudiAnimation = replay
+    ? localMadeInSaudiAnimation
+    : startupMadeInSaudiAnimation;
 
   useEffect(() => {
     // 🚀 Hide the native splash screen as soon as our custom one is ready to animate
     ExpoSplashScreen.hideAsync().catch(() => {});
 
-    const letterSequence = letterAnimations.map((anim, i) =>
-      Animated.sequence([
-        Animated.delay(i * 60),
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 450,
-          useNativeDriver: true,
-        }),
-      ])
-    );
+    if (replay) {
+      let isMounted = true;
+      letterAnimations.forEach((animation) => animation.setValue(0));
+      sloganAnimation.setValue(0);
+      madeInSaudiAnimation.setValue(0);
 
-    Animated.parallel(letterSequence).start(() => {
-      Animated.sequence([
-        Animated.timing(sloganAnimation, {
-          toValue: 1,
-          duration: 500,
-          delay: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(madeInSaudiAnimation, {
-          toValue: 1,
-          duration: 500,
-          delay: 120,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setTimeout(() => {
-          Animated.timing(fadeAnimation, {
-            toValue: 0,
-            duration: 500,
+      const letterSequence = letterAnimations.map((anim, i) =>
+        Animated.sequence([
+          Animated.delay(i * 60),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 450,
             useNativeDriver: true,
-          }).start(handleAnimationComplete);
-        }, 900);
+          }),
+        ]),
+      );
+
+      Animated.parallel(letterSequence).start(() => {
+        Animated.sequence([
+          Animated.timing(sloganAnimation, {
+            toValue: 1,
+            duration: 500,
+            delay: 150,
+            useNativeDriver: true,
+          }),
+          Animated.timing(madeInSaudiAnimation, {
+            toValue: 1,
+            duration: 500,
+            delay: 120,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setTimeout(() => {
+            if (isMounted) onFinish();
+          }, 900);
+        });
       });
-    });
-  }, []);
+
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (hasCompletedStartupAnimation) {
+      onFinish();
+      return;
+    }
+
+    startupFinishListeners.add(onFinish);
+    startStartupAnimation();
+
+    return () => {
+      startupFinishListeners.delete(onFinish);
+    };
+  }, [
+    letterAnimations,
+    madeInSaudiAnimation,
+    onFinish,
+    replay,
+    sloganAnimation,
+  ]);
 
   const letters = ["F", "I", "T", "C", "O"];
 
@@ -93,7 +181,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
     <Animated.View
       style={[
         styles.container,
-        { opacity: fadeAnimation, backgroundColor: colors.background, direction: "ltr" },
+        { backgroundColor: colors.background, direction: "ltr" },
       ]}
     >
       <View style={[styles.content, { direction: "ltr" }]}>

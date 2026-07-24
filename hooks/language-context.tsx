@@ -1,5 +1,5 @@
 // 🌐 language-context.ts — Manages app language, direction (LTR/RTL), and theme colors.
-// Handles English/Arabic localization using AsyncStorage for persistence, Expo Updates for reload,
+// Handles English/Arabic localization using AsyncStorage for persistence,
 // and provides `useLanguage()` + `useSafeColors()` hooks for translations and consistent dark theme colors.
 
 import {
@@ -9,9 +9,8 @@ import {
 } from "@/constants/translations";
 import createContextHook from "@nkzw/create-context-hook";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Updates from "expo-updates";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, I18nManager, Platform } from "react-native";
+import { I18nManager } from "react-native";
 
 // Dark theme colors - always use dark theme
 const COLORS = {
@@ -83,57 +82,23 @@ export const [LanguageProvider, useLanguage] = createContextHook(() => {
     }
 
     try {
-      setIsLoading(true);
-
       const shouldBeRTL = language === "ar";
-      const rtlChanged = I18nManager.isRTL !== shouldBeRTL;
 
       console.log(
-        `[Change Language] Requested: ${language}, shouldBeRTL: ${shouldBeRTL}, currentRTL: ${I18nManager.isRTL}, rtlChanged: ${rtlChanged}, Platform: ${Platform.OS}`,
+        `[Change Language] Requested: ${language}, shouldBeRTL: ${shouldBeRTL}, currentRTL: ${I18nManager.isRTL}`,
       );
 
       await AsyncStorage.setItem(LANGUAGE_KEY, language);
       console.log(
-        "🌐 Language changed to",
+        "Language changed to",
         await AsyncStorage.getItem(LANGUAGE_KEY),
       );
 
-      if (Platform.OS !== "web" && rtlChanged) {
-        console.log(
-          "[Change Language] Native platform with RTL change - reloading app...",
-        );
-
-        I18nManager.allowRTL(true);
-        I18nManager.forceRTL(shouldBeRTL);
-
-        setTimeout(async () => {
-          try {
-            console.log("[Change Language] Reloading app...");
-            await Updates.reloadAsync();
-          } catch (reloadError) {
-            console.error(
-              "[Change Language] Error reloading app:",
-              reloadError,
-            );
-            Alert.alert(
-              language === "ar" ? "خطأ" : "Error",
-              language === "ar"
-                ? "يرجى إعادة تشغيل التطبيق يدويًا"
-                : "Please restart the app manually",
-            );
-            setIsLoading(false);
-          }
-        }, 100);
-      } else {
-        console.log(
-          "[Change Language] Web platform or no RTL change - applying language change",
-        );
-        setCurrentLanguage(language);
-        setIsLoading(false);
-      }
+      I18nManager.allowRTL(shouldBeRTL);
+      I18nManager.forceRTL(shouldBeRTL);
+      setCurrentLanguage(language);
     } catch (error) {
       console.error("[Change Language] Error changing language:", error);
-      setIsLoading(false);
     }
   }, []);
 
@@ -199,7 +164,7 @@ export const [LanguageProvider, useLanguage] = createContextHook(() => {
     };
 
     return contextValue;
-  }, [currentLanguage, changeLanguage, t, isRTL, isLoading]);
+  }, [currentLanguage, changeLanguage, t, tArray, isRTL, isLoading]);
 }, defaultLanguageContext);
 
 // Safe hook that always returns valid colors

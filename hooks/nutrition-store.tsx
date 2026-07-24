@@ -35,48 +35,44 @@ const parseLocalDateKey = (dateKey: string) => {
 };
 const getTodayString = () => formatLocalDate(new Date());
 
-function getAutoMacros(calorieGoal: number) {
-  const proteinCalories = calorieGoal * 0.3;
-  const fatCalories = calorieGoal * 0.25;
-  const carbCalories = calorieGoal * 0.45;
-  return {
-    proteinGoal: Math.round(proteinCalories / 4),
-    fatsGoal: Math.round(fatCalories / 9),
-    carbsGoal: Math.round(carbCalories / 4),
-  };
+function toNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export async function getQuestionnaireSettings(userId: string) {
-  try {
-    const storedData = await AsyncStorage.getItem(`questionnaireData_${userId}`);
-    if (!storedData) return null;
-    const data = JSON.parse(storedData);
-    const { weight, height, age, gender, activityLevel, goal } = data;
+function getLoggedFoodSignature(food: any): string {
+  const item = food?.foodItem ?? {};
+  const meal = String(food?.mealType || "").toLowerCase();
+  const name = String(item?.name || food?.foodName || "").trim().toLowerCase();
+  const quantity = toNumber(food?.quantity) || 1;
+  const calories = Math.round(toNumber(item?.calories) * quantity);
+  const protein = Math.round(toNumber(item?.protein) * quantity * 10) / 10;
+  const carbs = Math.round(toNumber(item?.carbs) * quantity * 10) / 10;
+  const fats = Math.round(toNumber(item?.fats ?? item?.fat) * quantity * 10) / 10;
 
-    let bmr =
-      gender === "male"
-        ? 10 * weight + 6.25 * height - 5 * age + 5
-        : 10 * weight + 6.25 * height - 5 * age - 161;
+  return `${meal}:${name}:${calories}:${protein}:${carbs}:${fats}`;
+}
 
-    const factors: Record<string, number> = {
-      sedentary: 1.2,
-      lightly_active: 1.375,
-      moderately_active: 1.55,
-      very_active: 1.725,
-      extremely_active: 1.9,
-    };
-    bmr *= factors[activityLevel] || 1.55;
+function mergeLoggedFoods(localFoods: any[] = [], backendFoods: any[] = []) {
+  const merged = [...backendFoods];
+  const seen = new Set<string>();
 
-    if (goal === "lose_weight") bmr -= 400;
-    else if (goal === "gain_weight" || goal === "build_muscle") bmr += 400;
+  backendFoods.forEach((food) => {
+    if (food?.id) seen.add(`id:${food.id}`);
+    seen.add(`sig:${getLoggedFoodSignature(food)}`);
+  });
 
-    const calorieGoal = Math.round(bmr);
-    const { proteinGoal, carbsGoal, fatsGoal } = getAutoMacros(calorieGoal);
-    return { weight, calorieGoal, proteinGoal, carbsGoal, fatsGoal };
-  } catch (error) {
-    console.log("Error loading questionnaire settings:", error);
-    return null;
-  }
+  localFoods.forEach((food) => {
+    const idKey = food?.id ? `id:${food.id}` : "";
+    const signatureKey = `sig:${getLoggedFoodSignature(food)}`;
+    if (!seen.has(idKey) && !seen.has(signatureKey)) {
+      if (idKey) seen.add(idKey);
+      seen.add(signatureKey);
+      merged.push(food);
+    }
+  });
+
+  return merged;
 }
 
 export const [NutritionProvider, useNutrition] = createContextHook(() => {
@@ -102,10 +98,9 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
     }
 
     try {
-      const [storedSettings, storedLogs, questionnaireSettings] = await Promise.all([
+      const [storedSettings, storedLogs] = await Promise.all([
         AsyncStorage.getItem(SETTINGS_KEY),
         AsyncStorage.getItem(LOGS_KEY),
-        getQuestionnaireSettings(userId),
       ]);
 
 
@@ -122,10 +117,6 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
           carbsGoal: profile.targetCarbs ?? parsedSettings.carbsGoal,
           fatsGoal: profile.targetFat ?? parsedSettings.fatsGoal,
         };
-      }
-
-      if (questionnaireSettings) {
-        parsedSettings = { ...parsedSettings, ...questionnaireSettings };
       }
 
       setSettings(parsedSettings);
@@ -167,14 +158,24 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
           (homeData.meals[meal] || []).forEach(item => {
             backendFoods.push({
               id: item.id,
+              imageUrl: item.imageUrl,
+              confidence: item.confidence,
+              notes: item.notes,
+              source: item.source || item.foodSource,
+              isAi: item.isAi,
               foodItem: {
                 name: item.foodName,
-                brand: item.brandName,
+                brand: item.brandName || (item.isAi ? "AI Meal" : ""),
                 calories: item.calories / (item.servings || 1),
                 protein: item.protein / (item.servings || 1),
                 carbs: item.carbs / (item.servings || 1),
                 fats: item.fat / (item.servings || 1),
                 servingSize: `${item.servingSize}${item.servingUnit}`,
+                imageUrl: item.imageUrl,
+                confidence: item.confidence,
+                notes: item.notes,
+                source: item.source || item.foodSource,
+                isAi: item.isAi,
               },
               quantity: item.servings,
               timestamp: item.loggedAt ? new Date(item.loggedAt) : new Date(),
@@ -186,25 +187,27 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
         if (backendFoods.length > 0) {
           setDailyLogs(prev => {
             const updated = { ...prev };
+            const existingFoods = updated[today]?.foods || [];
+            const mergedFoods = mergeLoggedFoods(existingFoods, backendFoods);
+            const mergedTotals = calculateTotals(mergedFoods);
             updated[today] = {
+              ...(updated[today] || {}),
               date: today,
-              foods: backendFoods,
-              totalCalories: homeData.totals.calories,
-              totalProtein: homeData.totals.protein,
-              totalCarbs: homeData.totals.carbs,
-              totalFats: homeData.totals.fat,
+              foods: mergedFoods,
+              ...mergedTotals,
             };
             return updated;
           });
           // Also persist to AsyncStorage
           const currentLogs = JSON.parse((await AsyncStorage.getItem(LOGS_KEY)) || "{}");
+          const existingFoods = currentLogs[today]?.foods || [];
+          const mergedFoods = mergeLoggedFoods(existingFoods, backendFoods);
+          const mergedTotals = calculateTotals(mergedFoods);
           currentLogs[today] = {
+            ...(currentLogs[today] || {}),
             date: today,
-            foods: backendFoods,
-            totalCalories: homeData.totals.calories,
-            totalProtein: homeData.totals.protein,
-            totalCarbs: homeData.totals.carbs,
-            totalFats: homeData.totals.fat,
+            foods: mergedFoods,
+            ...mergedTotals,
           };
           await AsyncStorage.setItem(LOGS_KEY, JSON.stringify(currentLogs));
         }
@@ -265,6 +268,10 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
     },
     [LOGS_KEY],
   );
+
+  const markLogsChanged = useCallback(() => {
+    setLastUpdateTimestamp(Date.now());
+  }, []);
 
   const getTodayLog = useCallback((): DailyLog => {
     const today = getTodayString();
@@ -369,6 +376,150 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
     [dailyLogs, saveDailyLogs],
   );
 
+  const removeFoodFromLocalLog = useCallback(
+    async (foodId: string, date?: string, matchingFood?: any) => {
+      const targetDate = date || getTodayString();
+      const currentLog = dailyLogs[targetDate];
+      if (!currentLog) return;
+
+      const normalizedId = String(foodId || "");
+      const matchingSignature = matchingFood
+        ? getLoggedFoodSignature(matchingFood)
+        : "";
+
+      const updatedFoods = currentLog.foods.filter((food: any) => {
+        const sameId = normalizedId && String(food?.id || "") === normalizedId;
+        const sameFood =
+          matchingSignature &&
+          getLoggedFoodSignature(food) === matchingSignature;
+
+        return !sameId && !sameFood;
+      });
+
+      if (updatedFoods.length === currentLog.foods.length) return;
+
+      const totals = calculateTotals(updatedFoods);
+      const updatedLogs = {
+        ...dailyLogs,
+        [targetDate]: { ...currentLog, foods: updatedFoods, ...totals },
+      };
+
+      await saveDailyLogs(updatedLogs);
+    },
+    [dailyLogs, saveDailyLogs],
+  );
+
+  const updateFoodInLocalLog = useCallback(
+    async (
+      foodId: string,
+      date: string | undefined,
+      previousFood: any,
+      updatedFood: any,
+    ) => {
+      const targetDate = date || getTodayString();
+      const currentLog = dailyLogs[targetDate];
+      if (!currentLog) return;
+
+      const normalizedId = String(foodId || "");
+      const previousSignature = previousFood
+        ? getLoggedFoodSignature(previousFood)
+        : "";
+
+      let changed = false;
+      const updatedFoods = currentLog.foods.reduce((foods: any[], food: any) => {
+        const sameId = normalizedId && String(food?.id || "") === normalizedId;
+        const samePreviousFood =
+          previousSignature &&
+          getLoggedFoodSignature(food) === previousSignature;
+
+        if (sameId) {
+          changed = true;
+          const quantity =
+            toNumber(updatedFood?.quantity) || toNumber(food?.quantity) || 1;
+          const calories = toNumber(updatedFood?.calories);
+          const protein = toNumber(updatedFood?.protein);
+          const carbs = toNumber(updatedFood?.carbs);
+          const fats = toNumber(updatedFood?.fat ?? updatedFood?.fats);
+          const imageUrl =
+            updatedFood?.imageUrl ??
+            updatedFood?.foodItem?.imageUrl ??
+            food?.imageUrl ??
+            food?.foodItem?.imageUrl;
+          const confidence =
+            updatedFood?.confidence ??
+            updatedFood?.foodItem?.confidence ??
+            food?.confidence ??
+            food?.foodItem?.confidence;
+          const notes =
+            updatedFood?.notes ??
+            updatedFood?.foodItem?.notes ??
+            food?.notes ??
+            food?.foodItem?.notes;
+          const source =
+            updatedFood?.source ??
+            updatedFood?.foodItem?.source ??
+            food?.source ??
+            food?.foodItem?.source;
+          const isAi = Boolean(
+            updatedFood?.isAi ||
+              updatedFood?.foodItem?.isAi ||
+              food?.isAi ||
+              food?.foodItem?.isAi,
+          );
+
+          foods.push({
+            ...food,
+            id: normalizedId || food?.id,
+            quantity,
+            mealType: updatedFood?.mealType || food?.mealType || "breakfast",
+            imageUrl,
+            confidence,
+            notes,
+            source,
+            isAi,
+            foodItem: {
+              ...(food?.foodItem || {}),
+              ...(updatedFood?.foodItem || {}),
+              name:
+                updatedFood?.foodItem?.name ||
+                updatedFood?.foodName ||
+                food?.foodItem?.name,
+              calories: calories / quantity,
+              protein: protein / quantity,
+              carbs: carbs / quantity,
+              fats: fats / quantity,
+              imageUrl,
+              confidence,
+              notes,
+              source,
+              isAi,
+            },
+          });
+          return foods;
+        }
+
+        if (samePreviousFood) {
+          changed = true;
+          return foods;
+        }
+
+        foods.push(food);
+        return foods;
+      }, []);
+
+      if (!changed) return;
+
+      const totals = calculateTotals(updatedFoods);
+      const updatedLogs = {
+        ...dailyLogs,
+        [targetDate]: { ...currentLog, foods: updatedFoods, ...totals },
+      };
+
+      await saveDailyLogs(updatedLogs);
+    },
+    [dailyLogs, saveDailyLogs],
+  );
+
   const getProgressData = useCallback((): ProgressData => {
     const dates = Object.keys(dailyLogs)
       .filter((d) => !!dailyLogs[d]?.foods?.length)
@@ -450,6 +601,9 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
       getLogByDate,
       addFoodToLog,
       removeFoodFromLog,
+      removeFoodFromLocalLog,
+      updateFoodInLocalLog,
+      markLogsChanged,
       getProgressData,
     }),
     [
@@ -462,6 +616,9 @@ export const [NutritionProvider, useNutrition] = createContextHook(() => {
       getLogByDate,
       addFoodToLog,
       removeFoodFromLog,
+      removeFoodFromLocalLog,
+      updateFoodInLocalLog,
+      markLogsChanged,
       getProgressData,
     ],
   );

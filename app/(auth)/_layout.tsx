@@ -3,9 +3,13 @@ import React from "react";
 
 export default function AuthLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="auth" />
+    <Stack
+      initialRouteName="welcome"
+      screenOptions={{ headerShown: false, gestureEnabled: false }}
+    >
+      <Stack.Screen name="welcome" />
+      <Stack.Screen name="signin" />
+      <Stack.Screen name="signup" />
     </Stack>
   );
 }

@@ -1,13 +1,12 @@
 import FirstSignInSubscriptionModal from "@/components/FirstSignInSubscriptionModal";
 import SplashScreen from "@/components/SplashScreen";
+import SuperwallOnboardingGate from "@/components/SuperwallOnboardingGate";
+import SuperwallRootProvider from "@/components/SuperwallRootProvider";
 import { AuthProvider, useAuth } from "@/hooks/auth-context";
 import { LanguageProvider, useLanguage } from "@/hooks/language-context";
 import { NutritionProvider } from "@/hooks/nutrition-store";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import {
-  UserProfileProvider,
-  useUserProfile,
-} from "@/hooks/user-profile-context";
+import { UserProfileProvider } from "@/hooks/user-profile-context";
 import {
   DarkTheme,
   DefaultTheme,
@@ -17,7 +16,8 @@ import { Asset } from "expo-asset";
 import { router, Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useRef, useState } from "react";
+import { useSuperwall } from "expo-superwall";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
   AppStateStatus,
@@ -27,6 +27,7 @@ import {
 } from "react-native";
 import "react-native-reanimated";
 import { configureRevenueCatForStoredUser } from "@/services/revenuecat";
+import { SUPERWALL_ONBOARDING_PLACEMENT } from "@/services/superwall-flow";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // 🚀 Keep the native splash screen visible until our custom animation is ready to take over.
@@ -44,8 +45,6 @@ function RootNavigator() {
     completeFirstSignInSubscriptionPrompt,
   } = useAuth();
 
-  const { profile, isLoading: isProfileLoading } = useUserProfile();
-
   const shouldShowSubscriptionPrompt = Boolean(
     user && firstSignInSubscriptionPromptVisible,
   );
@@ -54,9 +53,9 @@ function RootNavigator() {
     if (user && isInitialized) {
       router.replace("/(tabs)/home");
     }
-  }, [isInitialized]);
+  }, [isInitialized, user]);
 
-  if (!isInitialized || (user && isProfileLoading)) {
+  if (!isInitialized) {
     return null;
   }
 
@@ -72,14 +71,19 @@ function RootNavigator() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
-        {!user ? (
-          <Stack.Screen name="(auth)" options={{ headerShown: false, gestureEnabled: false }} />
-        ) : !profile ? (
-          <Stack.Screen name="(onboarding)" options={{ headerShown: false, gestureEnabled: false }} />
-        ) : (
-          <Stack.Screen name="(tabs)" options={{ headerShown: false, gestureEnabled: false }} />
-        )}
-        {user && <Stack.Screen name="logFood" options={{ gestureEnabled: false }} />}
+        <Stack.Screen
+          name="index"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="(auth)"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="(tabs)"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen name="logFood" options={{ gestureEnabled: false }} />
       </Stack>
       <FirstSignInSubscriptionModal
         visible={shouldShowSubscriptionPrompt}
@@ -94,13 +98,38 @@ function RootNavigator() {
   );
 }
 
+function SuperwallSplashPreloader() {
+  const { isConfigured, preloadPaywalls } = useSuperwall((state) => ({
+    isConfigured: state.isConfigured,
+    preloadPaywalls: state.preloadPaywalls,
+  }));
+  const hasPreloaded = useRef(false);
+
+  useEffect(() => {
+    if (!isConfigured || hasPreloaded.current) return;
+
+    hasPreloaded.current = true;
+    preloadPaywalls([SUPERWALL_ONBOARDING_PLACEMENT]).catch((error) => {
+      console.warn("[Superwall] Splash preload failed:", error);
+    });
+  }, [isConfigured, preloadPaywalls]);
+
+  return null;
+}
+
 // Inner app shell that is allowed to use useLanguage()
 function AppShell() {
   const { isRTL, isLoading: isLangLoading } = useLanguage();
   const colorScheme = useColorScheme();
-  const [showSplash, setShowSplash] = useState(true);
+  const [splashAnimationDone, setSplashAnimationDone] = useState(false);
+  const [startupReady, setStartupReady] = useState(false);
 
   const appState = useRef(AppState.currentState);
+  const shouldShowStartupOverlay = !splashAnimationDone || !startupReady;
+
+  const handleStartupReady = useCallback(() => {
+    setStartupReady(true);
+  }, []);
 
   useEffect(() => {
     async function prepare() {
@@ -141,26 +170,37 @@ function AppShell() {
   }
 
   return (
-    <View style={{ flex: 1, direction: isRTL ? "rtl" : "ltr" }}>
+    <View
+      style={[
+        styles.appRoot,
+        { direction: isRTL ? "rtl" : "ltr" },
+      ]}
+    >
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <AuthProvider>
           <UserProfileProvider>
             <NutritionProvider>
-              <RootNavigator />
-              {showSplash && (
-                <View style={StyleSheet.absoluteFill}>
-                  <SplashScreen
-                    onFinish={() => {
-                      setShowSplash(false);
-                    }}
-                  />
-                </View>
-              )}
+              <SuperwallOnboardingGate
+                enabled
+                onStartupReady={handleStartupReady}
+              >
+                <RootNavigator />
+              </SuperwallOnboardingGate>
               <StatusBar style="light" />
             </NutritionProvider>
           </UserProfileProvider>
         </AuthProvider>
       </ThemeProvider>
+      <SuperwallSplashPreloader />
+      {shouldShowStartupOverlay && (
+        <View style={styles.startupOverlay}>
+          <SplashScreen
+            onFinish={() => {
+              setSplashAnimationDone(true);
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -184,12 +224,26 @@ function RootLayout() {
     return () => backHandler.remove();
   }, []);
   return (
-    <SafeAreaProvider>
-      <LanguageProvider>
-        <AppShell />
-      </LanguageProvider>
-    </SafeAreaProvider>
+    <SuperwallRootProvider>
+      <SafeAreaProvider>
+        <LanguageProvider>
+          <AppShell />
+        </LanguageProvider>
+      </SafeAreaProvider>
+    </SuperwallRootProvider>
   );
 }
 
 export default RootLayout;
+
+const styles = StyleSheet.create({
+  appRoot: {
+    flex: 1,
+    backgroundColor: "#1A1A1A",
+  },
+  startupOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10000,
+    elevation: 10000,
+  },
+});

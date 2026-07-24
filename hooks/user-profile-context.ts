@@ -70,39 +70,8 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       if (!user || !USER_PROFILE_KEY) return;
       const data = await AsyncStorage.getItem(USER_PROFILE_KEY);
 
-      // ✅ Also load questionnaire data for missing fields
-      const questionnaire = await AsyncStorage.getItem(
-        `questionnaireData_${user.uid}`,
-      );
-      let questionnaireData = null;
-      if (questionnaire) {
-        try {
-          questionnaireData = JSON.parse(questionnaire);
-        } catch {
-          questionnaireData = null;
-        }
-      }
-
       if (data) {
-        const parsed = JSON.parse(data);
-
-        // ✅ Merge questionnaire data (if newer or missing in profile)
-        if (questionnaireData) {
-          parsed.age = questionnaireData.age ?? parsed.age;
-          parsed.height = questionnaireData.height ?? parsed.height;
-          parsed.weight = questionnaireData.weight ?? parsed.weight;
-          parsed.gender = questionnaireData.gender ?? parsed.gender;
-          parsed.activityLevel =
-            questionnaireData.activityLevel ?? parsed.activityLevel;
-          parsed.goal = questionnaireData.goal ?? parsed.goal;
-          parsed.targetWeight =
-            questionnaireData.targetWeight ?? parsed.targetWeight;
-          parsed.medicalConditions =
-            questionnaireData.medicalConditions ?? parsed.medicalConditions;
-          parsed.allergies = questionnaireData.allergies ?? parsed.allergies;
-        }
-
-        setProfile(parsed);
+        setProfile(JSON.parse(data));
       } else {
         // ✅ No local profile. Check if the authenticated 'user' object has the data (from server sync)
         const hasServerProfile =
@@ -154,21 +123,31 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
             JSON.stringify(builtProfile),
           );
           setProfile(builtProfile);
-        } else if (questionnaireData) {
-          // ✅ If no server profile, try questionnaire
-          const { age, height, weight, gender, activityLevel, goal } =
-            questionnaireData;
-
+        } else {
+          const age = 25;
+          const height = 170;
+          const weight = 70;
+          const gender = "male" as const;
+          const activityLevel = "moderately_active" as const;
+          const goal = "maintain_weight" as const;
           const bmr = calculateBMR(age, height, weight, gender);
           const tdee = calculateTDEE(bmr, activityLevel);
           const targetCalories = calculateTargetCalories(tdee, goal);
           const macros = calculateMacros(targetCalories, goal);
 
-          const builtProfile = {
+          const defaultProfile: UserProfile = {
             userId: user.uid,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            ...questionnaireData,
+            age,
+            height,
+            weight,
+            gender,
+            activityLevel,
+            goal,
+            targetWeight: weight,
+            medicalConditions: "",
+            allergies: "",
             bmr: Math.round(bmr),
             tdee: Math.round(tdee),
             targetCalories: Math.round(targetCalories),
@@ -177,11 +156,9 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
           await AsyncStorage.setItem(
             USER_PROFILE_KEY,
-            JSON.stringify(builtProfile),
+            JSON.stringify(defaultProfile),
           );
-          setProfile(builtProfile);
-        } else {
-          setProfile(null);
+          setProfile(defaultProfile);
         }
       }
     } catch {

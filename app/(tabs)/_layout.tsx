@@ -147,6 +147,10 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
           setShowModal(false);
           router.push("/modal/scanBarcode?source=foodLog");
         }}
+        onScanMeal={() => {
+          setShowModal(false);
+          router.push("/modal/scanMeal");
+        }}
       />
     </View>
   );
@@ -255,8 +259,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Settings color={color} size={23} />,
         }}
       />
-      {/* Hidden Screens */}
-      <Tabs.Screen name="scanBarcode" options={{ href: null }} />
     </Tabs>
   );
 }

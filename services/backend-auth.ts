@@ -1,5 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import {
+  normalizeReferralCodeStatus,
+  saveReferralCodeStatus,
+  type ReferralCodeStatus,
+} from "@/services/superwall-flow";
+
 const TOKEN_STORAGE_KEY = "fitco_auth_token";
 const REFRESH_TOKEN_STORAGE_KEY = "fitco_refresh_token";
 const USER_STORAGE_KEY = "fitco_auth_user";
@@ -10,13 +16,25 @@ export type BackendUser = {
   displayName?: string | null;
   firstName?: string;
   lastName?: string;
+  subscriptionStatus?: string;
+  subscriptionExpiry?: string | null;
+  isSubscribed?: boolean;
+  isVerified?: boolean;
   [key: string]: any;
+};
+
+export type RegisterResponse = {
+  message: string;
+  email: string;
+  referralCode?: string;
+  referralCodeStatus: ReferralCodeStatus;
 };
 
 type AuthApiResponse = {
   user: BackendUser;
   token?: string;
   refreshToken?: string;
+  referralCodeStatus?: ReferralCodeStatus;
 };
 
 export type PublicCmsContent = {
@@ -101,18 +119,6 @@ export type ChatHistoryItem = {
   createdAt?: string;
 };
 
-export type ChatLimitStatus = {
-  subscriptionStatus: string;
-  isUnlimited: boolean;
-  dailyFreeLimit: number;
-  messagesUsedToday: number;
-  messagesLeftToday: number;
-  paidMonthlyLimit?: number;
-  premiumMonthlyLimit?: number;
-  messagesUsedThisMonth?: number;
-  messagesLeftThisMonth?: number | null;
-};
-
 export type SubscriptionPlan = {
   planType: string;
   interval: string;
@@ -191,6 +197,9 @@ export type VerifyIapResponse = {
   subscription?: { isActive?: boolean };
 };
 
+let revenueCatSyncPromise: Promise<VerifyIapResponse> | null = null;
+let revenueCatSyncOwner = "unknown";
+
 function normalizeBaseUrl(raw?: string): string {
   const value = (raw || "").trim();
   return value.endsWith("/") ? value.slice(0, -1) : value;
@@ -229,6 +238,17 @@ function toBackendUser(raw: any): BackendUser {
   const goal = raw?.goal ?? raw?.goals;
   const weight = raw?.weight ?? raw?.currentWeight;
 
+  const subscriptionStatus = raw?.subscriptionStatus ?? raw?.user?.subscriptionStatus ?? "inactive";
+  const subscriptionExpiry = raw?.subscriptionExpiry ?? raw?.user?.subscriptionExpiry ?? null;
+  const isSubscribed = raw?.isSubscribed ?? raw?.user?.isSubscribed ?? false;
+  const isVerified =
+    raw?.isVerified ??
+    raw?.verified ??
+    raw?.emailVerified ??
+    raw?.user?.isVerified ??
+    raw?.user?.verified ??
+    raw?.user?.emailVerified;
+
   return {
     ...raw,
     uid,
@@ -239,6 +259,10 @@ function toBackendUser(raw: any): BackendUser {
     allergies,
     goal,
     weight,
+    subscriptionStatus,
+    subscriptionExpiry,
+    isSubscribed: Boolean(isSubscribed),
+    ...(isVerified !== undefined ? { isVerified: Boolean(isVerified) } : {}),
   };
 }
 
@@ -250,23 +274,72 @@ function extractAuthPayload(json: any): AuthApiResponse {
     root?.token ?? root?.accessToken ?? root?.access_token ?? root?.jwt;
   const refreshToken =
     root?.refreshToken ?? root?.refresh_token ?? root?.refresh;
+  const referralCodeStatus =
+    root?.referralCodeStatus != null
+      ? normalizeReferralCodeStatus(root.referralCodeStatus)
+      : undefined;
 
-  return { user, token, refreshToken };
+  return { user, token, refreshToken, referralCodeStatus };
 }
 
-async function request(path: string, init?: RequestInit): Promise<any> {
-  const url = `${getServerUrl()}${path}`;
-  const { headers: initHeaders, ...restInit } = init ?? {};
+function headersToRecord(headers?: HeadersInit): Record<string, string> {
+  const record: Record<string, string> = {};
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      ...restInit,
-      headers: {
-        "Content-Type": "application/json",
-        ...(initHeaders || {}),
-      },
+  if (!headers) return record;
+
+  if (headers instanceof Headers) {
+    headers.forEach((value, key) => {
+      record[key] = value;
     });
+    return record;
+  }
+
+  if (Array.isArray(headers)) {
+    headers.forEach(([key, value]) => {
+      record[key] = value;
+    });
+    return record;
+  }
+
+  Object.entries(headers).forEach(([key, value]) => {
+    if (value != null) record[key] = String(value);
+  });
+
+  return record;
+}
+
+function getAuthHeader(headers: Record<string, string>) {
+  const key = Object.keys(headers).find(
+    (headerKey) => headerKey.toLowerCase() === "authorization",
+  );
+  return key ? headers[key] : undefined;
+}
+
+function withAuthHeader(
+  headers: Record<string, string>,
+  token: string | null | undefined,
+) {
+  if (!token) return headers;
+  return {
+    ...headers,
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+function shouldRefreshForResponse(
+  response: Response,
+  headers: Record<string, string>,
+) {
+  const authHeader = getAuthHeader(headers);
+  return response.status === 401 && Boolean(authHeader);
+}
+
+async function fetchWithNetworkMessage(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(url, init);
   } catch (error: any) {
     const raw = String(error?.message ?? "");
     const isNetworkError =
@@ -281,16 +354,154 @@ async function request(path: string, init?: RequestInit): Promise<any> {
 
     throw error;
   }
+}
+
+let refreshSessionPromise: Promise<AuthApiResponse> | null = null;
+
+async function refreshStoredSession(
+  refreshTokenOverride?: string | null,
+): Promise<AuthApiResponse> {
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = (async () => {
+      const { refreshToken: storedRefreshToken } = await readStoredSession();
+      const refreshToken = refreshTokenOverride || storedRefreshToken;
+
+      if (!refreshToken) {
+        throw new Error("No refresh token");
+      }
+
+      const url = `${getServerUrl()}/api/v1/auth/refresh`;
+      const response = await fetchWithNetworkMessage(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      const text = await response.text();
+      const json = text ? safeJson(text) : {};
+
+      if (!response.ok) {
+        await clearStoredSession();
+        throw new Error(extractErrorMessage(json, response.status));
+      }
+
+      const authPayload = extractAuthPayload(json);
+      await saveSession(
+        authPayload.user,
+        authPayload.token,
+        authPayload.refreshToken,
+      );
+      return authPayload;
+    })().finally(() => {
+      refreshSessionPromise = null;
+    });
+  }
+
+  return refreshSessionPromise;
+}
+
+export async function backendRefreshAuth(): Promise<BackendUser> {
+  const { user } = await refreshStoredSession();
+  return user;
+}
+
+export async function fetchWithAuthRefresh(
+  input: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const { token } = await readStoredSession();
+  const { headers: initHeaders, ...restInit } = init;
+  const headers = withAuthHeader(headersToRecord(initHeaders), token);
+
+  let response = await fetch(input, {
+    ...restInit,
+    headers,
+  });
+
+  if (!shouldRefreshForResponse(response, headers)) {
+    return response;
+  }
+
+  let refreshed: AuthApiResponse | null = null;
+  try {
+    refreshed = await refreshStoredSession();
+  } catch {
+    return response;
+  }
+
+  if (!refreshed?.token) return response;
+
+  response = await fetch(input, {
+    ...restInit,
+    headers: withAuthHeader(headers, refreshed.token),
+  });
+
+  return response;
+}
+
+async function request(path: string, init?: RequestInit): Promise<any> {
+  const url = `${getServerUrl()}${path}`;
+  const { headers: initHeaders, ...restInit } = init ?? {};
+  const headers = {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
+    ...headersToRecord(initHeaders),
+  };
+
+  let response: Response;
+  response = await fetchWithNetworkMessage(url, {
+    ...restInit,
+    headers,
+  });
+
+  if (shouldRefreshForResponse(response, headers)) {
+    let refreshed: AuthApiResponse | null = null;
+    try {
+      refreshed = await refreshStoredSession();
+    } catch {
+      refreshed = null;
+    }
+
+    if (refreshed?.token) {
+      response = await fetchWithNetworkMessage(url, {
+        ...restInit,
+        headers: withAuthHeader(headers, refreshed.token),
+      });
+    }
+  }
 
   const text = await response.text();
   const json = text ? safeJson(text) : {};
 
   if (!response.ok) {
+    if (path === "/api/v1/auth/register") {
+      console.log(
+        "[Auth] backendSignUp error response:",
+        JSON.stringify(
+          {
+            status: response.status,
+            body: json,
+          },
+          null,
+          2,
+        ),
+      );
+    }
     const message = extractErrorMessage(json, response.status);
     throw new Error(message);
   }
 
   return json;
+}
+
+function sanitizeSignUpPayload(params: Record<string, any>) {
+  const { password, ...safeParams } = params;
+  return {
+    ...safeParams,
+    hasPassword: Boolean(password),
+  };
 }
 
 function safeJson(text: string): any {
@@ -402,25 +613,35 @@ export async function backendSignIn(
   return user;
 }
 
-export async function backendSignUp(params: {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-}): Promise<BackendUser> {
+export async function backendSignUp(
+  params: Record<string, any>,
+): Promise<RegisterResponse> {
+  console.log(
+    "[Auth] backendSignUp request:",
+    JSON.stringify(sanitizeSignUpPayload(params), null, 2),
+  );
+
   const json = await request("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify(params),
   });
 
-  const { user, token, refreshToken } = extractAuthPayload(json);
-  if (token) {
-    await saveSession(user, token, refreshToken);
-    return user;
-  }
+  console.log(
+    "[Auth] backendSignUp response:",
+    JSON.stringify(json, null, 2),
+  );
 
-  // Register endpoint may return user only; fetch tokens by logging in.
-  return backendSignIn(params.email, params.password);
+  const root = json?.data ?? json;
+  return {
+    message: String(
+      root?.message ??
+        "Registration successful. Please verify the OTP sent to your email.",
+    ),
+    email: String(root?.email ?? params.email ?? ""),
+    referralCode:
+      root?.referralCode != null ? String(root.referralCode) : undefined,
+    referralCodeStatus: normalizeReferralCodeStatus(root?.referralCodeStatus),
+  };
 }
 
 export async function backendMe(token?: string): Promise<BackendUser> {
@@ -534,33 +755,6 @@ export async function backendGetChatHistory(): Promise<ChatHistoryItem[]> {
   if (Array.isArray(root?.items)) return root.items as ChatHistoryItem[];
   if (Array.isArray(root?.history)) return root.history as ChatHistoryItem[];
   return [];
-}
-
-export async function backendGetChatLimitStatus(): Promise<ChatLimitStatus> {
-  const { token } = await readStoredSession();
-  if (!token) throw new Error("No auth token");
-
-  const json = await request("/api/v1/chat/limit", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const root = json?.data ?? json;
-
-
-  return {
-    subscriptionStatus: String(root?.subscriptionStatus ?? "free"),
-    isUnlimited: Boolean(root?.isUnlimited),
-    dailyFreeLimit: Number(root?.dailyFreeLimit ?? 0),
-    messagesUsedToday: Number(root?.messagesUsedToday ?? 0),
-    messagesLeftToday: Number(root?.messagesLeftToday ?? 0),
-    paidMonthlyLimit: root?.paidMonthlyLimit != null ? Number(root.paidMonthlyLimit) : undefined,
-    premiumMonthlyLimit: root?.premiumMonthlyLimit != null ? Number(root.premiumMonthlyLimit) : undefined,
-    messagesUsedThisMonth: root?.messagesUsedThisMonth != null ? Number(root.messagesUsedThisMonth) : undefined,
-    messagesLeftThisMonth: root?.messagesLeftThisMonth !== undefined ? (root.messagesLeftThisMonth === null ? null : Number(root.messagesLeftThisMonth)) : undefined,
-  };
 }
 
 export async function backendUpdateMyProfile(
@@ -754,31 +948,59 @@ export async function backendVerifyApplePurchase(
   };
 }
 
-export async function backendSyncRevenueCat(): Promise<VerifyIapResponse> {
-  const { token } = await readStoredSession();
-  if (!token) throw new Error("No auth token");
-
-  const json = await request("/api/v1/subscription/revenuecat/sync", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const root = json?.data ?? json;
-  if (root?.user) {
-    await saveSession(toBackendUser(root.user));
+export async function backendSyncRevenueCat(
+  source = "unknown",
+): Promise<VerifyIapResponse> {
+  if (revenueCatSyncPromise) {
+    console.log(
+      `[RC sync:${source}] Joining in-flight sync started by ${revenueCatSyncOwner}.`,
+    );
+    return revenueCatSyncPromise;
   }
 
-  const success = root?.success ?? (root?.normalized?.isActive === true || root?.subscription?.isActive === true);
+  revenueCatSyncOwner = source;
+  revenueCatSyncPromise = (async () => {
+    const { token } = await readStoredSession();
+    if (!token) throw new Error("No auth token");
 
-  return {
-    success: Boolean(success),
-    message: String(root?.message ?? (success ? "Success" : "Subscription not active")),
-    user: root?.user ? toBackendUser(root.user) : undefined,
-    normalized: root?.normalized,
-    subscription: root?.subscription,
-  };
+    console.log(`[RC sync:${source}] Request started.`);
+    const json = await request("/api/v1/subscription/revenuecat/sync", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({}),
+    });
+    console.log(`[RC sync:${source}] Response received:`, json);
+
+    const root = json?.data ?? json;
+    if (root?.user) {
+      await saveSession(toBackendUser(root.user));
+    }
+
+    const success =
+      root?.success ??
+      (root?.normalized?.isActive === true ||
+        root?.subscription?.isActive === true);
+
+    return {
+      success: Boolean(success),
+      message: String(
+        root?.message ?? (success ? "Success" : "Subscription not active"),
+      ),
+      user: root?.user ? toBackendUser(root.user) : undefined,
+      normalized: root?.normalized,
+      subscription: root?.subscription,
+    };
+  })();
+
+  try {
+    return await revenueCatSyncPromise;
+  } finally {
+    console.log(`[RC sync:${source}] Sync finished.`);
+    revenueCatSyncPromise = null;
+    revenueCatSyncOwner = "unknown";
+  }
 }
 
 export async function backendVerifyGooglePurchase(
@@ -919,3 +1141,98 @@ export async function backendGetMySubscriptionStatus(): Promise<MySubscriptionSt
       : null,
   };
 }
+
+export async function backendGoogleSignIn(payload: {
+  idToken: string;
+  email?: string;
+  [key: string]: any;
+}): Promise<BackendUser> {
+  console.log("Payload for google: ", payload);
+  
+  const json = await request("/api/v1/auth/google", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const { user, token, refreshToken, referralCodeStatus } =
+    extractAuthPayload(json);
+    console.log("Res from google: ", json);
+    
+  await saveSession(user, token, refreshToken);
+  if (referralCodeStatus) {
+    await saveReferralCodeStatus(referralCodeStatus);
+  }
+  return user;
+}
+
+export async function backendAppleSignIn(payload: {
+  identityToken: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  [key: string]: any;
+}): Promise<BackendUser> {
+  const json = await request("/api/v1/auth/apple", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const { user, token, refreshToken, referralCodeStatus } =
+    extractAuthPayload(json);
+  await saveSession(user, token, refreshToken);
+  if (referralCodeStatus) {
+    await saveReferralCodeStatus(referralCodeStatus);
+  }
+  return user;
+}
+
+export async function backendVerifyRegister(payload: {
+  email: string;
+  code: string;
+}): Promise<BackendUser> {
+  const json = await request("/api/v1/auth/verify-register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const { user, token, refreshToken } = extractAuthPayload(json);
+  await saveSession(user, token, refreshToken);
+  return user;
+}
+
+export async function backendForgotPassword(payload: {
+  email: string;
+}): Promise<{ message: string }> {
+  const json = await request("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return {
+    message: json?.message ?? "If the email exists, reset instructions were sent",
+  };
+}
+
+export async function backendVerifyResetOtp(payload: {
+  email: string;
+  code: string;
+}): Promise<{ message: string }> {
+  const json = await request("/api/v1/auth/verify-reset-otp", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return { message: json?.message ?? "OTP verified" };
+}
+
+export async function backendResetPassword(payload: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): Promise<{ message: string }> {
+  const json = await request("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
+      email: payload.email,
+      code: payload.code,
+      password: payload.newPassword,
+    }),
+  });
+  return { message: json?.message ?? "Password updated" };
+}
+

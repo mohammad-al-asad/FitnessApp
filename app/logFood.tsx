@@ -438,6 +438,8 @@ export default function LogFoodScreen() {
       const backendId =
         result?._id ||
         result?.id ||
+        result?.foodLog?._id ||
+        result?.foodLog?.id ||
         result?.createdFoodLog?._id ||
         result?.createdFoodLog?.id;
 
