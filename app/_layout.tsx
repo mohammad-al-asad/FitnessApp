@@ -7,6 +7,7 @@ import { LanguageProvider, useLanguage } from "@/hooks/language-context";
 import { NutritionProvider } from "@/hooks/nutrition-store";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { UserProfileProvider } from "@/hooks/user-profile-context";
+import { GuidedTourProvider } from "@/hooks/guided-tour-context";
 import {
   DarkTheme,
   DefaultTheme,
@@ -180,13 +181,15 @@ function AppShell() {
         <AuthProvider>
           <UserProfileProvider>
             <NutritionProvider>
-              <SuperwallOnboardingGate
-                enabled
-                onStartupReady={handleStartupReady}
-              >
-                <RootNavigator />
-              </SuperwallOnboardingGate>
-              <StatusBar style="light" />
+              <GuidedTourProvider>
+                <SuperwallOnboardingGate
+                  enabled
+                  onStartupReady={handleStartupReady}
+                >
+                  <RootNavigator />
+                </SuperwallOnboardingGate>
+                <StatusBar style="light" />
+              </GuidedTourProvider>
             </NutritionProvider>
           </UserProfileProvider>
         </AuthProvider>
@@ -217,6 +220,8 @@ function RootLayout() {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
+        console.log("asad");
+        
         // Return true to prevent default back behavior
         return true;
       },

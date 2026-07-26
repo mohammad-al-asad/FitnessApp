@@ -671,7 +671,7 @@ export default function AuthFlowScreen({
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: "#0f1012" }]}>
       {/* Root auth screens do not show a back button; sub-flows still need one. */}
       {step !== "welcome" && step !== "signup" && step !== "signin" && (
         <View style={styles.topBar}>

@@ -16,6 +16,7 @@ import React, {
 import {
   ActivityIndicator,
   AppState,
+  BackHandler,
   InteractionManager,
   StyleSheet,
   View,

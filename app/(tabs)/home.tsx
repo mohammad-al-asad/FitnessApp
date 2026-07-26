@@ -5,6 +5,7 @@ import FloatingFitBot from "@/components/FloatingFitBot";
 import MacroCircle, { CalorieCircle } from "@/components/MacroCircle";
 import { MacroColors } from "@/constants/colors";
 import { useAuth } from "@/hooks/auth-context";
+import { useGuidedTour } from "@/hooks/guided-tour-context";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { useNutrition } from "@/hooks/nutrition-store";
 import {
@@ -14,20 +15,16 @@ import {
   getFoodLogsWeeklySummary,
 } from "@/services/food-api";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import {
   Award,
-  Camera,
   Coffee,
   Flame,
   Moon,
   Plus,
-  Sparkles,
   Sun,
   Target,
   TrendingUp,
-  X,
   Zap,
 } from "lucide-react-native";
 import React, {
@@ -40,7 +37,6 @@ import React, {
 
 import { responsiveWidth } from "@/utilities/ScalingUtils";
 import {
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -120,79 +116,22 @@ export default function HomeScreen() {
     useState<FoodLogsWeeklySummaryResponse | null>(null);
   const [homeLoading, setHomeLoading] = useState(false);
   const [homeError, setHomeError] = useState<string | null>(null);
-  const [showMealScannerPrompt, setShowMealScannerPrompt] = useState(false);
   const lastFetchedRef = useRef<{ date: string; time: number } | null>(null);
-  const mealScannerPromptSeenKey = useMemo(
-    () =>
-      user?.uid
-        ? `${MEAL_SCANNER_HOME_PROMPT_SEEN_PREFIX}${user.uid}`
-        : null,
-    [user?.uid],
-  );
+  const { startTour, hasCompletedTour, isTourActive } = useGuidedTour();
 
   useEffect(() => {
     void showFirstSignInSubscriptionPromptIfPending();
   }, [showFirstSignInSubscriptionPromptIfPending]);
 
+  // Auto-start AI Meal Scanner Guided Walkthrough for first-time users
   useEffect(() => {
-    if (
-      !mealScannerPromptSeenKey ||
-      firstSignInSubscriptionPromptVisible ||
-      showMealScannerPrompt
-    ) {
-      return;
+    if (!hasCompletedTour && !isTourActive && !firstSignInSubscriptionPromptVisible) {
+      const timer = setTimeout(() => {
+        startTour();
+      }, 1500);
+      return () => clearTimeout(timer);
     }
-
-    let isMounted = true;
-    const timeoutId = setTimeout(() => {
-      const showPromptIfNeeded = async () => {
-        try {
-          const hasSeenPrompt = await AsyncStorage.getItem(
-            mealScannerPromptSeenKey,
-          );
-
-          if (isMounted && !hasSeenPrompt) {
-            setShowMealScannerPrompt(true);
-          }
-        } catch (error) {
-          console.error(
-            "Failed to read meal scanner home prompt state:",
-            error,
-          );
-        }
-      };
-
-      void showPromptIfNeeded();
-    }, MEAL_SCANNER_HOME_PROMPT_DELAY_MS);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [
-    firstSignInSubscriptionPromptVisible,
-    mealScannerPromptSeenKey,
-    showMealScannerPrompt,
-  ]);
-
-  const completeMealScannerPrompt = useCallback(
-    async (openScanner: boolean) => {
-      setShowMealScannerPrompt(false);
-
-      if (mealScannerPromptSeenKey) {
-        try {
-          await AsyncStorage.setItem(mealScannerPromptSeenKey, "1");
-        } catch (error) {
-          console.error("Failed to save meal scanner home prompt state:", error);
-        }
-      }
-
-      if (openScanner) {
-        router.push("/modal/scanMeal");
-      }
-    },
-    [mealScannerPromptSeenKey, router],
-  );
+  }, [firstSignInSubscriptionPromptVisible, hasCompletedTour, isTourActive, startTour]);
 
   useFocusEffect(
     useCallback(() => {
@@ -928,112 +867,6 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
       <FloatingFitBot />
-      <Modal
-        visible={showMealScannerPrompt}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          void completeMealScannerPrompt(false);
-        }}
-      >
-        <View style={styles.mealPromptOverlay}>
-          <View
-            style={[
-              styles.mealPromptCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.mealPromptCloseButton,
-                { backgroundColor: colors.background },
-              ]}
-              activeOpacity={0.75}
-              onPress={() => {
-                void completeMealScannerPrompt(false);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={String(t("close"))}
-            >
-              <X size={18} color={colors.placeholder} />
-            </TouchableOpacity>
-
-            <View
-              style={[
-                styles.mealPromptIconBadge,
-                { backgroundColor: colors.primary + "20" },
-              ]}
-            >
-              <Camera size={30} color={colors.primary} />
-              <View
-                style={[
-                  styles.mealPromptSparkleBadge,
-                  { backgroundColor: colors.surface },
-                ]}
-              >
-                <Sparkles size={14} color={colors.primary} />
-              </View>
-            </View>
-
-            <Text
-              style={[
-                styles.mealPromptTitle,
-                isRTL && styles.rtlText,
-                { color: colors.text },
-              ]}
-            >
-              {t("homeMealScannerPromptTitle")}
-            </Text>
-            <Text
-              style={[
-                styles.mealPromptBody,
-                isRTL && styles.rtlText,
-                { color: colors.placeholder },
-              ]}
-            >
-              {t("homeMealScannerPromptBody")}
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.mealPromptPrimaryButton,
-                { backgroundColor: colors.primary },
-              ]}
-              activeOpacity={0.85}
-              onPress={() => {
-                void completeMealScannerPrompt(true);
-              }}
-            >
-              <Camera size={18} color={colors.background} />
-              <Text
-                style={[
-                  styles.mealPromptPrimaryButtonText,
-                  { color: colors.background },
-                ]}
-              >
-                {t("homeMealScannerPromptCta")}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.mealPromptSecondaryButton}
-              activeOpacity={0.75}
-              onPress={() => {
-                void completeMealScannerPrompt(false);
-              }}
-            >
-              <Text
-                style={[
-                  styles.mealPromptSecondaryButtonText,
-                  { color: colors.placeholder },
-                ]}
-              >
-                {t("homeMealScannerPromptLater")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

@@ -1,5 +1,6 @@
-// FoodLogModal — sleek Fitco bottom drawer
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+
+import { useGuidedTour } from "@/hooks/guided-tour-context";
 import { useLanguage } from "@/hooks/language-context";
 import { Search, Plus, Barcode, X } from "lucide-react-native";
 import React from "react";
@@ -26,18 +27,28 @@ export default function FoodLogModal({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useLanguage();
+  const { isTourActive, step, endTour } = useGuidedTour();
+
+  const isStep2Active = isTourActive && step === 2;
+
+  const handleMealScannerPress = () => {
+    if (isStep2Active) {
+      endTour();
+    }
+    onScanMeal();
+  };
 
   return (
     <Modal
       isVisible={visible}
-      onBackdropPress={onClose}
+      onBackdropPress={isStep2Active ? undefined : onClose}
       useNativeDriver
       backdropTransitionOutTiming={0}
       animationIn="slideInUp"
       animationOut="slideOutDown"
       animationInTiming={280}
       animationOutTiming={220}
-      backdropColor="rgba(0,0,0,0.6)"
+      backdropColor="rgba(0,0,0,0.75)"
       style={styles.modal}
     >
       <View
@@ -49,8 +60,17 @@ export default function FoodLogModal({
         {/* drag bar */}
         <View style={styles.dragHandle} />
 
+
+
         {/* header */}
-        <View style={[styles.headerRow, isRTL && { flexDirection: "row-reverse" }]}>
+        <View
+          style={[
+            styles.headerRow,
+            isRTL && { flexDirection: "row-reverse" },
+            isStep2Active && { opacity: 0.15 },
+          ]}
+          pointerEvents={isStep2Active ? "none" : "auto"}
+        >
           <Text style={styles.title}>{t("addFoodMenu") || "Add Food"}</Text>
           <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.closeBtn}>
             <X size={20} color="#fff" />
@@ -62,9 +82,10 @@ export default function FoodLogModal({
           <View style={[styles.row, isRTL && { flexDirection: "row-reverse" }]}>
             {/* Block 1: Log Food */}
             <TouchableOpacity
-              style={styles.block}
+              style={[styles.block, isStep2Active && { opacity: 0.15 }]}
               onPress={onLogFood}
               activeOpacity={0.8}
+              disabled={isStep2Active}
             >
               <View style={styles.iconCircle}>
                 <Search size={22} color="#22c55e" />
@@ -75,9 +96,10 @@ export default function FoodLogModal({
 
             {/* Block 2: Scan Barcode */}
             <TouchableOpacity
-              style={styles.block}
+              style={[styles.block, isStep2Active && { opacity: 0.15 }]}
               onPress={onScanBarcode}
               activeOpacity={0.8}
+              disabled={isStep2Active}
             >
               <View style={styles.iconCircle}>
                 <Barcode size={22} color="#22c55e" />
@@ -88,10 +110,13 @@ export default function FoodLogModal({
           </View>
 
           <View style={[styles.row, isRTL && { flexDirection: "row-reverse" }]}>
-            {/* Block 3: Meal Scanner */}
+            {/* Block 3: Meal Scanner (Highlighted in Step 2) */}
             <TouchableOpacity
-              style={styles.block}
-              onPress={onScanMeal}
+              style={[
+                styles.block,
+                isStep2Active && styles.highlightedBlock,
+              ]}
+              onPress={handleMealScannerPress}
               activeOpacity={0.8}
             >
               <View style={styles.iconCircle}>
@@ -103,9 +128,10 @@ export default function FoodLogModal({
 
             {/* Block 4: Create Custom Food */}
             <TouchableOpacity
-              style={styles.block}
+              style={[styles.block, isStep2Active && { opacity: 0.15 }]}
               onPress={onCreateCustom}
               activeOpacity={0.8}
+              disabled={isStep2Active}
             >
               <View style={styles.iconCircle}>
                 <Plus size={22} color="#22c55e" />
@@ -117,7 +143,12 @@ export default function FoodLogModal({
         </View>
 
         {/* cancel */}
-        <TouchableOpacity style={styles.cancelButton} onPress={onClose} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={[styles.cancelButton, isStep2Active && { opacity: 0.15 }]}
+          onPress={onClose}
+          activeOpacity={0.7}
+          disabled={isStep2Active}
+        >
           <Text style={styles.cancelText}>{t("cancel")}</Text>
         </TouchableOpacity>
       </View>
@@ -143,6 +174,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: -4 },
     shadowRadius: 12,
+  },
+  tourCardContainer: {
+    marginBottom: 16,
+    marginTop: 4,
+    alignSelf: "center",
+    width: "100%",
+  },
+  highlightedBlock: {
+    opacity: 1,
+    borderWidth: 2,
+    borderColor: "#22c55e",
+    shadowColor: "#22c55e",
+    shadowOpacity: 0.6,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 12,
+    elevation: 10,
+    backgroundColor: "#1c2c20",
   },
   dragHandle: {
     alignSelf: "center",

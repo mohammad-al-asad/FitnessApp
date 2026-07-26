@@ -2,6 +2,8 @@
 // with a centered floating “+” button that opens the FoodLog modal.
 
 import FoodLogModal from "@/components/FoodLogModal";
+import GuidedTourCard from "@/components/GuidedTourCard";
+import { useGuidedTour } from "@/hooks/guided-tour-context";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { Tabs, router } from "expo-router";
 import {
@@ -12,12 +14,22 @@ import {
   TrendingUp,
 } from "lucide-react-native";
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const CustomTabBar = ({ state, descriptors, navigation }: any) => {
   const [showModal, setShowModal] = useState(false);
   const colors = useSafeColors();
   const { t, isRTL } = useLanguage();
+  const { isTourActive, step, setTourStep } = useGuidedTour();
+
+  const isStep1Active = isTourActive && step === 1;
+
+  const handlePlusPress = () => {
+    setShowModal(true);
+    if (isStep1Active) {
+      setTourStep(2);
+    }
+  };
 
   const getLabel = (name: string): string => {
     switch (name) {
@@ -39,6 +51,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
     const isFocused = state.routes[state.index].name === route.name;
 
     const onPress = () => {
+      if (isStep1Active) return; // Prevent clicking other tabs during tour
       const event = navigation.emit({
         type: "tabPress",
         target: route.key,
@@ -58,6 +71,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         onPress={onPress}
         style={styles.tabItem}
         accessibilityRole="button"
+        disabled={isStep1Active}
       >
         {options.tabBarIcon && options.tabBarIcon({ color, size: 20 })}
         <Text style={[styles.tabLabel, { color }]} numberOfLines={1}>
@@ -86,11 +100,28 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         { backgroundColor: colors.background, borderTopColor: colors.border },
       ]}
     >
+      {/* Full-screen Dark Backdrop when Step 1 is Active */}
+      {isStep1Active && <View style={styles.tourBackdrop} pointerEvents="auto" />}
+
+      {/* Step 1 Guided Tour Card */}
+      {isStep1Active && (
+        <View style={styles.tourCardContainer}>
+          <GuidedTourCard
+            stepNumber={1}
+            title={String(t("aiMealScannerTitle"))}
+            description={String(t("aiMealScannerTourDescription"))}
+            arrowPosition="bottom"
+          />
+        </View>
+      )}
+
       <View
         style={[
           styles.tabContainer,
           { flexDirection: isRTL ? "row-reverse" : "row" },
+          isStep1Active && { opacity: 0.2 },
         ]}
+        pointerEvents={isStep1Active ? "none" : "auto"}
       >
         {/* LEFT SIDE TABS (Home + Journal) */}
         <View
@@ -119,14 +150,18 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         </View>
       </View>
 
+      {/* Pulsing ring highlight around button */}
+      {isStep1Active && <View style={styles.highlightPulseRing} pointerEvents="none" />}
+
       {/* Center + Button */}
       <TouchableOpacity
         style={[
           styles.circularButton,
           { backgroundColor: colors.primary, borderColor: colors.background },
+          isStep1Active && styles.elevatedButton,
         ]}
         activeOpacity={0.8}
-        onPress={() => setShowModal(true)}
+        onPress={handlePlusPress}
       >
         <Plus color={colors.background} size={26} strokeWidth={3} />
       </TouchableOpacity>
@@ -222,6 +257,42 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 6,
+  },
+  tourBackdrop: {
+    position: "absolute",
+    top: -1200,
+    bottom: -100,
+    left: -100,
+    right: -100,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    zIndex: 9000,
+  },
+  tourCardContainer: {
+    position: "absolute",
+    bottom: 95,
+    alignSelf: "center",
+    zIndex: 10000,
+    width: "100%",
+  },
+  highlightPulseRing: {
+    position: "absolute",
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 3,
+    borderColor: "#22c55e",
+    top: -3,
+    alignSelf: "center",
+    shadowColor: "#22c55e",
+    shadowOpacity: 0.8,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 16,
+    elevation: 20,
+    zIndex: 9999,
+  },
+  elevatedButton: {
+    zIndex: 10000,
+    elevation: 25,
   },
 });
 

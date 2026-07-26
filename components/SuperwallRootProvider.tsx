@@ -273,7 +273,7 @@ export default function SuperwallRootProvider({
           passIdentifiersToPlayStore: true,
           paywalls: {
             shouldPreload: true,
-            onBackPressed: () => true,
+            onBackPressed: () => false,
           },
         }}
         onConfigurationError={(error) => {

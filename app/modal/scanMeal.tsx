@@ -92,11 +92,12 @@ function formFromResult(result: AiMealScanResult): ResultForm {
 
 export default function ScanMeal() {
   const [permission, requestPermission] = useCameraPermissions();
+  const { t, isRTL } = useLanguage();
   const [selectedMeal, setSelectedMeal] = useState<MealType>("breakfast");
   const [cameraReady, setCameraReady] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [analysisText, setAnalysisText] = useState("Initializing camera...");
+  const [analysisText, setAnalysisText] = useState(String(t("initializingCamera")));
   const [flashOn, setFlashOn] = useState(false);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [capturedBase64, setCapturedBase64] = useState<string | null>(null);
@@ -114,7 +115,6 @@ export default function ScanMeal() {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { t, isRTL } = useLanguage();
   const { addFoodToLog } = useNutrition();
 
   const MEAL_OPTIONS: {
@@ -150,7 +150,7 @@ export default function ScanMeal() {
     if (isAnalyzing || !cameraReady || !cameraRef.current) return;
 
     setIsAnalyzing(true);
-    setAnalysisText("Scanning image...");
+    setAnalysisText(String(t("scanningImage")));
     startProgress();
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -163,12 +163,12 @@ export default function ScanMeal() {
       });
       const imageBase64 = stripBase64Prefix(photo.base64 || "");
       if (!imageBase64) {
-        throw new Error("Could not read the captured image.");
+        throw new Error(String(t("couldNotReadCapturedImage")));
       }
 
       setCapturedImageUri(photo.uri);
       setCapturedBase64(imageBase64);
-      setAnalysisText("Detecting food and estimating macros...");
+      setAnalysisText(String(t("detectingFoodMacros")));
 
       const result = await scanAiMeal({
         imageBase64,
@@ -178,13 +178,13 @@ export default function ScanMeal() {
 
       setScanResult(result);
       setForm(formFromResult(result));
-      setAnalysisText("Meal detected");
+      setAnalysisText(String(t("mealDetected")));
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
       console.error("AI meal scan failed:", error);
       Alert.alert(
         String(t("error")),
-        error?.message ? String(error.message) : "Failed to scan this meal.",
+        error?.message ? String(error.message) : String(t("failedToScanMeal")),
       );
       setCapturedImageUri(null);
       setCapturedBase64(null);
@@ -206,7 +206,7 @@ export default function ScanMeal() {
       fats: "",
       notes: "",
     });
-    setAnalysisText("Initializing camera...");
+    setAnalysisText(String(t("initializingCamera")));
   };
 
   const handleSave = async () => {
@@ -314,16 +314,17 @@ export default function ScanMeal() {
         ]}
       >
         <View style={styles.permissionCard}>
-          <Text style={styles.permissionTitle}>Camera Permission Required</Text>
+          <Text style={styles.permissionTitle}>
+            {t("cameraPermissionRequired")}
+          </Text>
           <Text style={styles.permissionDesc}>
-            Fitco AI needs access to your camera to recognize dishes and log
-            nutrition facts instantly.
+            {t("cameraMealPermissionDescription")}
           </Text>
           <TouchableOpacity
             style={styles.permissionBtn}
             onPress={requestPermission}
           >
-            <Text style={styles.permissionBtnText}>Enable Camera</Text>
+            <Text style={styles.permissionBtnText}>{t("enableCamera")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
             <Text style={styles.cancelBtnText}>{t("cancel")}</Text>
@@ -375,7 +376,9 @@ export default function ScanMeal() {
           <TouchableOpacity style={styles.iconButton} onPress={handleRetake}>
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.resultHeaderTitle}>AI Meal Result</Text>
+          <Text style={styles.resultHeaderTitle}>
+            {t("aiMealResultTitle")}
+          </Text>
           <View style={styles.placeholderIcon} />
         </View>
 
@@ -396,7 +399,7 @@ export default function ScanMeal() {
             <View style={styles.previewBadge}>
               <Sparkles size={15} color="#FFF" />
               <Text style={styles.previewBadgeText}>
-                {Math.round(scanResult.confidence * 100)}% confidence
+                {Math.round(scanResult.confidence * 100)}% {t("confidence")}
               </Text>
             </View>
           </View>
@@ -454,12 +457,12 @@ export default function ScanMeal() {
 
           <View style={styles.notesCard}>
             <Text style={styles.notesText}>
-              {form.notes || scanResult.notes || "Estimated from the submitted meal image."}
+              {form.notes || scanResult.notes || t("estimatedMealImageNote")}
             </Text>
           </View>
 
           <View style={styles.totalCard}>
-            <Text style={styles.totalLabel}>Total for this food</Text>
+            <Text style={styles.totalLabel}>{t("totalForThisFood")}</Text>
             <Text style={styles.totalCalories}>
               {nutritionFacts.calories.value} {t("kcal")}
             </Text>
@@ -484,7 +487,7 @@ export default function ScanMeal() {
             disabled={isSaving}
           >
             <RotateCcw size={18} color={colors.text} />
-            <Text style={styles.secondaryActionText}>Retake</Text>
+            <Text style={styles.secondaryActionText}>{t("retake")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.saveButton, isSaving && styles.disabledButton]}
@@ -508,6 +511,8 @@ export default function ScanMeal() {
     );
   }
 
+
+
   return (
     <View style={styles.container}>
       <CameraView
@@ -524,17 +529,13 @@ export default function ScanMeal() {
           <TouchableOpacity style={styles.iconButton} onPress={handleClose}>
             <ChevronLeft size={24} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>AI Meal Scanner</Text>
+          <Text style={styles.headerTitle}>{t("aiMealScannerTitle")}</Text>
           <View style={styles.placeholderIcon} />
         </View>
 
         <View style={styles.scanWrapper}>
           <View style={styles.logoRow}>
-            {["F", "I", "T", "C", "O"].map((letter) => (
-              <Text key={letter} style={styles.logoLetter}>
-                {letter}
-              </Text>
-            ))}
+            <Text style={styles.logoLetter}>FITCO</Text>
           </View>
 
           <View style={styles.scanBox}>
@@ -543,7 +544,9 @@ export default function ScanMeal() {
             <View style={[styles.corner, styles.bottomLeft]} />
             <View style={[styles.corner, styles.bottomRight]} />
           </View>
-          <Text style={styles.instruction}>Align meal within the brackets</Text>
+          <Text style={styles.instruction}>
+            {t("alignMealWithinBrackets")}
+          </Text>
         </View>
 
         <View
@@ -552,7 +555,7 @@ export default function ScanMeal() {
             { paddingBottom: insets.bottom + 18 },
           ]}
         >
-          <Text style={styles.mealPickerLabel}>Log this meal as</Text>
+          <Text style={styles.mealPickerLabel}>{t("logThisMealAs")}</Text>
           {renderMealPicker()}
 
           <View style={styles.bottomBar}>
@@ -591,20 +594,22 @@ export default function ScanMeal() {
 
       {isAnalyzing && (
         <View style={styles.processingOverlay}>
-          <Animated.View
-            style={[
-              styles.progressBar,
-              {
-                width: progressAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["0%", "100%"],
-                }),
-              },
-            ]}
-          />
+          <View style={styles.progressTrack}>
+            <Animated.View
+              style={[
+                styles.progressBar,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0%", "100%"],
+                  }),
+                },
+              ]}
+            />
+          </View>
           <Text style={styles.processingTitle}>{analysisText}</Text>
           <Text style={styles.processingSubtitle}>
-            Estimating calories, protein, carbs, and fat...
+            {t("estimatingMacros")}
           </Text>
         </View>
       )}
@@ -704,19 +709,19 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 24,
-    paddingBottom: 78,
   },
   logoRow: {
+    direction: "ltr",
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },
   logoLetter: {
-    fontSize: 28,
+    fontSize: 35,
     fontWeight: "900",
     color: colors.primary,
     marginHorizontal: 1,
+    writingDirection: "ltr",
     textShadowColor: "rgba(76, 175, 80, 0.4)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
@@ -849,6 +854,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.primary,
   },
+  tourBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    zIndex: 9000,
+  },
+  tourCardContainer: {
+    position: "absolute",
+    alignSelf: "center",
+    zIndex: 10000,
+    width: "100%",
+  },
+  shutterPulseRing: {
+    position: "absolute",
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 42,
+    borderWidth: 3,
+    borderColor: "#22c55e",
+    shadowColor: "#22c55e",
+    shadowOpacity: 0.85,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 16,
+    elevation: 20,
+    zIndex: 9999,
+  },
+  elevatedShutter: {
+    zIndex: 10000,
+    elevation: 25,
+  },
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#09090b",
@@ -857,12 +893,22 @@ const styles = StyleSheet.create({
     zIndex: 100,
     paddingHorizontal: 32,
   },
-  progressBar: {
+  progressTrack: {
+    direction: "ltr",
+    width: "100%",
     height: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 4,
     marginBottom: 12,
-    alignSelf: "flex-start",
+    overflow: "hidden",
+  },
+  progressBar: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: colors.primary,
+    borderRadius: 4,
   },
   processingTitle: {
     fontSize: 18,

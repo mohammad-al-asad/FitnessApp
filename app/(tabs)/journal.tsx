@@ -28,14 +28,17 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -361,7 +364,7 @@ export default function JournalScreen() {
   const handleDeleteFood = async (food: JournalFood) => {
     if (!food.id) return;
 
-    Alert.alert("Delete food?", `Remove ${food.foodItem.name} from this day?`, [
+    Alert.alert(String(t("deleteFoodTitle")), String(t("deleteFoodMessage")).replace("{food}", food.foodItem.name), [
       { text: String(t("cancel")), style: "cancel" },
       {
         text: String(t("remove")),
@@ -677,108 +680,121 @@ export default function JournalScreen() {
     ] as const;
 
     return (
-      <Modal visible transparent animationType="slide" onRequestClose={closeEdit}>
+      <Modal
+        visible
+        transparent
+        animationType="slide"
+        onRequestClose={closeEdit}
+        statusBarTranslucent
+      >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
-          behavior="padding"
+          behavior={Platform.OS === "ios" ? "padding" : "padding"}
         >
-          <View style={styles.editCard}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
+          <Pressable style={styles.editCard} onPress={Keyboard.dismiss}>
             <View style={styles.editHeader}>
-              <Text style={styles.editTitle}>Edit Food</Text>
+              <Text style={styles.editTitle}>{t("editFoodTitle")}</Text>
               <TouchableOpacity style={styles.editClose} onPress={closeEdit}>
                 <X size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.editLabel}>{t("meal")}</Text>
-            <View style={styles.editMealGrid}>
-              {mealOptions.map((meal) => {
-                const MealIcon = meal.icon;
-                const active = editForm.meal === meal.key;
-                return (
-                  <TouchableOpacity
-                    key={meal.key}
-                    style={[styles.editMealButton, active && styles.editMealButtonActive]}
-                    onPress={() =>
-                      setEditForm((prev) =>
-                        prev ? { ...prev, meal: meal.key } : prev,
-                      )
-                    }
-                  >
-                    <MealIcon
-                      size={15}
-                      color={active ? colors.background : colors.text}
-                    />
-                    <Text
-                      style={[
-                        styles.editMealButtonText,
-                        active && styles.editMealButtonTextActive,
-                      ]}
-                    >
-                      {meal.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={styles.editLabel}>{t("foodName")}</Text>
-            <TextInput
-              style={styles.editInput}
-              value={editForm.foodName}
-              onChangeText={(foodName) =>
-                setEditForm((prev) => (prev ? { ...prev, foodName } : prev))
-              }
-              placeholder={String(t("foodNamePlaceholder"))}
-              placeholderTextColor={colors.placeholder}
-            />
-
-            <View style={styles.editMacroGrid}>
-              {macroFields.map((field) => (
-                <View key={field.key} style={styles.editMacroCard}>
-                  <View style={styles.editMacroLabelRow}>
-                    <View
-                      style={[
-                        styles.editMacroDot,
-                        { backgroundColor: field.color },
-                      ]}
-                    />
-                    <Text style={styles.editMacroLabel}>{field.label}</Text>
-                  </View>
-                  <View style={styles.editMacroInputRow}>
-                    <TextInput
-                      style={styles.editMacroInput}
-                      value={editForm[field.key]}
-                      onChangeText={(value) =>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 16 }}
+            >
+              <Text style={styles.editLabel}>{t("meal")}</Text>
+              <View style={styles.editMealGrid}>
+                {mealOptions.map((meal) => {
+                  const MealIcon = meal.icon;
+                  const active = editForm.meal === meal.key;
+                  return (
+                    <TouchableOpacity
+                      key={meal.key}
+                      style={[styles.editMealButton, active && styles.editMealButtonActive]}
+                      onPress={() =>
                         setEditForm((prev) =>
-                          prev ? { ...prev, [field.key]: value } : prev,
+                          prev ? { ...prev, meal: meal.key } : prev,
                         )
                       }
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor={colors.placeholder}
-                    />
-                    <Text style={styles.editMacroUnit}>{field.unit}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
+                    >
+                      <MealIcon
+                        size={15}
+                        color={active ? colors.background : colors.text}
+                      />
+                      <Text
+                        style={[
+                          styles.editMealButtonText,
+                          active && styles.editMealButtonTextActive,
+                        ]}
+                      >
+                        {meal.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-            <TouchableOpacity
-              style={[styles.saveEditButton, isSavingEdit && styles.disabled]}
-              onPress={handleSaveEdit}
-              disabled={isSavingEdit}
-            >
-              {isSavingEdit ? (
-                <ActivityIndicator color={colors.background} />
-              ) : (
-                <>
-                  <Save size={18} color={colors.background} />
-                  <Text style={styles.saveEditButtonText}>{t("save")}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+              <Text style={styles.editLabel}>{t("foodName")}</Text>
+              <TextInput
+                style={styles.editInput}
+                value={editForm.foodName}
+                onChangeText={(foodName) =>
+                  setEditForm((prev) => (prev ? { ...prev, foodName } : prev))
+                }
+                placeholder={String(t("foodNamePlaceholder"))}
+                placeholderTextColor={colors.placeholder}
+              />
+
+              <View style={styles.editMacroGrid}>
+                {macroFields.map((field) => (
+                  <View key={field.key} style={styles.editMacroCard}>
+                    <View style={styles.editMacroLabelRow}>
+                      <View
+                        style={[
+                          styles.editMacroDot,
+                          { backgroundColor: field.color },
+                        ]}
+                      />
+                      <Text style={styles.editMacroLabel}>{field.label}</Text>
+                    </View>
+                    <View style={styles.editMacroInputRow}>
+                      <TextInput
+                        style={styles.editMacroInput}
+                        value={editForm[field.key]}
+                        onChangeText={(value) =>
+                          setEditForm((prev) =>
+                            prev ? { ...prev, [field.key]: value } : prev,
+                          )
+                        }
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor={colors.placeholder}
+                      />
+                      <Text style={styles.editMacroUnit}>{field.unit}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveEditButton, isSavingEdit && styles.disabled]}
+                onPress={handleSaveEdit}
+                disabled={isSavingEdit}
+              >
+                {isSavingEdit ? (
+                  <ActivityIndicator color={colors.background} />
+                ) : (
+                  <>
+                    <Save size={18} color={colors.background} />
+                    <Text style={styles.saveEditButtonText}>{t("save")}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </Pressable>
         </KeyboardAvoidingView>
       </Modal>
     );
@@ -791,7 +807,7 @@ export default function JournalScreen() {
         { paddingTop: insets.top, backgroundColor: colors.background },
       ]}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>
             {t("dailyJournal")}
@@ -1219,10 +1235,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    maxHeight: "90%",
+    maxHeight: "85%",
   },
   editHeader: {
     flexDirection: "row",
