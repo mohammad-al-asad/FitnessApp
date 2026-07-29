@@ -13,6 +13,7 @@ import { useLanguage } from "@/hooks/language-context";
 import {
   getStoredOnboardingAuthPayload,
   markSuperwallOnboardingCompleted,
+  requestSuperwallOnboarding,
   saveReferralCodeStatus,
   type ReferralCodeStatus,
 } from "@/services/superwall-flow";
@@ -335,6 +336,11 @@ export default function AuthFlowScreen({
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(nextStep);
     router.replace(`/(auth)/${nextStep}` as any);
+  }, []);
+
+  const navigateToSuperwallOnboarding = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    requestSuperwallOnboarding("signin_signup_link");
   }, []);
 
   const handleBack = () => {
@@ -1107,7 +1113,7 @@ export default function AuthFlowScreen({
                     <Text style={[styles.switchText, { color: colors.text }]}>
                       {t("dontHaveAccount")}
                     </Text>
-                    <TouchableOpacity onPress={() => navigateToAuthStep("signup")}>
+                    <TouchableOpacity onPress={navigateToSuperwallOnboarding}>
                       <Text style={[styles.switchButton, { color: colors.accent }]}>
                         {t("signUp")}
                       </Text>

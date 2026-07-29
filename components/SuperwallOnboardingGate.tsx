@@ -33,9 +33,12 @@ import {
   ONBOARDING_COMPLETED_KEY,
   SUPERWALL_ONBOARDING_PLACEMENT,
   SUPERWALL_PAYWALL_PLACEMENT,
+  clearReferralCodeStatus,
+  clearSuperwallOnboardingCompletion,
   getPaywallParams,
   getReferralCodeStatus,
   isSuperwallSigninAction,
+  subscribeToSuperwallOnboardingRequests,
 } from "@/services/superwall-flow";
 import { router } from "expo-router";
 
@@ -48,6 +51,8 @@ const PRESENTATION_RETRY_DELAY_MS = 2200;
 const POST_LOGOUT_PRESENTATION_DELAY_MS = 2500;
 const ACTIVITY_NOT_READY_MAX_RETRIES = 5;
 const PAYWALL_RELOCK_DELAY_MS = 350;
+const PAYWALL_CONFIGURATION_MAX_RETRIES = 3;
+const PAYWALL_CONFIGURATION_RETRY_DELAY_MS = 2500;
 
 const isAppReviewAction = (name: string | undefined) => {
   const normalized = String(name ?? "").trim();
@@ -77,6 +82,11 @@ const isActivityNotReadyError = (error: unknown) => {
     message.includes("SWPresentationError: 103") ||
     message.toLowerCase().includes("no activity to present")
   );
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  const message = String((error as any)?.message ?? error ?? "").trim();
+  return message || fallback;
 };
 
 const firstPresentValue = (
@@ -201,8 +211,10 @@ const arrangedOnboardingAnswersFromVariables = (
       ),
       referralCode: asText(
         firstPresentValue(variables, [
+          "node._HRLaQQxpiYPXoqubJgev.value",
           "node.BiD613fc656gmoGLmv6oF.value",
           "state.referralCode",
+          "user.refferCode",
         ]),
       ),
     },
@@ -400,6 +412,8 @@ export default function SuperwallOnboardingGate({
   const [canPresentSuperwall, setCanPresentSuperwall] = useState(false);
   const [isSuperwallAnonymousReady, setIsSuperwallAnonymousReady] =
     useState(false);
+  const [isSubscriptionFallbackOpen, setIsSubscriptionFallbackOpen] =
+    useState(false);
   const [presentationRetryNonce, setPresentationRetryNonce] = useState(0);
   const hasStarted = useRef(false);
   const latestUserRef = useRef(user);
@@ -410,7 +424,10 @@ export default function SuperwallOnboardingGate({
   const presentationRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const paywallConfigurationRetryTimer =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
   const activityNotReadyRetryCount = useRef(0);
+  const paywallConfigurationRetryCount = useRef(0);
   const hasReleasedGate = useRef(false);
   const hasCompletedOnboarding = useRef(false);
   const hasLoggedOnboardingAnswers = useRef(false);
@@ -637,7 +654,9 @@ export default function SuperwallOnboardingGate({
   const { registerPlacement: registerPaywall } = usePlacement({
     onPresent: () => {
       onStartupReady?.();
+      setIsSubscriptionFallbackOpen(false);
       didPresentActiveGatingPaywall.current = true;
+      paywallConfigurationRetryCount.current = 0;
       activityNotReadyRetryCount.current = 0;
       console.log("[Superwall] Gating paywall presented.");
     },
@@ -684,14 +703,74 @@ export default function SuperwallOnboardingGate({
     },
   });
 
+  const routeToSubscriptionFallback = useCallback(
+    (error: unknown) => {
+      const message = getErrorMessage(
+        error,
+        "Superwall could not be configured, so the subscription paywall could not be presented.",
+      ).slice(0, 600);
+
+      console.error(
+        "[Superwall] Subscription paywall unavailable after configuration retries. Opening fallback subscription screen:",
+        error,
+      );
+
+      if (paywallConfigurationRetryTimer.current) {
+        clearTimeout(paywallConfigurationRetryTimer.current);
+        paywallConfigurationRetryTimer.current = null;
+      }
+
+      activePaywallUserId.current = null;
+      hasReleasedGate.current = true;
+      setGateState("ready");
+      setIsSubscriptionFallbackOpen(true);
+      onStartupReady?.();
+      router.replace(
+        `/paywall-fallback?paywallError=${encodeURIComponent(message)}` as any,
+      );
+    },
+    [onStartupReady],
+  );
+
+  const retryPaywallConfiguration = useCallback(
+    (error: unknown) => {
+      const nextRetry = paywallConfigurationRetryCount.current + 1;
+      paywallConfigurationRetryCount.current = nextRetry;
+      activePaywallUserId.current = null;
+
+      if (nextRetry > PAYWALL_CONFIGURATION_MAX_RETRIES) {
+        routeToSubscriptionFallback(error);
+        return;
+      }
+
+      console.error(
+        `[Superwall] Subscription paywall configuration error. Retry ${nextRetry}/${PAYWALL_CONFIGURATION_MAX_RETRIES}:`,
+        error,
+      );
+
+      if (paywallConfigurationRetryTimer.current) {
+        clearTimeout(paywallConfigurationRetryTimer.current);
+      }
+
+      paywallConfigurationRetryTimer.current = setTimeout(() => {
+        paywallConfigurationRetryTimer.current = null;
+        if (AppState.currentState !== "active") return;
+        setCanPresentSuperwall(true);
+        setPresentationRetryNonce((value) => value + 1);
+      }, PAYWALL_CONFIGURATION_RETRY_DELAY_MS);
+    },
+    [routeToSubscriptionFallback],
+  );
+
   useEffect(() => {
-    if (!isInitialized || !isConfigured || !canPresentSuperwall || !user?.uid) {
+    if (!isInitialized || !user?.uid) {
       return;
     }
 
     if (hasConfirmedSubscriptionAccess.current) {
       activePaywallUserId.current = null;
       didPresentActiveGatingPaywall.current = false;
+      setIsSubscriptionFallbackOpen(false);
       return;
     }
 
@@ -699,8 +778,24 @@ export default function SuperwallOnboardingGate({
       hasConfirmedSubscriptionAccess.current = true;
       activePaywallUserId.current = null;
       didPresentActiveGatingPaywall.current = false;
+      setIsSubscriptionFallbackOpen(false);
       return;
     }
+
+    if (isSubscriptionFallbackOpen) {
+      return;
+    }
+
+    if (configurationError) {
+      retryPaywallConfiguration(configurationError);
+      return;
+    }
+
+    if (!isConfigured || !canPresentSuperwall) {
+      return;
+    }
+
+    paywallConfigurationRetryCount.current = 0;
 
     if (prePaywallSyncUserId.current !== user.uid) {
       prePaywallSyncUserId.current = user.uid;
@@ -811,9 +906,12 @@ export default function SuperwallOnboardingGate({
     isConfigured,
     isInitialized,
     canPresentSuperwall,
+    configurationError,
+    isSubscriptionFallbackOpen,
     presentationRetryNonce,
     registerPaywall,
     relockUnsubscribedUserToPaywall,
+    retryPaywallConfiguration,
     schedulePresentationRetry,
     user,
     user?.uid,
@@ -1178,6 +1276,8 @@ export default function SuperwallOnboardingGate({
     activePaywallUserId.current = null;
     prePaywallSyncUserId.current = null;
     activityNotReadyRetryCount.current = 0;
+    paywallConfigurationRetryCount.current = 0;
+    setIsSubscriptionFallbackOpen(false);
     if (retryTimer.current) {
       clearTimeout(retryTimer.current);
       retryTimer.current = null;
@@ -1189,6 +1289,10 @@ export default function SuperwallOnboardingGate({
     if (presentationRetryTimer.current) {
       clearTimeout(presentationRetryTimer.current);
       presentationRetryTimer.current = null;
+    }
+    if (paywallConfigurationRetryTimer.current) {
+      clearTimeout(paywallConfigurationRetryTimer.current);
+      paywallConfigurationRetryTimer.current = null;
     }
     setCanPresentSuperwall(false);
     void dismiss().catch(() => undefined);
@@ -1230,6 +1334,59 @@ export default function SuperwallOnboardingGate({
       isCancelled = true;
     };
   }, [dismiss, isInitialized, releaseGate, user]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSuperwallOnboardingRequests((reason) => {
+      if (latestUserRef.current?.uid) return;
+
+      console.log(`[Superwall] Restarting onboarding from ${reason}.`);
+      void Promise.all([
+        clearSuperwallOnboardingCompletion(),
+        clearReferralCodeStatus(),
+        AsyncStorage.removeItem(ONBOARDING_ANSWERS_KEY),
+      ]).catch((error) => {
+        console.error("[Superwall] Failed to reset onboarding state:", error);
+      });
+
+      hasReleasedGate.current = false;
+      hasStarted.current = false;
+      hasPresentedOnboarding.current = false;
+      hasLoggedOnboardingAnswers.current = false;
+      hasCompletedOnboarding.current = false;
+      isOnboardingActive.current = true;
+      activePaywallUserId.current = null;
+      prePaywallSyncUserId.current = null;
+      activityNotReadyRetryCount.current = 0;
+
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+      }
+      if (presentationReadyTimer.current) {
+        clearTimeout(presentationReadyTimer.current);
+        presentationReadyTimer.current = null;
+      }
+      if (presentationRetryTimer.current) {
+        clearTimeout(presentationRetryTimer.current);
+        presentationRetryTimer.current = null;
+      }
+
+      setCanPresentSuperwall(false);
+      setGateState("waiting");
+      void dismiss().catch(() => undefined);
+
+      InteractionManager.runAfterInteractions(() => {
+        if (AppState.currentState !== "active" || latestUserRef.current?.uid) {
+          return;
+        }
+
+        setCanPresentSuperwall(true);
+        setPresentationRetryNonce((value) => value + 1);
+      });
+    });
+
+    return unsubscribe;
+  }, [dismiss]);
 
   useEffect(() => {
     if (!enabled || gateState !== "waiting") return;
@@ -1330,6 +1487,10 @@ export default function SuperwallOnboardingGate({
         clearTimeout(presentationRetryTimer.current);
         presentationRetryTimer.current = null;
       }
+      if (paywallConfigurationRetryTimer.current) {
+        clearTimeout(paywallConfigurationRetryTimer.current);
+        paywallConfigurationRetryTimer.current = null;
+      }
     },
     [],
   );
@@ -1337,6 +1498,7 @@ export default function SuperwallOnboardingGate({
   const shouldShowAnonymousGate = !user && gateState !== "ready";
   const shouldBlockForSubscription = Boolean(
     user &&
+      !isSubscriptionFallbackOpen &&
       !hasConfirmedSubscriptionAccess.current &&
       !isBackendUserSubscribed(user),
   );

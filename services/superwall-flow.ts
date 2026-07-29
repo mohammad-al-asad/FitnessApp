@@ -14,6 +14,11 @@ export const ONBOARDING_ANSWERS_KEY = "fitco_onboarding_answers";
 
 const REFERRAL_CODE_STATUS_KEY = "fitco_referral_code_status";
 
+type SuperwallOnboardingRequestListener = (reason: string) => void;
+
+const superwallOnboardingRequestListeners =
+  new Set<SuperwallOnboardingRequestListener>();
+
 export type ReferralCodeStatus = "valid" | "invalid";
 
 export type OnboardingAuthPayload = {
@@ -173,3 +178,18 @@ export const normalizeSuperwallActionName = (name: unknown) =>
 
 export const isSuperwallSigninAction = (name: unknown) =>
   normalizeSuperwallActionName(name) === "signin";
+
+export const subscribeToSuperwallOnboardingRequests = (
+  listener: SuperwallOnboardingRequestListener,
+) => {
+  superwallOnboardingRequestListeners.add(listener);
+  return () => {
+    superwallOnboardingRequestListeners.delete(listener);
+  };
+};
+
+export const requestSuperwallOnboarding = (reason = "manual") => {
+  superwallOnboardingRequestListeners.forEach((listener) => {
+    listener(reason);
+  });
+};

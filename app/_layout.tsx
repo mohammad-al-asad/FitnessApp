@@ -38,6 +38,16 @@ ExpoSplashScreen.preventAutoHideAsync().catch(() => {
 });
 
 // Inner navigator that handles auth routing
+const hasSubscriptionAccess = (user: ReturnType<typeof useAuth>["user"]) => {
+  const subscriptionStatus = String(user?.subscriptionStatus ?? "").toLowerCase();
+
+  return Boolean(
+    user?.isSubscribed ||
+      subscriptionStatus === "active" ||
+      subscriptionStatus === "premium",
+  );
+};
+
 function RootNavigator() {
   const {
     user,
@@ -51,7 +61,7 @@ function RootNavigator() {
   );
 
   useEffect(() => {
-    if (user && isInitialized) {
+    if (user && isInitialized && hasSubscriptionAccess(user)) {
       router.replace("/(tabs)/home");
     }
   }, [isInitialized, user]);
@@ -82,6 +92,10 @@ function RootNavigator() {
         />
         <Stack.Screen
           name="(tabs)"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="paywall-fallback"
           options={{ headerShown: false, gestureEnabled: false }}
         />
         <Stack.Screen name="logFood" options={{ gestureEnabled: false }} />
