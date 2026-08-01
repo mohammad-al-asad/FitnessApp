@@ -326,7 +326,7 @@ const getMonthlyEquivalentText = (pack: PurchasesPackage | null) => {
 };
 
 const UpgradePlanScreen = () => {
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const { user, syncSubscription } = useAuth();
   const colors = useSafeColors();
   const router = useRouter();
@@ -344,9 +344,9 @@ const UpgradePlanScreen = () => {
     const referralCodeStatus = await getReferralCodeStatus();
     await registerPlacement({
       placement: SUPERWALL_PAYWALL_PLACEMENT,
-      params: getPaywallParams(referralCodeStatus),
+      params: getPaywallParams(referralCodeStatus, currentLanguage),
     });
-  }, [registerPlacement]);
+  }, [currentLanguage, registerPlacement]);
 
   const [monthlyPackage, setMonthlyPackage] =
     useState<PurchasesPackage | null>(null);

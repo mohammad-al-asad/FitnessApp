@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/auth-context";
-import { useSafeColors } from "@/hooks/language-context";
+import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import {
   SUPERWALL_PAYWALL_PLACEMENT,
   getPaywallParams,
@@ -39,6 +39,7 @@ const isSubscribedUser = (user: ReturnType<typeof useAuth>["user"]) => {
 
 export default function PaywallFallbackScreen() {
   const colors = useSafeColors();
+  const { currentLanguage } = useLanguage();
   const router = useRouter();
   const params = useLocalSearchParams<{ paywallError?: string }>();
   const { user, syncSubscription } = useAuth();
@@ -111,7 +112,7 @@ export default function PaywallFallbackScreen() {
       const referralCodeStatus = await getReferralCodeStatus();
       await registerPlacement({
         placement: SUPERWALL_PAYWALL_PLACEMENT,
-        params: getPaywallParams(referralCodeStatus),
+        params: getPaywallParams(referralCodeStatus, currentLanguage),
       });
     } catch (error: any) {
       const message =
@@ -122,7 +123,7 @@ export default function PaywallFallbackScreen() {
     } finally {
       setIsRetrying(false);
     }
-  }, [registerPlacement]);
+  }, [currentLanguage, registerPlacement]);
 
   const handleRestorePurchases = useCallback(async () => {
     try {

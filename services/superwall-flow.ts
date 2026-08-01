@@ -20,6 +20,7 @@ const superwallOnboardingRequestListeners =
   new Set<SuperwallOnboardingRequestListener>();
 
 export type ReferralCodeStatus = "valid" | "invalid";
+export type SuperwallPaywallLanguage = "AR" | "EN";
 
 export type OnboardingAuthPayload = {
   referralCode?: string;
@@ -56,8 +57,17 @@ export const clearReferralCodeStatus = async () => {
   await AsyncStorage.removeItem(REFERRAL_CODE_STATUS_KEY);
 };
 
-export const getPaywallParams = (referralCodeStatus?: unknown) => ({
+export const normalizePaywallLanguage = (
+  value: unknown,
+): SuperwallPaywallLanguage =>
+  String(value ?? "").trim().toLowerCase() === "ar" ? "AR" : "EN";
+
+export const getPaywallParams = (
+  referralCodeStatus?: unknown,
+  language?: unknown,
+) => ({
   referralCodeStatus: normalizeReferralCodeStatus(referralCodeStatus),
+  language: normalizePaywallLanguage(language),
 });
 
 export const clearSuperwallOnboardingCompletion = async () => {
