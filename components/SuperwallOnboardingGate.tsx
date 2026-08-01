@@ -842,7 +842,7 @@ export default function SuperwallOnboardingGate({
 
       await registerPaywall({
         placement: SUPERWALL_PAYWALL_PLACEMENT,
-        params: getPaywallParams(referralCodeStatus),
+        params: getPaywallParams(referralCodeStatus, currentLanguage),
         feature: () => {
           if (
             didPresentActiveGatingPaywall.current ||
@@ -907,6 +907,7 @@ export default function SuperwallOnboardingGate({
     isInitialized,
     canPresentSuperwall,
     configurationError,
+    currentLanguage,
     isSubscriptionFallbackOpen,
     presentationRetryNonce,
     registerPaywall,
