@@ -3,7 +3,13 @@ import { MacroColors } from "@/constants/colors";
 import { COLORS, useLanguage } from "@/hooks/language-context";
 import { useNutrition } from "@/hooks/nutrition-store";
 import { router } from "expo-router";
-import { Calendar, ChevronRight, Flame, TrendingUp } from "lucide-react-native";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  TrendingUp,
+} from "lucide-react-native";
 import React from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
@@ -219,11 +225,11 @@ export default function ProgressScreen() {
               </Text>
             </View>
 
-            <ChevronRight
-              size={24}
-              color={colors.placeholder}
-              style={isRTL && { transform: [{ rotate: "180deg" }] }}
-            />
+            {isRTL ? (
+              <ChevronLeft size={24} color={colors.placeholder} />
+            ) : (
+              <ChevronRight size={24} color={colors.placeholder} />
+            )}
           </View>
         </TouchableOpacity>
 
@@ -339,6 +345,7 @@ export default function ProgressScreen() {
           <Text
             style={[
               styles.chartTitle,
+              styles.macrosTitle,
               isRTL && styles.rtlText,
               { color: colors.text, textAlign: isRTL ? "left" : "left" },
             ]}
@@ -390,6 +397,7 @@ export default function ProgressScreen() {
                   <View
                     style={[
                       styles.macroBar,
+                      isRTL && styles.macroBarRTL,
                       { backgroundColor: colors.border },
                     ]}
                   >
@@ -477,12 +485,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
   },
+  macrosTitle: {
+    marginBottom: 18,
+  },
   macrosList: { gap: 16 },
   macroItem: { flexDirection: "row", alignItems: "center", gap: 12 },
   macroColor: { width: 12, height: 12, borderRadius: 6 },
   macroInfo: { flex: 1 },
-  macroName: { fontSize: 16, fontWeight: "600", marginBottom: 2 },
-  macroValue: { fontSize: 14 },
+  macroName: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
+  macroValue: { fontSize: 12 },
   macroBar: { width: 80, height: 6, borderRadius: 3 },
   macroBarFill: { height: "100%", borderRadius: 3 },
   rtlText: {
@@ -492,7 +503,10 @@ const styles = StyleSheet.create({
     direction: "ltr",
   },
   macroItemRTL: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
+  },
+  macroBarRTL: {
+    marginRight: 0,
   },
   macroBarFillRTL: {
     transform: [{ scaleX: -1 }],

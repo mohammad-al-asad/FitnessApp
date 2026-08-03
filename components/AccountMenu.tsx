@@ -25,7 +25,7 @@ const AccountMenu = ({ setIsDeleteModal }: any) => {
             <TouchableOpacity
               style={[
                 styles.menuItem,
-                { flexDirection: isRTL ? "row-reverse" : "row" },
+                isRTL && styles.menuItemRTL,
               ]}
               onPress={() => {
                 if (item.id === "deleteAccount") {
@@ -77,10 +77,15 @@ const styles = StyleSheet.create({
     overflow: "hidden", // Ensures dividers don't bleed out
   },
   menuItem: {
+    direction: "ltr",
+    flexDirection: "row",
     paddingVertical: 18,
     paddingHorizontal: 20,
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  menuItemRTL: {
+    flexDirection: "row-reverse",
   },
   menuText: {
     fontSize: 16,

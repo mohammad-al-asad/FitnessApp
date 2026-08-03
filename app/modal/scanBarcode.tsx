@@ -89,7 +89,7 @@ export default function ScanBarcode() {
   };
 
   const handleClose = () => {
-    router.replace("/(tabs)/home");
+    router.back();
   };
 
   if (!permission) {

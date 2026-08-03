@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/auth-context";
 import { useLanguage, useSafeColors } from "@/hooks/language-context";
 import { router } from "expo-router";
 import {
+  ChevronLeft,
   ChevronRight,
   CreditCard,
   Flag,
@@ -155,22 +156,25 @@ export default function SettingsScreen() {
           {settingsItems.map((item) => {
             const IconComponent = item.icon;
             return (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.settingsItem,
-                  {
-                    backgroundColor: colors.surface,
-                    flexDirection: isRTL ? "row" : "row",
-                  },
-                ]}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.settingsItem,
+                    isRTL && styles.settingsItemRTL,
+                    {
+                      backgroundColor: colors.surface,
+                    },
+                  ]}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                >
+                {isRTL && (
+                  <ChevronLeft size={20} color={colors.placeholder} />
+                )}
                 <View
                   style={[
                     styles.settingsItemLeft,
-                    { flexDirection: isRTL ? "row" : "row" },
+                    isRTL && styles.settingsItemLeftRTL,
                   ]}
                 >
                   <View
@@ -178,7 +182,8 @@ export default function SettingsScreen() {
                       styles.settingsItemIcon,
                       {
                         backgroundColor: colors.border,
-                        marginEnd: 16,
+                        marginRight: isRTL ? 0 : 16,
+                        marginLeft: isRTL ? 16 : 0,
                       },
                     ]}
                   >
@@ -205,11 +210,9 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 </View>
-                <ChevronRight
-                  size={20}
-                  color={colors.placeholder}
-                  style={isRTL && { transform: [{ rotate: "180deg" }] }}
-                />
+                {!isRTL && (
+                  <ChevronRight size={20} color={colors.placeholder} />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -289,10 +292,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  settingsItemRTL: {
+    direction: "ltr",
+  },
   settingsItemLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+  },
+  settingsItemLeftRTL: {
+    flexDirection: "row-reverse",
+    justifyContent: "flex-end",
+    direction: "ltr",
   },
   settingsItemIcon: {
     width: 48,
@@ -332,7 +343,6 @@ const styles = StyleSheet.create({
   },
   // RTL Styles
   rtlText: {
-    textAlign: "left",
-    paddingRight: 10,
+    textAlign: "right",
   },
 });

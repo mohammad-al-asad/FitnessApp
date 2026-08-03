@@ -311,18 +311,18 @@ const getPackagePriceParts = (
   };
 };
 
-const getAnnualTotalText = (pack: PurchasesPackage | null) => {
+const getAnnualTotalText = (pack: PurchasesPackage | null, yearLabel: string) => {
   const price = Number(pack?.product?.price ?? 0);
   const currencyCode = pack?.product?.currencyCode;
-  if (price > 0) return `${formatCurrency(price * 12, currencyCode)} / year`;
-  return "$119.88 / year";
+  if (price > 0) return `${formatCurrency(price * 12, currencyCode)} / ${yearLabel}`;
+  return `$119.88 / ${yearLabel}`;
 };
 
-const getMonthlyEquivalentText = (pack: PurchasesPackage | null) => {
+const getMonthlyEquivalentText = (pack: PurchasesPackage | null, monthLabel: string) => {
   const price = Number(pack?.product?.price ?? 0);
   const currencyCode = pack?.product?.currencyCode;
-  if (price > 0) return `${formatCurrency(price / 12, currencyCode)} / month`;
-  return "$5.00 / month";
+  if (price > 0) return `${formatCurrency(price / 12, currencyCode)} / ${monthLabel}`;
+  return `$5.00 / ${monthLabel}`;
 };
 
 const UpgradePlanScreen = () => {
@@ -431,12 +431,12 @@ const UpgradePlanScreen = () => {
 
   const handleUpgradeToYearly = async () => {
     if (activePlanType === "yearly") {
-      Alert.alert(String(t("success")), "You are already on the Yearly Plan.");
+      Alert.alert(String(t("success")), String(t("alreadyOnYearlyPlan")));
       return;
     }
 
     if (!yearlyPackage || isProcessingPurchase) {
-      Alert.alert(String(t("error")), "Yearly plan is currently not available. Please try again later.");
+      Alert.alert(String(t("error")), String(t("yearlyPlanUnavailable")));
       return;
     }
 
@@ -468,16 +468,16 @@ const UpgradePlanScreen = () => {
         "subscription-screen:purchase",
       );
       if (isSubscribedLocally) {
-        Alert.alert(String(t("success")), "Successfully upgraded to the Yearly Plan!");
+        Alert.alert(String(t("success")), String(t("upgradedToYearlySuccessfully")));
         await loadInitialData();
       } else {
-        throw new Error("Upgrade verification failed.");
+        throw new Error(String(t("upgradeVerificationFailed")));
       }
     } catch (error: any) {
       if (!error.userCancelled) {
         Alert.alert(
           String(t("error")),
-          error.message || "Failed to upgrade subscription",
+          error.message || String(t("failedToUpgradeSubscription")),
         );
       }
     } finally {
@@ -521,7 +521,7 @@ const UpgradePlanScreen = () => {
     } catch (error: any) {
       Alert.alert(
         String(t("error")),
-        error.message || "Failed to restore purchases",
+        error.message || String(t("failedToRestorePurchases")),
       );
     } finally {
       setIsProcessingPurchase(false);
@@ -540,18 +540,18 @@ const UpgradePlanScreen = () => {
   );
   const activePlanLabel =
     activePlanType === "monthly"
-      ? "Monthly Plan"
+      ? String(t("monthly"))
       : activePlanType === "yearly"
-        ? "Yearly Plan"
-        : "Premium Plan";
+        ? String(t("yearly"))
+        : String(t("premiumPlan"));
   const activePlanPrice =
     activePlanType === "monthly"
-      ? monthlyPackage?.product?.priceString || "$9.99/mo"
+      ? monthlyPackage?.product?.priceString || `$9.99${String(t("perMonthShort"))}`
       : activePlanType === "yearly"
-        ? yearlyPackage?.product?.priceString || "$59.99/yr"
+        ? yearlyPackage?.product?.priceString || `$59.99${String(t("perYearShort"))}`
         : activeSub?.price
           ? String(activeSub.price)
-          : "N/A";
+          : String(t("notAvailable"));
   const showYearlyUpgrade = activePlanType === "monthly";
   const activeExpiryDate =
     activeSub?.expiryDate || revenueCatCustomerInfo?.latestExpirationDate;
@@ -581,36 +581,36 @@ const UpgradePlanScreen = () => {
               <View style={styles.cardHeader}>
                 <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                 <Text style={[styles.statusTitle, { color: colors.text }]}>
-                  Active Premium Member
+                  {t("activePremiumMember")}
                 </Text>
               </View>
 
               <View style={styles.statusDivider} />
 
               <View style={styles.statusRow}>
-                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Plan Type</Text>
+                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>{t("planType")}</Text>
                 <Text style={[styles.statusValue, { color: colors.text }]}>
                   {activePlanLabel}
                 </Text>
               </View>
 
               <View style={styles.statusRow}>
-                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Cost</Text>
+                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>{t("cost")}</Text>
                 <Text style={[styles.statusValue, { color: colors.text }]}>
                   {activePlanPrice}
                 </Text>
               </View>
 
               <View style={styles.statusRow}>
-                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>Renewal Date</Text>
+                <Text style={[styles.statusLabel, { color: colors.placeholder }]}>{t("renewalDate")}</Text>
                 <Text style={[styles.statusValue, { color: colors.text }]}>
                   {activeExpiryDate
-                    ? new Date(activeExpiryDate).toLocaleDateString(undefined, {
+                    ? new Date(activeExpiryDate).toLocaleDateString(currentLanguage === "ar" ? "ar-SA-u-ca-gregory" : undefined, {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
                       })
-                    : "N/A"}
+                    : t("notAvailable")}
                 </Text>
               </View>
 
@@ -621,20 +621,20 @@ const UpgradePlanScreen = () => {
               <View style={[styles.upgradeCard, { backgroundColor: colors.surface }]}>
                 <View style={styles.badgeContainer}>
                   <View style={[styles.bestValueBadge, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.bestValueText}>UPGRADE & SAVE 50%</Text>
+                    <Text style={styles.bestValueText}>{t("upgradeAndSave50")}</Text>
                   </View>
                 </View>
 
                 <Text style={[styles.upgradeTitle, { color: colors.text }]}>
-                  Switch to Yearly Plan
+                  {t("switchToYearlyPlan")}
                 </Text>
                 <Text style={[styles.upgradeDesc, { color: colors.placeholder }]}>
-                  Get the same premium features for a full year and save 50% compared to the monthly plan.
+                  {t("yearlyUpgradeDescription")}
                 </Text>
 
                 <View style={styles.comparisonWrapper}>
                   <View style={styles.priceComparisonItem}>
-                    <Text style={[styles.comparisonPlanLabel, { color: colors.placeholder }]}>Monthly</Text>
+                    <Text style={[styles.comparisonPlanLabel, { color: colors.placeholder }]}>{t("monthlyLabel")}</Text>
                     <View style={styles.priceLine}>
                       <Text style={[styles.priceCurrency, { color: colors.text }]}>
                         {monthlyPrice.currency}
@@ -647,21 +647,21 @@ const UpgradePlanScreen = () => {
                       >
                         {monthlyPrice.amount}
                       </Text>
-                      <Text style={styles.priceSubText}>/mo</Text>
+                      <Text style={styles.priceSubText}>{t("perMonthShort")}</Text>
                     </View>
                     <Text
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       style={[styles.comparisonTotal, { color: colors.placeholder }]}
                     >
-                      {getAnnualTotalText(monthlyPackage)}
+                      {getAnnualTotalText(monthlyPackage, String(t("perYear")))}
                     </Text>
                   </View>
 
                   <Ionicons name="arrow-forward" size={24} color={colors.placeholder} style={styles.arrowIcon} />
 
                   <View style={[styles.priceComparisonItem, { borderColor: colors.primary, borderWidth: 1, borderRadius: 12, padding: 8 }]}>
-                    <Text style={[styles.comparisonPlanLabel, { color: colors.primary, fontWeight: "700" }]}>Yearly</Text>
+                    <Text style={[styles.comparisonPlanLabel, { color: colors.primary, fontWeight: "700" }]}>{t("yearlyLabel")}</Text>
                     <View style={styles.priceLine}>
                       <Text style={[styles.priceCurrency, { color: colors.primary }]}>
                         {yearlyPrice.currency}
@@ -674,14 +674,14 @@ const UpgradePlanScreen = () => {
                       >
                         {yearlyPrice.amount}
                       </Text>
-                      <Text style={[styles.priceSubText, { color: colors.primary }]}>/yr</Text>
+                      <Text style={[styles.priceSubText, { color: colors.primary }]}>{t("perYearShort")}</Text>
                     </View>
                     <Text
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       style={[styles.comparisonTotal, { color: colors.primary }]}
                     >
-                      Only {getMonthlyEquivalentText(yearlyPackage)}
+                      {t("only")} {getMonthlyEquivalentText(yearlyPackage, String(t("perMonth")))}
                     </Text>
                   </View>
                 </View>
@@ -694,7 +694,7 @@ const UpgradePlanScreen = () => {
                   {isProcessingPurchase ? (
                     <ActivityIndicator color="#000" />
                   ) : (
-                    <Text style={styles.upgradeButtonText}>Upgrade to Yearly</Text>
+                    <Text style={styles.upgradeButtonText}>{t("upgradeToYearly")}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -706,18 +706,18 @@ const UpgradePlanScreen = () => {
             <View style={styles.cardHeader}>
               <Ionicons name="alert-circle" size={24} color="#D32F2F" />
               <Text style={[styles.statusTitle, { color: "#D32F2F" }]}>
-                No Active Subscription
+                {t("noActiveSubscription")}
               </Text>
             </View>
             <Text style={[styles.statusSubtitle, { color: colors.placeholder, marginTop: 8 }]}>
-              You are currently on the free/inactive tier. Subscribe to unlock all features.
+              {t("inactiveSubscriptionDescription")}
             </Text>
 
             <TouchableOpacity
               style={[styles.subscribeButton, { backgroundColor: colors.primary, marginTop: 24 }]}
               onPress={handleSubscribeNow}
             >
-              <Text style={styles.buttonTextWhite}>Subscribe Now</Text>
+              <Text style={styles.buttonTextWhite}>{t("subscribeNow")}</Text>
             </TouchableOpacity>
           </View>
         )}

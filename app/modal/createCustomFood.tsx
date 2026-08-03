@@ -149,8 +149,7 @@ export default function CreateCustomFoodScreen() {
         <TouchableOpacity
           style={styles.closeButton}
           onPress={() => {
-            router.dismissAll();
-            router.replace("/(tabs)/home");
+            router.back();
           }}
           activeOpacity={0.7}
         >

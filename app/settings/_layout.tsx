@@ -1,13 +1,13 @@
 import { TranslationKey } from "@/constants/translations";
 import { useLanguage } from "@/hooks/language-context";
 import { Stack, useRouter } from "expo-router";
-import { ArrowLeft, ArrowRight } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SettingsLayout() {
   const router = useRouter();
-  const { t, isRTL } = useLanguage();
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
 
   const CustomHeader = (props: any) => {
@@ -23,6 +23,7 @@ export default function SettingsLayout() {
           justifyContent: "center",
           paddingHorizontal: 16,
           flexDirection: "row",
+          direction: "ltr",
         }}
       >
         <Pressable
@@ -36,11 +37,7 @@ export default function SettingsLayout() {
             zIndex: 10,
           }}
         >
-          {isRTL ? (
-            <ArrowRight size={24} color="#fff" />
-          ) : (
-            <ArrowLeft size={24} color="#fff" />
-          )}
+          <ArrowLeft size={24} color="#fff" />
         </Pressable>
 
         {/* 🎯 Center Section: Title */}

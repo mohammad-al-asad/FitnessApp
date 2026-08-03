@@ -79,14 +79,19 @@ const ReportIssueScreen = () => {
     <View
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          isRTL && styles.scrollContentRTL,
+        ]}
+      >
         {/* Issue Type Section */}
         <Text
           style={[
             styles.sectionTitle,
             {
               color: colors.text,
-              textAlign: isRTL ? "left" : "left",
+              textAlign: isRTL ? "right" : "left",
               marginTop: 0,
             },
           ]}
@@ -100,9 +105,9 @@ const ReportIssueScreen = () => {
               key={item.id}
               style={[
                 styles.typeItem,
+                isRTL && styles.typeItemRTL,
                 {
                   backgroundColor: colors.surface,
-                  flexDirection: isRTL ? "row-reverse" : "row",
                 },
               ]}
               onPress={() => setSelectedType(item.id)}
@@ -110,7 +115,7 @@ const ReportIssueScreen = () => {
               <View
                 style={[
                   styles.radioContainer,
-                  { flexDirection: isRTL ? "row-reverse" : "row" },
+                  isRTL && styles.radioContainerRTL,
                 ]}
               >
                 <Ionicons
@@ -128,13 +133,21 @@ const ReportIssueScreen = () => {
                   name={item.icon as any}
                   size={22}
                   color={colors.placeholder}
-                  style={{ marginHorizontal: 12 }}
+                  style={[
+                    styles.typeIcon,
+                    isRTL && styles.typeIconRTL,
+                  ]}
                 />
               </View>
               <Text
                 style={[
                   styles.typeLabel,
-                  { color: colors.text, textAlign: isRTL ? "right" : "left" },
+                  isRTL && styles.typeLabelRTL,
+                  {
+                    color: colors.text,
+                    textAlign: isRTL ? "right" : "left",
+                    writingDirection: isRTL ? "rtl" : "ltr",
+                  },
                 ]}
               >
                 {item.label}
@@ -159,6 +172,7 @@ const ReportIssueScreen = () => {
               backgroundColor: colors.surface,
               color: colors.text,
               textAlign: isRTL ? "right" : "left",
+              writingDirection: isRTL ? "rtl" : "ltr",
             },
           ]}
           placeholder={t("describePlaceholder") as string}
@@ -195,6 +209,7 @@ const ReportIssueScreen = () => {
                 backgroundColor: colors.surface,
                 color: colors.text,
                 textAlign: isRTL ? "right" : "left",
+                writingDirection: isRTL ? "rtl" : "ltr",
               },
             ]}
             value={name}
@@ -218,6 +233,7 @@ const ReportIssueScreen = () => {
                 backgroundColor: colors.surface,
                 color: colors.text,
                 textAlign: isRTL ? "right" : "left",
+                writingDirection: isRTL ? "rtl" : "ltr",
               },
             ]}
             value={email}
@@ -244,7 +260,9 @@ const ReportIssueScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 15 },
+  scrollContentRTL: { direction: "ltr" },
   sectionTitle: {
+    alignSelf: "stretch",
     fontSize: 18,
     fontWeight: "600",
     marginTop: 24,
@@ -255,9 +273,27 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: "center",
+    flexDirection: "row",
   },
-  radioContainer: { alignItems: "center" },
+  typeItemRTL: {
+    direction: "ltr",
+    flexDirection: "row-reverse",
+  },
+  radioContainer: { alignItems: "center", flexDirection: "row" },
+  radioContainerRTL: {
+    flexDirection: "row-reverse",
+  },
+  typeIcon: {
+    marginLeft: 12,
+  },
+  typeIconRTL: {
+    marginLeft: 0,
+    marginRight: 12,
+  },
   typeLabel: { flex: 1, fontSize: 16 },
+  typeLabelRTL: {
+    marginRight: 12,
+  },
   textArea: {
     borderRadius: 12,
     padding: 16,
@@ -266,7 +302,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputGroup: { marginTop: 16 },
-  inputLabel: { fontSize: 15, marginBottom: 8 },
+  inputLabel: { alignSelf: "stretch", fontSize: 15, marginBottom: 8 },
   input: {
     height: 50,
     borderRadius: 12,

@@ -1367,6 +1367,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topBar: {
+    direction: "ltr",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,

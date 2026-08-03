@@ -530,12 +530,30 @@ export default function HomeScreen() {
                 0,
               );
               const hasFood = meal.items.length > 0;
+              const addMealButton = (
+                <View
+                  style={[
+                    styles.addMealButton,
+                    isRTL && styles.addMealButtonRTL,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                >
+                  <Plus
+                    size={16}
+                    color={hasFood ? colors.placeholder : colors.primary}
+                  />
+                </View>
+              );
 
               return (
                 <TouchableOpacity
                   key={meal.key}
                   style={[
                     styles.mealRow,
+                    isRTL && styles.mealRowRTL,
                     { borderBottomColor: colors.border },
                     index === mealRows.length - 1 && { borderBottomWidth: 0 },
                   ]}
@@ -547,7 +565,13 @@ export default function HomeScreen() {
                   }
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.mealRowLeft, isRTL && styles.rtlRow]}>
+                  {isRTL && addMealButton}
+                  <View
+                    style={[
+                      styles.mealRowLeft,
+                      isRTL && styles.mealRowLeftRTL,
+                    ]}
+                  >
                     <View
                       style={[
                         styles.mealIcon,
@@ -556,11 +580,14 @@ export default function HomeScreen() {
                     >
                       {meal.icon}
                     </View>
-                    <View style={styles.mealInfo}>
+                    <View
+                      style={[styles.mealInfo, isRTL && styles.mealInfoRTL]}
+                    >
                       <Text
                         style={[
                           styles.mealTitle,
                           isRTL && styles.rtlText,
+                          isRTL && styles.mealTextRTL,
                           { color: colors.text },
                         ]}
                       >
@@ -570,6 +597,7 @@ export default function HomeScreen() {
                         style={[
                           styles.mealSubtitle,
                           isRTL && styles.rtlText,
+                          isRTL && styles.mealTextRTL,
                           { color: colors.placeholder },
                         ]}
                       >
@@ -581,20 +609,7 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                   </View>
-                  <View
-                    style={[
-                      styles.addMealButton,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                      },
-                    ]}
-                  >
-                    <Plus
-                      size={16}
-                      color={hasFood ? colors.placeholder : colors.primary}
-                    />
-                  </View>
+                  {!isRTL && addMealButton}
                 </TouchableOpacity>
               );
             })
@@ -1006,10 +1021,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
+  mealRowRTL: {
+    direction: "ltr",
+  },
   mealRowLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+  },
+  mealRowLeftRTL: {
+    flexDirection: "row-reverse",
+    justifyContent: "flex-end",
+    direction: "ltr",
   },
   mealIcon: {
     width: 34,
@@ -1022,6 +1045,11 @@ const styles = StyleSheet.create({
     marginStart: 10,
     flex: 1,
   },
+  mealInfoRTL: {
+    marginStart: 0,
+    marginEnd: 10,
+    alignItems: "flex-end",
+  },
   mealTitle: {
     fontSize: 15,
     fontWeight: "600",
@@ -1029,6 +1057,12 @@ const styles = StyleSheet.create({
   },
   mealSubtitle: {
     fontSize: 12,
+  },
+  mealTextRTL: {
+    paddingRight: 0,
+    textAlign: "right",
+    writingDirection: "rtl",
+    alignSelf: "flex-end",
   },
   addMealButton: {
     width: 30,
@@ -1038,6 +1072,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginStart: 8,
+  },
+  addMealButtonRTL: {
+    marginStart: 0,
+    marginEnd: 8,
   },
   mealError: {
     marginTop: 10,

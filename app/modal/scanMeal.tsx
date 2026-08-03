@@ -525,13 +525,19 @@ export default function ScanMeal() {
       />
 
       <View style={styles.cameraOverlay} pointerEvents="box-none">
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity style={styles.iconButton} onPress={handleClose}>
-            <ChevronLeft size={24} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t("aiMealScannerTitle")}</Text>
-          <View style={styles.placeholderIcon} />
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.floatingBackButton,
+            {
+              top: insets.top + 12,
+              left: 16,
+            },
+          ]}
+          onPress={handleClose}
+          activeOpacity={0.75}
+        >
+          <ChevronLeft size={26} color="#FFF" />
+        </TouchableOpacity>
 
         <View style={styles.scanWrapper}>
           <View style={styles.logoRow}>
@@ -679,14 +685,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  floatingBackButton: {
+    position: "absolute",
+    zIndex: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-    zIndex: 10,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
   },
   iconButton: {
     minWidth: 40,
@@ -927,6 +934,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   resultHeader: {
+    direction: "ltr",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

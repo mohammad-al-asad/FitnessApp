@@ -15,6 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import {
   Activity,
+  ChevronLeft,
   ChevronRight,
   Edit3,
   Save,
@@ -381,7 +382,13 @@ export default function AccountScreen() {
         }}
         onCancel={() => setIsDeleteModal(false)}
       />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 15 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isRTL && styles.scrollContentRTL,
+        ]}
+      >
         {/* User Info Section */}
         {user && (
           <View style={styles.section}>
@@ -416,10 +423,13 @@ export default function AccountScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.menuItem, isRTL && styles.rtlRow]}
+            style={styles.menuItem}
             onPress={() => setShowEditProfile(true)}
           >
-            <View style={[styles.menuItemLeft, isRTL && styles.rtlRow]}>
+            {isRTL && (
+              <ChevronLeft size={20} color={Colors.placeholder} />
+            )}
+            <View style={[styles.menuItemLeft, isRTL && styles.menuItemLeftRTL]}>
               <User size={20} color={Colors.primary} />
               <View style={styles.menuItemText}>
                 <Text style={[styles.menuItemTitle, isRTL && styles.rtlText]}>
@@ -432,11 +442,9 @@ export default function AccountScreen() {
                 </Text>
               </View>
             </View>
-            <ChevronRight
-              size={20}
-              color={Colors.placeholder}
-              style={isRTL && { transform: [{ rotate: "180deg" }] }}
-            />
+            {!isRTL && (
+              <ChevronRight size={20} color={Colors.placeholder} />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -843,6 +851,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  scrollContent: {
+    paddingTop: 15,
+  },
+  scrollContentRTL: {
+    direction: "ltr",
+  },
   section: {
     backgroundColor: Colors.surface,
     marginHorizontal: 20,
@@ -857,6 +871,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
+    alignSelf: "stretch",
     marginTop: 15,
     fontSize: 18,
     fontWeight: "600",
@@ -867,6 +882,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
+    alignSelf: "stretch",
     fontSize: 16,
     fontWeight: "500",
     color: Colors.text,
@@ -883,6 +899,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   inputHint: {
+    alignSelf: "stretch",
     fontSize: 14,
     color: Colors.placeholder,
     marginTop: 4,
@@ -1031,6 +1048,7 @@ const styles = StyleSheet.create({
   },
   // Menu Item Styles
   menuItem: {
+    direction: "ltr",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1046,6 +1064,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     gap: 12,
+  },
+  menuItemLeftRTL: {
+    flexDirection: "row-reverse",
+    justifyContent: "flex-end",
+    direction: "ltr",
   },
   menuItemText: {
     flex: 1,

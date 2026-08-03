@@ -163,9 +163,6 @@ export default function AboutScreen() {
         {/* Technical Info */}
         <View style={styles.technicalInfo}>
           <Text style={[styles.technicalText, isRTL && styles.rtlText]}>
-            React Native • Expo • TypeScript
-          </Text>
-          <Text style={[styles.technicalText, isRTL && styles.rtlText]}>
             {t("version")} {Constants.expoConfig?.version}
           </Text>
         </View>
@@ -256,7 +253,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 24,
-    marginTop: 8,
   },
   technicalText: {
     fontSize: 14,

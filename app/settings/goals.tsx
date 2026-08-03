@@ -262,13 +262,18 @@ export default function GoalsScreen() {
             />
           </View>
 
-          <View style={styles.totalIndicator}>
+          <View
+            style={[
+              styles.totalIndicator,
+              isRTL ? styles.totalIndicatorRTL : styles.totalIndicatorLTR,
+            ]}
+          >
             {(() => {
               const total = macroRatio.proteinPercent + macroRatio.carbsPercent + macroRatio.fatPercent;
               return (
                 <Text style={[
                   styles.totalText, 
-                  isRTL && styles.rtlText,
+                  isRTL ? styles.totalTextRTL : styles.totalTextLTR,
                   { color: total === 100 ? Colors.primary : Colors.error }
                 ]}>
                   {t('total')}: {total}%
@@ -491,11 +496,25 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+    direction: 'ltr',
+  },
+  totalIndicatorLTR: {
     alignItems: 'flex-end',
+  },
+  totalIndicatorRTL: {
+    alignItems: 'flex-start',
   },
   totalText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.primary,
+  },
+  totalTextLTR: {
+    textAlign: 'right',
+    writingDirection: 'ltr',
+  },
+  totalTextRTL: {
+    textAlign: 'left',
+    writingDirection: 'rtl',
   },
 });

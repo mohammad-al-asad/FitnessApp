@@ -122,13 +122,9 @@ export default function StreakScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
-          style={[styles.backButton, isRTL && styles.backButtonRTL]}
+          style={styles.backButton}
         >
-          <ChevronLeft
-            size={24}
-            color={colors.text}
-            style={isRTL && { transform: [{ rotate: "180deg" }] }}
-          />
+          <ChevronLeft size={24} color={colors.text} />
         </TouchableOpacity>
 
         <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -305,6 +301,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    direction: "ltr",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
