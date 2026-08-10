@@ -15,6 +15,7 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   BackHandler,
   InteractionManager,
@@ -87,6 +88,15 @@ const isActivityNotReadyError = (error: unknown) => {
 const getErrorMessage = (error: unknown, fallback: string) => {
   const message = String((error as any)?.message ?? error ?? "").trim();
   return message || fallback;
+};
+
+const isSubscriptionLinkedToAnotherAccountError = (error: unknown) => {
+  const message = String((error as any)?.message ?? error ?? "").toLowerCase();
+  return (
+    message.includes("already linked to another account") ||
+    message.includes("linked to another") ||
+    message.includes("already linked")
+  );
 };
 
 const firstPresentValue = (
@@ -643,6 +653,29 @@ export default function SuperwallOnboardingGate({
 
       isPurchaseSyncInFlight.current = false;
       hasConfirmedSubscriptionAccess.current = false;
+
+      if (isSubscriptionLinkedToAnotherAccountError(event.error)) {
+        console.warn(
+          "[Superwall] Subscription is linked to another account. Showing error to user instead of relocking paywall.",
+        );
+        Alert.alert(
+          "Subscription Error",
+          "This subscription is already linked to another account. Please sign in with the original account or contact support.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                relockUnsubscribedUserToPaywall(
+                  "User acknowledged linked-account error",
+                );
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+        return;
+      }
+
       relockUnsubscribedUserToPaywall(
         "Purchase-triggered backend sync failed",
       );
