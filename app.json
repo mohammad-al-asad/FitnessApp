@@ -43,6 +43,14 @@
     "plugins": [
       "expo-router",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#4CAF50",
+          "defaultChannel": "trial-reminders"
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Fitco uses your camera to scan food barcodes. This allows us to instantly identify products and log their nutritional information to your daily diary."

@@ -5,10 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 
 export const TOUR_COMPLETED_KEY = "fitco_ai_meal_scan_tour_completed_v2";
 
-export type TourStep = 0 | 1 | 2;
+export type TourStep = 0 | 1 | 2 | 3;
 // Step 0: Inactive
 // Step 1: Tap "+" Floating Tab Bar Button
 // Step 2: Tap "Meal Scanner" tile in FoodLogModal
+// Step 3: Congratulations on Journal screen after adding meal
 
 export const [GuidedTourProvider, useGuidedTour] = createContextHook(() => {
   const [step, setStep] = useState<TourStep>(0);
@@ -30,7 +31,7 @@ export const [GuidedTourProvider, useGuidedTour] = createContextHook(() => {
 
   const nextStep = useCallback(() => {
     setStep((prev) => {
-      if (prev >= 2) {
+      if (prev >= 3) {
         setIsTourActive(false);
         setHasCompletedTour(true);
         void AsyncStorage.setItem(TOUR_COMPLETED_KEY, "true");

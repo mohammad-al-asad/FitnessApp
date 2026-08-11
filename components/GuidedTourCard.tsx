@@ -4,23 +4,30 @@ import {
   Animated,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { Sparkles } from "lucide-react-native";
 import { useLanguage } from "@/hooks/language-context";
 
 interface Props {
-  stepNumber: 1 | 2;
+  stepNumber: 1 | 2 | 3;
+  totalSteps?: number;
   title: string;
   description: string;
-  arrowPosition?: "top" | "bottom";
+  arrowPosition?: "top" | "bottom" | "none";
+  actionText?: string;
+  onActionPress?: () => void;
 }
 
 export default function GuidedTourCard({
   stepNumber,
+  totalSteps = 3,
   title,
   description,
   arrowPosition = "bottom",
+  actionText,
+  onActionPress,
 }: Props) {
   const { isRTL } = useLanguage();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -81,17 +88,27 @@ export default function GuidedTourCard({
               <Sparkles size={14} color="#22c55e" />
             </Animated.View>
             <Text style={styles.stepText}>
-              {isRTL ? `الخطوة ${stepNumber} من 2` : `Step ${stepNumber} of 2`}
+              {isRTL
+                ? `الخطوة ${stepNumber} من ${totalSteps}`
+                : `Step ${stepNumber} of ${totalSteps}`}
             </Text>
           </View>
-
-
         </View>
 
         <Text style={[styles.title, isRTL && styles.rtlText]}>{title}</Text>
         <Text style={[styles.description, isRTL && styles.rtlText]}>
           {description}
         </Text>
+
+        {actionText && onActionPress && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={onActionPress}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionButtonText}>{actionText}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {arrowPosition === "bottom" && <View style={styles.arrowBottom} />}
@@ -103,7 +120,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     marginHorizontal: 20,
-    maxWidth: 320,
+    maxWidth: 340,
     alignSelf: "center",
     zIndex: 99999,
   },
@@ -149,7 +166,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-
   title: {
     color: "#FFFFFF",
     fontSize: 16,
@@ -163,6 +179,20 @@ const styles = StyleSheet.create({
   },
   rtlText: {
     textAlign: "right",
+  },
+  actionButton: {
+    marginTop: 12,
+    backgroundColor: "#22c55e",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
   arrowBottom: {
     width: 0,

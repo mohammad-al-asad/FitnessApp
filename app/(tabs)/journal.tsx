@@ -1,6 +1,8 @@
 // Displays the Journal screen where users view and manage logged meals by day.
 import FoodItem from "@/components/FoodItem";
+import GuidedTourCard from "@/components/GuidedTourCard";
 import colors from "@/constants/colors";
+import { useGuidedTour } from "@/hooks/guided-tour-context";
 import { useLanguage } from "@/hooks/language-context";
 import { useNutrition } from "@/hooks/nutrition-store";
 import {
@@ -107,38 +109,30 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function numberText(value: number): string {
-  if (!Number.isFinite(value)) return "";
-  return String(Math.round(value * 10) / 10);
+function allMealFoods(meals: Record<MealType, JournalFood[]>): JournalFood[] {
+  return [...meals.breakfast, ...meals.lunch, ...meals.dinner];
 }
 
-function macroTotal(foods: JournalFood[]) {
-  return foods.reduce(
-    (sum, food) => ({
-      calories: sum.calories + toNumber(food.calories),
-      protein: sum.protein + toNumber(food.protein),
-      carbs: sum.carbs + toNumber(food.carbs),
-      fat: sum.fat + toNumber(food.fat),
+function macroTotal(items: JournalFood[]) {
+  return items.reduce(
+    (acc, item) => ({
+      calories: acc.calories + toNumber(item.calories),
+      protein: acc.protein + toNumber(item.protein),
+      carbs: acc.carbs + toNumber(item.carbs),
+      fat: acc.fat + toNumber(item.fat),
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
 }
 
-function allMealFoods(meals: Record<MealType, JournalFood[]>): JournalFood[] {
-  return [...meals.breakfast, ...meals.lunch, ...meals.dinner];
-}
-
 function getFoodMergeKey(food: JournalFood): string {
-  if (food.id) return `id:${food.id}`;
-
   const name = String(food.foodItem?.name || "").trim().toLowerCase();
-  const meal = food.mealType || "";
   const calories = Math.round(toNumber(food.calories));
-  const protein = Math.round(toNumber(food.protein) * 10) / 10;
-  const carbs = Math.round(toNumber(food.carbs) * 10) / 10;
-  const fat = Math.round(toNumber(food.fat) * 10) / 10;
-
-  return `food:${meal}:${name}:${calories}:${protein}:${carbs}:${fat}`;
+  const protein = Math.round(toNumber(food.protein));
+  const carbs = Math.round(toNumber(food.carbs));
+  const fat = Math.round(toNumber(food.fat));
+  const meal = String(food.mealType || "").toLowerCase();
+  return `${meal}__${name}__${calories}__${protein}__${carbs}__${fat}`;
 }
 
 function mergeMealFoods(
@@ -241,9 +235,12 @@ export default function JournalScreen() {
     markLogsChanged,
   } = useNutrition();
   const { t, isRTL } = useLanguage();
+  const { isTourActive, step, endTour } = useGuidedTour();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
   const screenWidth = Dimensions.get("window").width;
+
+  const isStep3Active = isTourActive && step === 3;
 
   const [selectedDay, setSelectedDay] = useState(() =>
     formatLocalDate(new Date()),
@@ -347,11 +344,11 @@ export default function JournalScreen() {
     setEditForm({
       meal: food.mealType,
       foodName: food.foodItem.name,
-      calories: numberText(food.calories),
-      protein: numberText(food.protein),
-      carbs: numberText(food.carbs),
-      fat: numberText(food.fat),
-      notes: food.notes || "",
+      calories: String(food.calories),
+      protein: String(food.protein),
+      carbs: String(food.carbs),
+      fat: String(food.fat),
+      notes: food.notes || food.foodItem.notes || "",
     });
   };
 
@@ -361,19 +358,16 @@ export default function JournalScreen() {
     setEditForm(null);
   };
 
-  const handleDeleteFood = async (food: JournalFood) => {
-    if (!food.id) return;
-
-    Alert.alert(String(t("deleteFoodTitle")), String(t("deleteFoodMessage")).replace("{food}", food.foodItem.name), [
+  const handleDeleteFood = (food: JournalFood) => {
+    Alert.alert(String(t("deleteFood")), String(t("deleteFoodConfirm")), [
       { text: String(t("cancel")), style: "cancel" },
       {
-        text: String(t("remove")),
+        text: String(t("delete")),
         style: "destructive",
         onPress: async () => {
           try {
-            if (homeData) {
-              let response: any;
-
+            if (food.id) {
+              let response: any = null;
               if (food.isAi) {
                 response = await deleteAiMealScan(food.id!);
               } else {
@@ -456,24 +450,14 @@ export default function JournalScreen() {
 
       if (editFood.isAi) {
         await updateAiMealScan(editFood.id, {
-          meal: editForm.meal,
+          mealType: editForm.meal,
           foodName: editForm.foodName.trim(),
-          confidence: editFood.confidence ?? undefined,
-          calories,
-          protein,
-          carbs,
-          fats: fat,
-          nutritionFacts: {
-            calories: { value: calories, unit: "kcal" },
-            protein: { value: protein, unit: "g" },
-            carbs: { value: carbs, unit: "g" },
-            fats: { value: fat, unit: "g" },
-          },
+          nutritionFacts: { calories, protein, carbs, fats: fat },
           notes: editForm.notes.trim(),
         });
       } else {
         await backendUpdateFoodLog(editFood.id, {
-          meal: editForm.meal,
+          mealType: editForm.meal,
           foodName: editForm.foodName.trim(),
           calories,
           protein,
@@ -483,63 +467,61 @@ export default function JournalScreen() {
         });
       }
 
-      await updateFoodInLocalLog?.(
-        editFood.id,
-        selectedDay,
-        editFood,
-        updatedFood,
-      );
+      await updateFoodInLocalLog?.(editFood.id, selectedDay, updatedFood);
       setHomeData((current: any) => {
         if (!current?.meals) return current;
 
-        const editedId = String(editFood.id);
-        const nextMeals = { ...current.meals };
-        let editedBackendItem: any = null;
+        const updatedId = String(editFood.id);
+        const nextMeals = {
+          breakfast: [...(current.meals.breakfast || [])],
+          lunch: [...(current.meals.lunch || [])],
+          dinner: [...(current.meals.dinner || [])],
+        };
 
         (["breakfast", "lunch", "dinner"] as MealType[]).forEach((meal) => {
-          nextMeals[meal] = (nextMeals[meal] || []).filter((item: any) => {
-            const itemId = String(item?._id ?? item?.id ?? item?.foodLogId ?? "");
-            if (itemId !== editedId) return true;
-
-            editedBackendItem = {
-              ...item,
-              meal: editForm.meal,
-              foodName: editForm.foodName.trim(),
-              calories,
-              protein,
-              carbs,
-              fat,
-              fats: fat,
-              notes: editForm.notes.trim(),
-            };
-
-            return meal === editForm.meal;
-          });
+          nextMeals[meal] = nextMeals[meal].filter(
+            (item: any) =>
+              String(item?._id ?? item?.id ?? item?.foodLogId ?? "") !==
+              updatedId,
+          );
         });
 
-        if (editedBackendItem) {
-          const targetMealItems = nextMeals[editForm.meal] || [];
-          const alreadyInTargetMeal = targetMealItems.some(
-            (item: any) =>
-              String(item?._id ?? item?.id ?? item?.foodLogId ?? "") === editedId,
-          );
+        const targetMeal = editForm.meal;
+        const mappedOriginal: FoodLogsHomeMealItem = {
+          ...(editFood.original || {
+            id: updatedId,
+            foodLogId: updatedId,
+            foodName: updatedFood.foodItem.name,
+            calories,
+            protein,
+            carbs,
+            fat,
+            servingSize: 1,
+            servingUnit: "serving",
+            servingDescription: updatedFood.foodItem.servingSize,
+            createdAt: new Date().toISOString(),
+          }),
+          id: updatedId,
+          foodLogId: updatedId,
+          foodName: updatedFood.foodItem.name,
+          calories,
+          protein,
+          carbs,
+          fat,
+          meal: targetMeal,
+          notes: updatedFood.notes,
+        };
 
-          nextMeals[editForm.meal] = alreadyInTargetMeal
-            ? targetMealItems.map((item: any) =>
-                String(item?._id ?? item?.id ?? item?.foodLogId ?? "") ===
-                editedId
-                  ? editedBackendItem
-                  : item,
-              )
-            : [...targetMealItems, editedBackendItem];
-        }
-
+        nextMeals[targetMeal] = [
+          ...(nextMeals[targetMeal] || []),
+          mappedOriginal,
+        ];
         return { ...current, meals: nextMeals };
       });
+
       markLogsChanged?.();
-      setEditFood(null);
-      setEditForm(null);
       await loadJournalData();
+      closeEdit();
     } catch (error: any) {
       Alert.alert(
         String(t("error")),
@@ -560,7 +542,7 @@ export default function JournalScreen() {
     mealType: MealType;
   }) => {
     const mealFoods = getMealFoods(mealType);
-    const mealMacros = macroTotal(mealFoods);
+    const mealTotals = macroTotal(mealFoods);
     const hasFood = mealFoods.length > 0;
 
     return (
@@ -568,16 +550,15 @@ export default function JournalScreen() {
         style={[
           styles.mealSection,
           hasFood && styles.mealSectionWithFood,
-          { backgroundColor: colors.background },
-          hasFood && { borderColor: colors.border },
+          { borderColor: colors.border },
         ]}
       >
         <TouchableOpacity
-          style={[styles.mealHeader, isRTL && styles.rtlRow]}
+          style={[styles.mealHeader, { backgroundColor: colors.surface }]}
           onPress={() =>
             router.push({
               pathname: "/log/log",
-              params: { date: selectedDay, meal: mealType },
+              params: { meal: mealType, date: selectedDay },
             })
           }
           activeOpacity={0.7}
@@ -589,14 +570,17 @@ export default function JournalScreen() {
                 {title}
               </Text>
               {hasFood ? (
-                <Text style={[styles.mealCalories, { color: colors.placeholder }]}>
-                  {Math.round(mealMacros.calories)} {t("calories")} |{" "}
-                  {Math.round(mealMacros.protein * 10) / 10}
-                  {t("g")} {t("protein")} |{" "}
-                  {Math.round(mealMacros.carbs * 10) / 10}
-                  {t("g")} {t("carbs")} |{" "}
-                  {Math.round(mealMacros.fat * 10) / 10}
-                  {t("g")} {t("fats")}
+                <Text
+                  style={[
+                    styles.mealCalories,
+                    { color: colors.placeholder },
+                  ]}
+                >
+                  {Math.round(mealTotals.calories)} {t("calShort")} •{" "}
+                  {Math.round(mealTotals.protein)}
+                  {t("g")} {t("proteinShort")} • {Math.round(mealTotals.carbs)}
+                  {t("g")} {t("carbsShort")} • {Math.round(mealTotals.fat)}
+                  {t("g")} {t("fatShort")}
                 </Text>
               ) : (
                 <Text
@@ -764,9 +748,9 @@ export default function JournalScreen() {
                       <TextInput
                         style={styles.editMacroInput}
                         value={editForm[field.key]}
-                        onChangeText={(value) =>
+                        onChangeText={(val) =>
                           setEditForm((prev) =>
-                            prev ? { ...prev, [field.key]: value } : prev,
+                            prev ? { ...prev, [field.key]: val } : prev,
                           )
                         }
                         keyboardType="numeric"
@@ -779,17 +763,30 @@ export default function JournalScreen() {
                 ))}
               </View>
 
+              <Text style={styles.editLabel}>{t("notes")}</Text>
+              <TextInput
+                style={[styles.editInput, styles.notesInput]}
+                value={editForm.notes}
+                onChangeText={(notes) =>
+                  setEditForm((prev) => (prev ? { ...prev, notes } : prev))
+                }
+                placeholder={String(t("notesPlaceholder"))}
+                placeholderTextColor={colors.placeholder}
+                multiline
+              />
+
               <TouchableOpacity
                 style={[styles.saveEditButton, isSavingEdit && styles.disabled]}
                 onPress={handleSaveEdit}
                 disabled={isSavingEdit}
+                activeOpacity={0.8}
               >
                 {isSavingEdit ? (
-                  <ActivityIndicator color={colors.background} />
+                  <ActivityIndicator size="small" color={colors.background} />
                 ) : (
                   <>
                     <Save size={18} color={colors.background} />
-                    <Text style={styles.saveEditButtonText}>{t("save")}</Text>
+                    <Text style={styles.saveEditButtonText}>{t("saveChanges")}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1010,6 +1007,30 @@ export default function JournalScreen() {
       </ScrollView>
 
       {renderEditModal()}
+
+      {/* Step 3 Guided Tour Centered Overlay Modal */}
+      <Modal
+        visible={isStep3Active}
+        transparent
+        animationType="fade"
+        onRequestClose={endTour}
+        statusBarTranslucent
+      >
+        <View style={styles.tourOverlayBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={endTour} />
+          <View style={styles.tourOverlayContainer}>
+            <GuidedTourCard
+              stepNumber={3}
+              totalSteps={3}
+              title={String(t("tourCongratulationsTitle"))}
+              description={String(t("tourCongratulationsDescription"))}
+              arrowPosition="none"
+              actionText={String(t("tourCongratulationsAction"))}
+              onActionPress={endTour}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1021,6 +1042,19 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+  },
+  tourOverlayBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  tourOverlayContainer: {
+    width: "100%",
+    maxWidth: 340,
+    alignItems: "center",
+    zIndex: 9999,
   },
   title: {
     fontSize: 28,

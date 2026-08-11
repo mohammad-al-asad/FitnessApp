@@ -3,8 +3,8 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useGuidedTour } from "@/hooks/guided-tour-context";
 import { useLanguage } from "@/hooks/language-context";
 import { Search, Plus, Barcode, X } from "lucide-react-native";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,13 +27,44 @@ export default function FoodLogModal({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useLanguage();
-  const { isTourActive, step, endTour } = useGuidedTour();
+  const { isTourActive, step, setTourStep } = useGuidedTour();
 
   const isStep2Active = isTourActive && step === 2;
 
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!isStep2Active) {
+      pulseAnim.setValue(1);
+      return;
+    }
+
+    // Subtle pulsating animation for the Step 2 highlighted tile
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.04,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+    };
+  }, [isStep2Active, pulseAnim]);
+
   const handleMealScannerPress = () => {
     if (isStep2Active) {
-      endTour();
+      setTourStep(3);
     }
     onScanMeal();
   };
@@ -59,8 +90,6 @@ export default function FoodLogModal({
       >
         {/* drag bar */}
         <View style={styles.dragHandle} />
-
-
 
         {/* header */}
         <View
@@ -110,21 +139,33 @@ export default function FoodLogModal({
           </View>
 
           <View style={[styles.row, isRTL && { flexDirection: "row-reverse" }]}>
-            {/* Block 3: Meal Scanner (Highlighted in Step 2) */}
-            <TouchableOpacity
+            {/* Block 3: Meal Scanner (Highlighted & Animated in Step 2) */}
+            <Animated.View
               style={[
-                styles.block,
-                isStep2Active && styles.highlightedBlock,
+                styles.blockWrapper,
+                isStep2Active && { transform: [{ scale: pulseAnim }] },
               ]}
-              onPress={handleMealScannerPress}
-              activeOpacity={0.8}
             >
-              <View style={styles.iconCircle}>
-                <MaterialCommunityIcons name="food-apple" size={24} color="#22c55e" />
-              </View>
-              <Text style={styles.blockTitle}>{t("mealScanner")}</Text>
-              <Text style={styles.blockDesc}>{t("mealScannerDesc")}</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.block,
+                  isStep2Active && styles.highlightedBlock,
+                ]}
+                onPress={handleMealScannerPress}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.iconCircle,
+                    isStep2Active && styles.highlightedIconCircle,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="food-apple" size={24} color="#22c55e" />
+                </View>
+                <Text style={styles.blockTitle}>{t("mealScanner")}</Text>
+                <Text style={styles.blockDesc}>{t("mealScannerDesc")}</Text>
+              </TouchableOpacity>
+            </Animated.View>
 
             {/* Block 4: Create Custom Food */}
             <TouchableOpacity
@@ -175,11 +216,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     shadowRadius: 12,
   },
-  tourCardContainer: {
-    marginBottom: 16,
-    marginTop: 4,
-    alignSelf: "center",
-    width: "100%",
+  blockWrapper: {
+    flex: 1,
   },
   highlightedBlock: {
     opacity: 1,
@@ -188,9 +226,12 @@ const styles = StyleSheet.create({
     shadowColor: "#22c55e",
     shadowOpacity: 0.6,
     shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 10,
-    backgroundColor: "#1c2c20",
+    backgroundColor: "#16281a",
+  },
+  highlightedIconCircle: {
+    backgroundColor: "rgba(34,197,94,0.25)",
   },
   dragHandle: {
     alignSelf: "center",
@@ -232,6 +273,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
     alignItems: "flex-start",
+    width: "100%",
   },
   iconCircle: {
     width: 40,

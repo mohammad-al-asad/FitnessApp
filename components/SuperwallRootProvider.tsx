@@ -18,6 +18,7 @@ import {
   emitRevenueCatSyncFailed,
   emitRevenueCatSyncStarted,
 } from "@/services/subscription-sync-events";
+import { scheduleTrialReminder } from "@/services/trial-reminder";
 
 const superwallApiKeys = {
   ios: process.env.EXPO_PUBLIC_SUPERWALL_IOS_PUBLIC_API_KEY,
@@ -177,6 +178,9 @@ const purchaseWithRevenueCat = async (params: OnPurchaseParams) => {
       }
 
       syncRevenueCatSubscriptionStateInBackground("Purchase-triggered");
+      scheduleTrialReminder().catch((err) =>
+        console.error("[Superwall] Failed to schedule trial reminder:", err),
+      );
       return { type: "purchased" as const };
     } catch (error: any) {
       console.log(

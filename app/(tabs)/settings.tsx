@@ -99,7 +99,7 @@ export default function SettingsScreen() {
       ]}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+        <View style={[styles.header, isRTL && styles.headerRTL]}>
           <Text
             style={[
               styles.title,
@@ -244,6 +244,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingVertical: 20,
+  },
+  headerRTL: {
+    alignItems: "flex-start",
   },
   title: {
     fontSize: 32,

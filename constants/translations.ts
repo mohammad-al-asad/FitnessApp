@@ -439,6 +439,11 @@ export const translations = {
     // AI Meal Scanner Page
     aiMealScannerTitle: "AI Meal Scanner",
     aiMealScannerTourDescription: "Tap the + button to scan your food with AI.",
+    step2TourDescription: "Tap Meal Scanner to scan your food with AI.",
+    tourCongratulationsTitle: "Congratulations! 🎉",
+    tourCongratulationsDescription:
+      "You've successfully logged your meal! Track your daily calories and macros breakdown right here in your journal.",
+    tourCongratulationsAction: "Got it! 🚀",
     aiMealResultTitle: "AI Meal Result",
     cameraMealPermissionDescription:
       "Fitco AI needs access to your camera to recognize dishes and log nutrition facts instantly.",
@@ -1006,6 +1011,11 @@ export const translations = {
     // AI Meal Scanner Page
     aiMealScannerTitle: "ماسح الوجبات بالذكاء الاصطناعي",
     aiMealScannerTourDescription: "اضغط زر + لمسح طعامك بالذكاء الاصطناعي.",
+    step2TourDescription: "اضغط على ماسح الوجبات لمسح وجبتك بالذكاء الاصطناعي.",
+    tourCongratulationsTitle: "تهانينا! 🎉",
+    tourCongratulationsDescription:
+      "لقد قمت بتسجيل وجبتك بنجاح! يمكنك الآن متابعة السعرات والماكروز وتفاصيل التغذية اليومية هنا في يومياتك.",
+    tourCongratulationsAction: "رائع، فهمت! 🚀",
     aiMealResultTitle: "نتيجة الوجبة",
     cameraMealPermissionDescription:
       "يحتاج فتكو إلى الوصول للكاميرا للتعرف على الوجبات وتسجيل المعلومات الغذائية فوراً.",
