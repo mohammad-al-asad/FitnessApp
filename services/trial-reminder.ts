@@ -11,12 +11,12 @@ const REMINDER_DELAY_SECONDS =2 * 24 * 60 * 60;
 // Localized notification content
 const NOTIFICATION_CONTENT = {
   en: {
-    title: "Your free trial ends tomorrow! ⏰",
-    body: "Your 3-day free trial is ending in 24 hours. Open Fitco to keep tracking your nutrition effortlessly.",
+    title: "Keep your nutrition on track 💪",
+    body: "Your 3-day free trial ends in 24 hours. Open Fitco to keep tracking your nutrition effortlessly.",
   },
   ar: {
-    title: "تنتهي فترتك التجريبية غداً! ⏰",
-    body: "فترتك التجريبية المجانية لمدة 3 أيام ستنتهي خلال 24 ساعة. افتح Fitco لتستمر في تتبع تغذيتك بسهولة.",
+    title: "استمر في متابعة تغذيتك 💪",
+    body: "تنتهي فترتك التجريبية المجانية لمدة 3 أيام خلال 24 ساعة. افتح فتكو واستمر في تتبع تغذيتك بكل سهولة.",
   },
 } as const;
 

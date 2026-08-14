@@ -456,17 +456,39 @@ export default function ScanMeal() {
           </View>
 
           <View style={styles.notesCard}>
-            <Text style={styles.notesText}>
+            <Text
+              style={[
+                styles.notesText,
+                isRTL && { textAlign: "right", writingDirection: "rtl" },
+              ]}
+            >
               {form.notes || scanResult.notes || t("estimatedMealImageNote")}
             </Text>
           </View>
 
-          <View style={styles.totalCard}>
-            <Text style={styles.totalLabel}>{t("totalForThisFood")}</Text>
-            <Text style={styles.totalCalories}>
+          <View style={[styles.totalCard,{alignItems:"flex-start"}]}>
+            <Text
+              style={[
+                styles.totalLabel,
+                isRTL && { textAlign: "right", writingDirection: "rtl" },
+              ]}
+            >
+              {t("totalForThisFood")}
+            </Text>
+            <Text
+              style={[
+                styles.totalCalories,
+                isRTL && { textAlign: "right", writingDirection: "rtl" },
+              ]}
+            >
               {nutritionFacts.calories.value} {t("kcal")}
             </Text>
-            <Text style={styles.totalMacros}>
+            <Text
+              style={[
+                styles.totalMacros,
+                isRTL && { textAlign: "right", writingDirection: "rtl" },
+              ]}
+            >
               {nutritionFacts.protein.value}
               {t("g")} {t("protein")} | {nutritionFacts.carbs.value}
               {t("g")} {t("carbs")} | {nutritionFacts.fats.value}
@@ -478,6 +500,7 @@ export default function ScanMeal() {
         <View
           style={[
             styles.saveBar,
+            isRTL && { flexDirection: "row-reverse" },
             { paddingBottom: insets.bottom + 16 },
           ]}
         >
@@ -511,8 +534,6 @@ export default function ScanMeal() {
     );
   }
 
-
-
   return (
     <View style={styles.container}>
       <CameraView
@@ -524,7 +545,7 @@ export default function ScanMeal() {
         onCameraReady={() => setCameraReady(true)}
       />
 
-      <View style={styles.cameraOverlay} pointerEvents="box-none">
+      <View style={[styles.cameraOverlay, { direction: "ltr" }]} pointerEvents="box-none">
         <TouchableOpacity
           style={[
             styles.floatingBackButton,
@@ -544,7 +565,7 @@ export default function ScanMeal() {
             <Text style={styles.logoLetter}>FITCO</Text>
           </View>
 
-          <View style={styles.scanBox}>
+          <View style={[styles.scanBox, { direction: "ltr" }]}>
             <View style={[styles.corner, styles.topLeft]} />
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
@@ -558,12 +579,11 @@ export default function ScanMeal() {
         <View
           style={[
             styles.bottomPanel,
-            { paddingBottom: insets.bottom + 18 },
+            { paddingBottom: insets.bottom + 18, direction: isRTL ? "rtl" : "ltr" },
           ]}
         >
           <Text style={styles.mealPickerLabel}>{t("logThisMealAs")}</Text>
           {renderMealPicker()}
-
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.secondaryCircleBtn}
@@ -716,12 +736,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    marginTop:10
   },
   logoRow: {
     direction: "ltr",
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   logoLetter: {
     fontSize: 35,
@@ -1133,9 +1154,11 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   rtlText: {
-    textAlign: "left",
+    textAlign: "right",
+    writingDirection: "rtl",
   },
   rtlInput: {
     textAlign: "right",
+    writingDirection: "rtl",
   },
 });

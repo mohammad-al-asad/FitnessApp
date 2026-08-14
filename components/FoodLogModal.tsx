@@ -8,6 +8,8 @@ import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native
 import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -140,32 +142,26 @@ export default function FoodLogModal({
 
           <View style={[styles.row, isRTL && { flexDirection: "row-reverse" }]}>
             {/* Block 3: Meal Scanner (Highlighted & Animated in Step 2) */}
-            <Animated.View
+            <AnimatedTouchableOpacity
               style={[
-                styles.blockWrapper,
+                styles.block,
+                isStep2Active && styles.highlightedBlock,
                 isStep2Active && { transform: [{ scale: pulseAnim }] },
               ]}
+              onPress={handleMealScannerPress}
+              activeOpacity={0.8}
             >
-              <TouchableOpacity
+              <View
                 style={[
-                  styles.block,
-                  isStep2Active && styles.highlightedBlock,
+                  styles.iconCircle,
+                  isStep2Active && styles.highlightedIconCircle,
                 ]}
-                onPress={handleMealScannerPress}
-                activeOpacity={0.8}
               >
-                <View
-                  style={[
-                    styles.iconCircle,
-                    isStep2Active && styles.highlightedIconCircle,
-                  ]}
-                >
-                  <MaterialCommunityIcons name="food-apple" size={24} color="#22c55e" />
-                </View>
-                <Text style={styles.blockTitle}>{t("mealScanner")}</Text>
-                <Text style={styles.blockDesc}>{t("mealScannerDesc")}</Text>
-              </TouchableOpacity>
-            </Animated.View>
+                <MaterialCommunityIcons name="food-apple" size={24} color="#22c55e" />
+              </View>
+              <Text style={styles.blockTitle}>{t("mealScanner")}</Text>
+              <Text style={styles.blockDesc}>{t("mealScannerDesc")}</Text>
+            </AnimatedTouchableOpacity>
 
             {/* Block 4: Create Custom Food */}
             <TouchableOpacity

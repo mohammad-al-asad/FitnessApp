@@ -156,6 +156,8 @@ export const translations = {
     items: "items",
     addFood: "Add Food",
     dailyJournal: "Daily Journal",
+    notes: "Notes",
+    notesPlaceholder: "Add any thoughts, how you felt, or details about your day...",
 
     // Insights Screen
     progress: "Progress",
@@ -440,7 +442,7 @@ export const translations = {
     aiMealScannerTitle: "AI Meal Scanner",
     aiMealScannerTourDescription: "Tap the + button to scan your food with AI.",
     step2TourDescription: "Tap Meal Scanner to scan your food with AI.",
-    tourCongratulationsTitle: "Congratulations! 🎉",
+    tourCongratulationsTitle: "Congratulations!",
     tourCongratulationsDescription:
       "You've successfully logged your meal! Track your daily calories and macros breakdown right here in your journal.",
     tourCongratulationsAction: "Got it! 🚀",
@@ -523,15 +525,19 @@ export const translations = {
     socialTikTok: "TikTok: (coming soon)",
     socialSnapchat: "Snapchat: (coming soon)",
 
-    madeWithLove: "Made with ❤️",
-    thankYouForUsing:
-      "Thank you for using Fitco! We’re here to help you achieve your health goals.",
-
     cal: "Cal",
+    calShort: "cal",
+    proteinShort: "protein",
+    carbsShort: "carbs",
+    fatShort: "fat",
     consumed: "consumed",
     remaining: "remaining",
     reminderTime: "Reminder Time",
     timeFormatHint: "Use 24-hour format (e.g., 20:00 for 8 PM)",
+
+    madeWithLove: "Made with ❤️",
+    thankYouForUsing:
+      "Thank you for using Fitco! We’re here to help you achieve your health goals.",
 
     // Compliance & Disclaimers
     medicalDisclaimerTitle: "Medical Disclaimer",
@@ -547,7 +553,7 @@ export const translations = {
     citationsBody1: "1. Energy Expenditure: Basal Metabolic Rate (BMR) is estimated using the Mifflin-St Jeor Equation (1990), currently considered the most accurate predictor for healthy adults.\nReference: Mifflin, M. D., et al. (1990). 'A new predictive equation for resting energy expenditure'. Am J Clin Nutr.",
     citationsBody2: "2. Activity Factors: Total Daily Energy Expenditure (TDEE) multipliers are derived from the Physical Activity Level (PAL) categories defined by the FAO/WHO/UNU (2001).\n\n3. Macronutrient Targets: Default distributions (30% Protein, 40% Carbs, 30% Fats) align with the Acceptable Macronutrient Distribution Ranges (AMDR) established by the Institute of Medicine (IOM).\n\n4. Weight Management: Caloric deficits and surpluses are set within safe clinical ranges for sustainable progress (±400-500 kcal), avoiding extreme metabolic stress.\n\nNote: Fitco is an educational tool. All recommendations should be reviewed with a medical professional, especially for individuals with pre-existing conditions.",
     macroDistributionScientificBasis: "These default distributions align with the Acceptable Macronutrient Distribution Ranges (AMDR) established by the Institute of Medicine (IOM).",
-    
+
     // AI Consent
     aiConsentTitle: "AI Processing Consent",
     aiConsentDescription: "To provide personalized fitness advice, FitBot uses OpenAI technology. By clicking 'Agree', you authorize Fitco to share your chat messages and profile data (name, age, weight, goals, height, progress, and subscription status) with OpenAI. Your data is used only to generate responses and is not used to train AI models.",
@@ -707,6 +713,8 @@ export const translations = {
     items: "عناصر",
     addFood: "اضافة طعام",
     dailyJournal: "المجلة اليومية",
+    notes: "الملاحظات",
+    notesPlaceholder: "أضف أي أفكار، أو كيف تشعر، أو تفاصيل عن يومك...",
 
     // Insights Screen
     progress: "التقدم",
@@ -1012,9 +1020,9 @@ export const translations = {
     aiMealScannerTitle: "ماسح الوجبات بالذكاء الاصطناعي",
     aiMealScannerTourDescription: "اضغط زر + لمسح طعامك بالذكاء الاصطناعي.",
     step2TourDescription: "اضغط على ماسح الوجبات لمسح وجبتك بالذكاء الاصطناعي.",
-    tourCongratulationsTitle: "تهانينا! 🎉",
+    tourCongratulationsTitle: "كفو عليك!",
     tourCongratulationsDescription:
-      "لقد قمت بتسجيل وجبتك بنجاح! يمكنك الآن متابعة السعرات والماكروز وتفاصيل التغذية اليومية هنا في يومياتك.",
+      "سجلت وجبتك بنجاح، والحين تقدر تتابع سعراتك والماكروز اليومية بكل سهولة.",
     tourCongratulationsAction: "رائع، فهمت! 🚀",
     aiMealResultTitle: "نتيجة الوجبة",
     cameraMealPermissionDescription:
@@ -1096,6 +1104,10 @@ export const translations = {
     socialSnapchat: "سناب شات: (قريبًا)",
 
     cal: "سعرات",
+    calShort: "سعرة",
+    proteinShort: "بروتين",
+    carbsShort: "كربوهيدرات",
+    fatShort: "دهون",
 
     consumed: "المستهلكة",
     remaining: "متبقي",

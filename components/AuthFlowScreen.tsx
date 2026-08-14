@@ -340,6 +340,7 @@ export default function AuthFlowScreen({
 
   const navigateToSuperwallOnboarding = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.replace("/(auth)/welcome");
     requestSuperwallOnboarding("signin_signup_link");
   }, []);
 

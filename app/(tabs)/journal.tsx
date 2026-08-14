@@ -40,8 +40,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -563,10 +562,19 @@ export default function JournalScreen() {
           }
           activeOpacity={0.7}
         >
-          <View style={[styles.mealTitleContainer, isRTL && styles.rtlRow]}>
+          <View style={styles.mealTitleContainer}>
             <View style={styles.iconContainer}>{icon}</View>
-            <View style={styles.mealInfo}>
-              <Text style={[styles.mealTitle, { color: colors.text }]}>
+            <View style={[styles.mealInfo]}>
+              <Text
+                style={[
+                  styles.mealTitle,
+                  { color: colors.text },
+                  isRTL && {
+                    writingDirection: "rtl",
+                    alignSelf: "flex-start",
+                  },
+                ]}
+              >
                 {title}
               </Text>
               {hasFood ? (
@@ -574,19 +582,28 @@ export default function JournalScreen() {
                   style={[
                     styles.mealCalories,
                     { color: colors.placeholder },
+                    isRTL && {
+                      writingDirection: "rtl",
+                     alignSelf: "flex-start",
+
+
+                    },
                   ]}
                 >
                   {Math.round(mealTotals.calories)} {t("calShort")} •{" "}
-                  {Math.round(mealTotals.protein)}
-                  {t("g")} {t("proteinShort")} • {Math.round(mealTotals.carbs)}
-                  {t("g")} {t("carbsShort")} • {Math.round(mealTotals.fat)}
-                  {t("g")} {t("fatShort")}
+                  {Math.round(mealTotals.protein)}{t("g")} {t("proteinShort")} •{" "}
+                  {Math.round(mealTotals.carbs)}{t("g")} {t("carbsShort")} •{" "}
+                  {Math.round(mealTotals.fat)}{t("g")} {t("fatShort")}
                 </Text>
               ) : (
                 <Text
                   style={[
                     styles.emptyMealSubtext,
                     { color: colors.placeholder },
+                    isRTL && {
+                      writingDirection: "rtl",
+                      alignSelf: "flex-start",
+                    },
                   ]}
                 >
                   {t("tapToAddFood")}
@@ -805,11 +822,23 @@ export default function JournalScreen() {
       ]}
     >
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>
+        <View style={[styles.header,{alignItems:"flex-start"}]}>
+          <Text
+            style={[
+              styles.title,
+              { color: colors.text },
+              isRTL && { textAlign: "right", writingDirection: "rtl" },
+            ]}
+          >
             {t("dailyJournal")}
           </Text>
-          <Text style={[styles.date, { color: colors.placeholder }]}>
+          <Text
+            style={[
+              styles.date,
+              { color: colors.placeholder },
+              isRTL && { textAlign: "right", writingDirection: "rtl" },
+            ]}
+          >
             {parseDateString(selectedDay).toLocaleDateString(
               isRTL ? "ar-SA" : "en-US",
               {
@@ -1230,6 +1259,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+    marginStart:8
   },
   mealFoods: {
     paddingHorizontal: 14,

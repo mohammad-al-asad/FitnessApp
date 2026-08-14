@@ -326,7 +326,7 @@ const getMonthlyEquivalentText = (pack: PurchasesPackage | null, monthLabel: str
 };
 
 const UpgradePlanScreen = () => {
-  const { t, currentLanguage } = useLanguage();
+  const { t, currentLanguage, isRTL } = useLanguage();
   const { user, syncSubscription } = useAuth();
   const colors = useSafeColors();
   const router = useRouter();
@@ -625,10 +625,22 @@ const UpgradePlanScreen = () => {
                   </View>
                 </View>
 
-                <Text style={[styles.upgradeTitle, { color: colors.text }]}>
+                <Text
+                  style={[
+                    styles.upgradeTitle,
+                    { color: colors.text },
+                    isRTL && { writingDirection: "rtl" },
+                  ]}
+                >
                   {t("switchToYearlyPlan")}
                 </Text>
-                <Text style={[styles.upgradeDesc, { color: colors.placeholder }]}>
+                <Text
+                  style={[
+                    styles.upgradeDesc,
+                    { color: colors.placeholder },
+                    isRTL && { writingDirection: "rtl" },
+                  ]}
+                >
                   {t("yearlyUpgradeDescription")}
                 </Text>
 
@@ -658,7 +670,12 @@ const UpgradePlanScreen = () => {
                     </Text>
                   </View>
 
-                  <Ionicons name="arrow-forward" size={24} color={colors.placeholder} style={styles.arrowIcon} />
+                  <Ionicons
+                    name={isRTL ? "arrow-back" : "arrow-forward"}
+                    size={24}
+                    color={colors.placeholder}
+                    style={styles.arrowIcon}
+                  />
 
                   <View style={[styles.priceComparisonItem, { borderColor: colors.primary, borderWidth: 1, borderRadius: 12, padding: 8 }]}>
                     <Text style={[styles.comparisonPlanLabel, { color: colors.primary, fontWeight: "700" }]}>{t("yearlyLabel")}</Text>
@@ -709,7 +726,7 @@ const UpgradePlanScreen = () => {
                 {t("noActiveSubscription")}
               </Text>
             </View>
-            <Text style={[styles.statusSubtitle, { color: colors.placeholder, marginTop: 8 }]}>
+            <Text style={[styles.statusSubtitle, { color: colors.placeholder, marginTop: 8 }, isRTL && { textAlign: "right" }]}>
               {t("inactiveSubscriptionDescription")}
             </Text>
 
@@ -723,7 +740,7 @@ const UpgradePlanScreen = () => {
         )}
 
         <View style={styles.transparencySection}>
-          <Text style={[styles.autoRenewalNotice, { color: colors.text }]}>
+          <Text style={[styles.autoRenewalNotice, { color: colors.text }, isRTL && { textAlign: "right" }]}>
             {t("autoRenewalNotice")}
           </Text>
 
