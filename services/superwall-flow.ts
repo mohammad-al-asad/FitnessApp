@@ -42,9 +42,11 @@ export const normalizeReferralCodeStatus = (
   String(value ?? "").trim().toLowerCase() === "valid" ? "valid" : "invalid";
 
 export const saveReferralCodeStatus = async (value: unknown) => {
+  const status = normalizeReferralCodeStatus(value);
+  console.log("Referral Code Status from backend: ", status);
   await AsyncStorage.setItem(
     REFERRAL_CODE_STATUS_KEY,
-    normalizeReferralCodeStatus(value),
+    status,
   );
 };
 

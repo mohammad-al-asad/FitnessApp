@@ -872,6 +872,7 @@ export default function SuperwallOnboardingGate({
       console.log(
         `[Superwall] User is logged in but not subscribed. Presenting ${SUPERWALL_PAYWALL_PLACEMENT} with referralCodeStatus=${referralCodeStatus}.`,
       );
+      console.log("Referral Code Status: ", referralCodeStatus);
 
       await registerPaywall({
         placement: SUPERWALL_PAYWALL_PLACEMENT,

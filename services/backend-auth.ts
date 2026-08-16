@@ -154,6 +154,7 @@ export type ActiveSubscription = {
   planType: string;
   productId: string;
   price: number;
+  currency?: string;
   expiryDate: string;
   status: string;
   isActive: boolean;
@@ -278,6 +279,13 @@ function extractAuthPayload(json: any): AuthApiResponse {
     root?.referralCodeStatus != null
       ? normalizeReferralCodeStatus(root.referralCodeStatus)
       : undefined;
+
+  console.log(
+    "Extracted referralCodeStatus from backend response - raw:",
+    root?.referralCodeStatus,
+    "normalized:",
+    referralCodeStatus,
+  );
 
   return { user, token, refreshToken, referralCodeStatus };
 }
@@ -1127,6 +1135,7 @@ export async function backendGetMySubscriptionStatus(): Promise<MySubscriptionSt
           planType: String(active?.planType ?? ""),
           productId: String(active?.productId ?? ""),
           price: Number(active?.price ?? 0),
+          currency: String(active?.currency ?? ""),
           expiryDate: String(active?.expiryDate ?? ""),
           status: String(active?.status ?? ""),
           isActive: Boolean(active?.isActive ?? false),

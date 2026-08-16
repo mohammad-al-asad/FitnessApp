@@ -139,12 +139,26 @@ function mergeMealFoods(
   localFoods: JournalFood[],
 ): JournalFood[] {
   const merged = [...backendFoods];
-  const seen = new Set(backendFoods.map(getFoodMergeKey));
+  const seenIds = new Set<string>();
+  const seenSignatures = new Set<string>();
+
+  backendFoods.forEach((food) => {
+    if (food.id) {
+      seenIds.add(String(food.id));
+    }
+    seenSignatures.add(getFoodMergeKey(food));
+  });
 
   localFoods.forEach((food) => {
-    const key = getFoodMergeKey(food);
-    if (!seen.has(key)) {
-      seen.add(key);
+    const idKey = food.id ? String(food.id) : "";
+    const signatureKey = getFoodMergeKey(food);
+
+    const hasMatchingId = idKey && seenIds.has(idKey);
+    const hasMatchingSig = seenSignatures.has(signatureKey);
+
+    if (!hasMatchingId && !hasMatchingSig) {
+      if (idKey) seenIds.add(idKey);
+      seenSignatures.add(signatureKey);
       merged.push(food);
     }
   });
@@ -358,7 +372,11 @@ export default function JournalScreen() {
   };
 
   const handleDeleteFood = (food: JournalFood) => {
-    Alert.alert(String(t("deleteFood")), String(t("deleteFoodConfirm")), [
+    const title = String(t("deleteFoodTitle"));
+    const messageTemplate = String(t("deleteFoodMessage"));
+    const message = messageTemplate.replace("{food}", food.foodItem.name);
+
+    Alert.alert(title, message, [
       { text: String(t("cancel")), style: "cancel" },
       {
         text: String(t("delete")),
@@ -447,26 +465,34 @@ export default function JournalScreen() {
         notes: editForm.notes.trim(),
       };
 
+      let successMessage = "";
       if (editFood.isAi) {
-        await updateAiMealScan(editFood.id, {
-          mealType: editForm.meal,
-          foodName: editForm.foodName.trim(),
-          nutritionFacts: { calories, protein, carbs, fats: fat },
-          notes: editForm.notes.trim(),
-        });
-      } else {
-        await backendUpdateFoodLog(editFood.id, {
-          mealType: editForm.meal,
+        const response = await updateAiMealScan(editFood.id, {
+          meal: editForm.meal,
           foodName: editForm.foodName.trim(),
           calories,
           protein,
           carbs,
           fat,
+          fats: fat,
           notes: editForm.notes.trim(),
         });
+        successMessage = response?.message || "AI meal updated successfully.";
+      } else {
+        const response = await backendUpdateFoodLog(editFood.id, {
+          meal: editForm.meal,
+          foodName: editForm.foodName.trim(),
+          calories,
+          protein,
+          carbs,
+          fat,
+          fats: fat,
+          notes: editForm.notes.trim(),
+        });
+        successMessage = response?.message || "Food log updated successfully.";
       }
 
-      await updateFoodInLocalLog?.(editFood.id, selectedDay, updatedFood);
+      await updateFoodInLocalLog?.(editFood.id, selectedDay, editFood, updatedFood);
       setHomeData((current: any) => {
         if (!current?.meals) return current;
 
@@ -521,6 +547,7 @@ export default function JournalScreen() {
       markLogsChanged?.();
       await loadJournalData();
       closeEdit();
+      Alert.alert(String(t("success")), successMessage);
     } catch (error: any) {
       Alert.alert(
         String(t("error")),

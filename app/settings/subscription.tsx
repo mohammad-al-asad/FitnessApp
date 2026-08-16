@@ -342,6 +342,7 @@ const UpgradePlanScreen = () => {
 
   const handleSubscribeNow = useCallback(async () => {
     const referralCodeStatus = await getReferralCodeStatus();
+    console.log("Referral Code Status: ", referralCodeStatus);
     await registerPlacement({
       placement: SUPERWALL_PAYWALL_PLACEMENT,
       params: getPaywallParams(referralCodeStatus, currentLanguage),
@@ -544,14 +545,16 @@ const UpgradePlanScreen = () => {
       : activePlanType === "yearly"
         ? String(t("yearly"))
         : String(t("premiumPlan"));
-  const activePlanPrice =
-    activePlanType === "monthly"
+  const activePlanPrice = useMemo(() => {
+    if (activeSub?.price) {
+      return formatCurrency(activeSub.price, activeSub.currency || "USD");
+    }
+    return activePlanType === "monthly"
       ? monthlyPackage?.product?.priceString || `$9.99${String(t("perMonthShort"))}`
       : activePlanType === "yearly"
         ? yearlyPackage?.product?.priceString || `$59.99${String(t("perYearShort"))}`
-        : activeSub?.price
-          ? String(activeSub.price)
-          : String(t("notAvailable"));
+        : String(t("notAvailable"));
+  }, [activeSub, activePlanType, monthlyPackage, yearlyPackage, t]);
   const showYearlyUpgrade = activePlanType === "monthly";
   const activeExpiryDate =
     activeSub?.expiryDate || revenueCatCustomerInfo?.latestExpirationDate;
