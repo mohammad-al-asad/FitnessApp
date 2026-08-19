@@ -28,6 +28,7 @@ import {
 } from "react-native";
 import "react-native-reanimated";
 import { configureRevenueCatForStoredUser } from "@/services/revenuecat";
+import { requestTrackingAndInitAppsFlyer } from "@/services/appsflyer";
 import { SUPERWALL_ONBOARDING_PLACEMENT } from "@/services/superwall-flow";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -178,8 +179,6 @@ function AppShell() {
     };
   }, []);
 
-  // 🚀 Native splash hiding is now handled inside SplashScreen component for a smoother transition
-
   if (isLangLoading) {
     return null;
   }
@@ -228,20 +227,23 @@ function RootLayout() {
     configureRevenueCatForStoredUser().catch((err) => {
       console.error("RevenueCat configure error:", err);
     });
+
+    requestTrackingAndInitAppsFlyer().catch((err) => {
+      console.error("AppsFlyer configure error:", err);
+    });
   }, []);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        console.log("asad");
-        
         // Return true to prevent default back behavior
         return true;
       },
     );
     return () => backHandler.remove();
   }, []);
+
   return (
     <SuperwallRootProvider>
       <SafeAreaProvider>

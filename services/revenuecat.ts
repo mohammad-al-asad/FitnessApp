@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import Purchases from "react-native-purchases";
 
 import { readStoredSession } from "@/services/backend-auth";
+import { syncAppsFlyerWithRevenueCat } from "@/services/appsflyer";
 
 let isConfigured = false;
 let configurePromise: Promise<void> | null = null;
@@ -125,6 +126,7 @@ export const ensureRevenueCatConfigured = async (
   }
 
   await syncStoredUserAttributes();
+  await syncAppsFlyerWithRevenueCat();
 };
 
 export const configureRevenueCatForStoredUser = async () => {

@@ -20,6 +20,7 @@ import {
   ensureRevenueCatConfigured,
   logOutRevenueCatUser,
 } from "@/services/revenuecat";
+import { setAppsFlyerCustomerUserId } from "@/services/appsflyer";
 import { subscribeToRevenueCatSync } from "@/services/subscription-sync-events";
 import {
   ONBOARDING_ANSWERS_KEY,
@@ -178,6 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const syncRevenueCatUser = async () => {
       try {
         if (user?.uid) {
+          setAppsFlyerCustomerUserId(user.uid);
           await ensureRevenueCatConfigured(user.uid);
           return;
         }

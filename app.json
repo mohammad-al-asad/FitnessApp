@@ -21,7 +21,8 @@
       "bundleIdentifier": "com.creedtng.fitcov3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Fitco uses your camera to scan food barcodes. This allows us to instantly identify products and log their nutritional information to your daily diary."
+        "NSCameraUsageDescription": "Fitco uses your camera to scan food barcodes. This allows us to instantly identify products and log their nutritional information to your daily diary.",
+        "NSUserTrackingUsageDescription": "This identifier will be used to provide personalized offers and optimize your app experience."
       }
     },
     "android": {
@@ -74,7 +75,15 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.362235528443-rok9ujevmn9hk96fj3kaprrk9qisl9p7"
         }
-      ]
+      ],
+      [
+        "react-native-appsflyer",
+        {
+          "shouldUseStrictMode": false,
+          "shouldUsePurchaseConnector": false
+        }
+      ],
+      "expo-tracking-transparency"
     ],
     "experiments": {
       "typedRoutes": true,

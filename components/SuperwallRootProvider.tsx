@@ -14,6 +14,10 @@ import Purchases, {
 import { backendSyncRevenueCat } from "@/services/backend-auth";
 import { ensureRevenueCatConfigured } from "@/services/revenuecat";
 import {
+  trackAppsFlyerStartTrial,
+  trackAppsFlyerSubscribe,
+} from "@/services/appsflyer";
+import {
   emitRevenueCatSyncCompleted,
   emitRevenueCatSyncFailed,
   emitRevenueCatSyncStarted,
@@ -154,6 +158,7 @@ const purchaseWithRevenueCat = async (params: OnPurchaseParams) => {
         return { type: "failed" as const, error: "Product not found." };
       }
 
+      let selectedOption: any = null;
       if (
         params.platform === "android" &&
         product.subscriptionOptions?.length
@@ -161,20 +166,54 @@ const purchaseWithRevenueCat = async (params: OnPurchaseParams) => {
         const optionId = params.offerId
           ? `${params.basePlanId}:${params.offerId}`
           : params.basePlanId;
-        const option = product.subscriptionOptions.find(
+        selectedOption = product.subscriptionOptions.find(
           (candidate) => candidate.id === optionId,
         );
 
-        if (!option) {
+        if (!selectedOption) {
           return {
             type: "failed" as const,
             error: "Subscription option not found.",
           };
         }
 
-        await Purchases.purchaseSubscriptionOption(option);
+        await Purchases.purchaseSubscriptionOption(selectedOption);
       } else {
         await Purchases.purchaseStoreProduct(product);
+      }
+
+      // Track in AppsFlyer
+      try {
+        const hasFreeTrial = Boolean(
+          (product?.introPrice &&
+            (product.introPrice.price === 0 ||
+              product.introPrice.periodNumberOfUnits > 0)) ||
+            (params.platform === "android" && selectedOption?.freePhase),
+        );
+
+        if (hasFreeTrial) {
+          trackAppsFlyerStartTrial({
+            productId: product?.identifier || params.productId,
+            price: product?.price,
+            currency: product?.currencyCode || "USD",
+            additionalParams: {
+              platform: params.platform,
+              placement: "superwall",
+            },
+          });
+        } else {
+          trackAppsFlyerSubscribe({
+            productId: product?.identifier || params.productId,
+            price: product?.price,
+            currency: product?.currencyCode || "USD",
+            additionalParams: {
+              platform: params.platform,
+              placement: "superwall",
+            },
+          });
+        }
+      } catch (afError) {
+        console.warn("[Superwall] Failed to track AppsFlyer purchase event:", afError);
       }
 
       syncRevenueCatSubscriptionStateInBackground("Purchase-triggered");

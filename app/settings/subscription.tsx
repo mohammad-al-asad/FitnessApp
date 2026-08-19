@@ -7,6 +7,7 @@ import {
   type MySubscriptionStatus,
 } from "@/services/backend-auth";
 import { ensureRevenueCatConfigured } from "@/services/revenuecat";
+import { trackAppsFlyerSubscribe } from "@/services/appsflyer";
 import { subscribeToRevenueCatSync } from "@/services/subscription-sync-events";
 import {
   SUPERWALL_PAYWALL_PLACEMENT,
@@ -465,6 +466,20 @@ const UpgradePlanScreen = () => {
         productChangeInfo,
       );
       setRevenueCatCustomerInfo(purchaseResult.customerInfo);
+
+      try {
+        trackAppsFlyerSubscribe({
+          productId: yearlyPackage.product.identifier,
+          price: yearlyPackage.product.price,
+          currency: yearlyPackage.product.currencyCode || "USD",
+          additionalParams: {
+            placement: "settings_subscription_upgrade",
+          },
+        });
+      } catch (afError) {
+        console.warn("[Subscription] Failed to track AppsFlyer upgrade:", afError);
+      }
+
       const isSubscribedLocally = await syncSubscription(
         "subscription-screen:purchase",
       );
