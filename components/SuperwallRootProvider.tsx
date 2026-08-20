@@ -201,6 +201,9 @@ const purchaseWithRevenueCat = async (params: OnPurchaseParams) => {
               placement: "superwall",
             },
           });
+          scheduleTrialReminder().catch((err) =>
+            console.error("[Superwall] Failed to schedule trial reminder:", err),
+          );
         } else {
           trackAppsFlyerSubscribe({
             productId: product?.identifier || params.productId,
@@ -217,9 +220,6 @@ const purchaseWithRevenueCat = async (params: OnPurchaseParams) => {
       }
 
       syncRevenueCatSubscriptionStateInBackground("Purchase-triggered");
-      scheduleTrialReminder().catch((err) =>
-        console.error("[Superwall] Failed to schedule trial reminder:", err),
-      );
       return { type: "purchased" as const };
     } catch (error: any) {
       console.log(
