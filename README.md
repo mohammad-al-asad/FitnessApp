@@ -60,25 +60,43 @@ Building Fitco involved integrating industry-standard mobile infrastructure for 
 ## 💻 Running the Project Locally
 
 ### Prerequisites
-- Node.js (v18 or v20+ recommended)
-- npm or yarn
-- Android Studio & Android SDK (for Android build)
-- Xcode & CocoaPods (for iOS build, macOS only)
+- **Node.js:** v18 or v20+ recommended
+- **Java Development Kit (JDK):** JDK 17 recommended (for Android build)
+- **Android Studio & Android SDK:** Configured with `ANDROID_HOME` (for Android build)
+- **Xcode & CocoaPods:** macOS only (for iOS build)
+- **Package Manager:** npm or yarn
 
 ### Installation & Execution
 
-1. **Install dependencies:**
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/mohammad-al-asad/FitnessApp.git
+   cd FitnessApp
+   ```
+
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. **Run on Android:**
+3. **Configure Environment Variables:**
+   Create a `.env` file in the root directory and populate your keys:
+   ```env
+   EXPO_PUBLIC_SERVER_URL=https://your-api-domain.com
+   EXPO_PUBLIC_REVENUECAT_APPLE_KEY=your_revenuecat_apple_key
+   EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY=your_revenuecat_google_key
+   EXPO_PUBLIC_SUPERWALL_IOS_PUBLIC_API_KEY=your_superwall_ios_key
+   EXPO_PUBLIC_SUPERWALL_ANDROID_PUBLIC_API_KEY=your_superwall_android_key
+   EXPO_PUBLIC_APPSFLYER_DEV_KEY=your_appsflyer_dev_key
+   EXPO_PUBLIC_APPSFLYER_APP_ID=your_appsflyer_app_id
+   ```
+
+4. **Run on Android:**
    ```bash
    npx expo run:android
    ```
 
-3. **Run on iOS:**
+5. **Run on iOS (macOS only):**
    ```bash
    npx expo run:ios
    ```
-
